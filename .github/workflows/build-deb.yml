@@ -52,7 +52,7 @@ jobs:
           pip install openai
 
       - name: Build with PyInstaller
-        run: pyinstaller --noconfirm mycat.spec
+        run: pyinstaller --noconfirm brok.spec
 
       - name: Assemble .deb
         run: |
@@ -65,37 +65,37 @@ jobs:
             # package — e.g. to backfill a release that predates this workflow.
             VERSION="$(grep -m1 -E '^version *= *' pyproject.toml | sed -E 's/.*"([^"]+)".*/\1/')"
           fi
-          PKG="mycat_${VERSION}_amd64"
+          PKG="brok_${VERSION}_amd64"
           root="pkg/${PKG}"
           mkdir -p "$root/DEBIAN" \
                    "$root/usr/bin" \
                    "$root/usr/share/applications" \
                    "$root/usr/share/icons/hicolor/256x256/apps"
-          install -m0755 dist/mycat "$root/usr/bin/mycat"
-          install -m0644 packaging/mycat.desktop "$root/usr/share/applications/mycat.desktop"
+          install -m0755 dist/brok "$root/usr/bin/brok"
+          install -m0644 packaging/brok.desktop "$root/usr/share/applications/brok.desktop"
           # Record the version so the in-app "newest install wins" menu logic can
           # compare this .deb against a git/pip/AppImage run.
-          echo "X-mycat-version=${VERSION}" >> "$root/usr/share/applications/mycat.desktop"
-          install -m0644 packaging/mycat.png "$root/usr/share/icons/hicolor/256x256/apps/mycat.png"
+          echo "X-brok-version=${VERSION}" >> "$root/usr/share/applications/brok.desktop"
+          install -m0644 packaging/brok.png "$root/usr/share/icons/hicolor/256x256/apps/brok.png"
           # AppStream metadata, so software centres show a summary and a screenshot.
-          install -Dm0644 packaging/io.github.yumiaura.myCat.metainfo.xml "$root/usr/share/metainfo/io.github.yumiaura.myCat.metainfo.xml"
+          install -Dm0644 packaging/io.github.Barman_Zarei.Brok.metainfo.xml "$root/usr/share/metainfo/io.github.Barman_Zarei.Brok.metainfo.xml"
           sed "s/@VERSION@/${VERSION}/" packaging/control.in > "$root/DEBIAN/control"
           dpkg-deb --root-owner-group --build "$root"
           # Internal control keeps the real version; the file name is version-less
-          # so /releases/latest/download/mycat-linux-amd64.deb is a stable link.
-          mv "pkg/${PKG}.deb" "mycat-linux-amd64.deb"
-          echo "::group::deb info";     dpkg-deb --info "mycat-linux-amd64.deb";     echo "::endgroup::"
-          echo "::group::deb contents"; dpkg-deb --contents "mycat-linux-amd64.deb"; echo "::endgroup::"
+          # so /releases/latest/download/brok-linux-amd64.deb is a stable link.
+          mv "pkg/${PKG}.deb" "brok-linux-amd64.deb"
+          echo "::group::deb info";     dpkg-deb --info "brok-linux-amd64.deb";     echo "::endgroup::"
+          echo "::group::deb contents"; dpkg-deb --contents "brok-linux-amd64.deb"; echo "::endgroup::"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mycat-deb
-          path: mycat-linux-amd64.deb
+          name: brok-deb
+          path: brok-linux-amd64.deb
           if-no-files-found: error
 
       - name: Attach .deb to the GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: mycat-linux-amd64.deb
+          files: brok-linux-amd64.deb
           fail_on_unmatched_files: true

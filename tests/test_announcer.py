@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from mycat import reminder
-from mycat.announcer import MIN_GAP_SECONDS, SKY_STALE_SECONDS, Announcement, Announcer
+from brok import reminder
+from brok.announcer import MIN_GAP_SECONDS, SKY_STALE_SECONDS, Announcement, Announcer
 
 
 class FakeClock:

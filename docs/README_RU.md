@@ -1,80 +1,51 @@
-[EN](https://github.com/yumiaura/myCat/blob/main/README.md) | RU | [CN](https://github.com/yumiaura/myCat/blob/main/docs/README_CN.md) | [ID](https://github.com/yumiaura/myCat/blob/main/docs/README_ID.md) | [KO](https://github.com/yumiaura/myCat/blob/main/docs/README_KO.md)
+[EN](https://github.com/Barman-Zarei/Brok/blob/main/README.md) | RU | [CN](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_CN.md) | [ID](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_ID.md) | [KO](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_KO.md)
 
 # Десктопный котик: оверлей на QT 🐱
 
-[<img src="https://raw.githubusercontent.com/yumiaura/myCat/refs/heads/main/docs/cat.gif" width="164" alt="cat.gif"/>](https://github.com/yumiaura)
+[<img src="https://raw.githubusercontent.com/Barman-Zarei/Brok/refs/heads/main/docs/cat.gif" width="164" alt="cat.gif"/>](https://github.com/yumiaura)
 
 <p class="badges">
-  <a href="https://github.com/yumiaura/myCat/releases/latest"><img src="https://img.shields.io/github/v/release/yumiaura/myCat?label=download&color=blue" alt="Latest release"></a>
-  <img src="https://img.shields.io/pypi/pyversions/mycat?color=brightgreen" alt="Python Versions">
-  <a href="https://pypi.org/project/mycat/"><img src="https://img.shields.io/pypi/v/mycat?color=brightgreen" alt="PyPI Version"></a>
-  <a href="https://pypi.org/project/mycat/"><img src="https://img.shields.io/pepy/dt/mycat?label=pypi%20%7C%20downloads&color=brightgreen" alt="Pepy Total Downloads"/></a>
-  <a href="https://buymeacoffee.com/yumiaura"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=000" alt="Buy Me a Coffee"></a>
-  <a href="https://www.patreon.com/yumiaura"><img src="https://img.shields.io/badge/Patreon-support-F96854?logo=patreon&logoColor=fff" alt="Patreon"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest"><img src="https://img.shields.io/github/v/release/Barman-Zarei/Brok?label=download&color=blue" alt="Latest release"></a>
+  <img src="https://img.shields.io/pypi/pyversions/brok?color=brightgreen" alt="Python Versions">
+  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pypi/v/brok?color=brightgreen" alt="PyPI Version"></a>
+  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pepy/dt/brok?label=pypi%20%7C%20downloads&color=brightgreen" alt="Pepy Total Downloads"/></a>
 </p>
 
 Я сделала милого анимированного котика 🐈 для рабочего стола.<br>
 Это лёгкое приложение на Python + Qt - без рамок, легко перетаскивается.<br>
 Показывает статичный первый кадр 5 секунд, потом один раз проигрывает GIF и возвращается к статике.<br>
-Если понравится - может, в следующий раз поделюсь версией [AnimeGirl](https://github.com/yumiaura/mycat/discussions/1)~ 😉
+Если понравится - может, в следующий раз поделюсь версией [AnimeGirl](https://github.com/Barman-Zarei/Brok/discussions/1)~ 😉
 
 ## 🚀 Быстрый старт
 
 Выбери, что удобнее - котик работает на **Windows, macOS и Linux**.
-
-### Homebrew (macOS)
-
-Установка из [tap yumiaura](https://github.com/yumiaura/homebrew-tap):
-
-```bash
-brew install --cask yumiaura/tap/mycat
-```
-
-Или сначала подключи tap, затем установи приложение:
-
-```bash
-brew tap yumiaura/tap
-brew install --cask mycat
-```
-
-Обновление:
-
-```bash
-brew upgrade --cask mycat
-```
-
-Удаление:
-
-```bash
-brew uninstall --cask mycat
-```
 
 ### Вариант A - готовый бинарник (без Python)
 
 Возьми сборку под свою ОС - каждая кнопка скачивает **последний релиз**:
 
 <p>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-windows-x64.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0wIDMuNDQ5IDkuNzUgMi4xdjkuNDUxSDB6TTEwLjk0OSAxLjk0OSAyNCAwdjExLjRIMTAuOTQ5ek0wIDEyLjZoOS43NXY5LjQ1MUwwIDIwLjY5OXpNMTAuOTQ5IDEyLjZIMjRWMjRsLTEyLjktMS44MDF6Ii8%2BPC9zdmc%2B" alt="Windows"></a>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white" alt="macOS Apple Silicon"></a>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-macos-x64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Intel-555555?logo=apple&logoColor=white" alt="macOS Intel"></a>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-linux-amd64.deb"><img src="https://img.shields.io/badge/Download-Linux%20.deb-A81D33?logo=debian&logoColor=white" alt="Linux .deb"></a>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-linux-x86_64.AppImage"><img src="https://img.shields.io/badge/Download-Linux%20AppImage-FCC624?logo=linux&logoColor=black" alt="Linux AppImage"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-windows-x64.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0wIDMuNDQ5IDkuNzUgMi4xdjkuNDUxSDB6TTEwLjk0OSAxLjk0OSAyNCAwdjExLjRIMTAuOTQ5ek0wIDEyLjZoOS43NXY5LjQ1MUwwIDIwLjY5OXpNMTAuOTQ5IDEyLjZIMjRWMjRsLTEyLjktMS44MDF6Ii8%2BPC9zdmc%2B" alt="Windows"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white" alt="macOS Apple Silicon"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-x64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Intel-555555?logo=apple&logoColor=white" alt="macOS Intel"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-amd64.deb"><img src="https://img.shields.io/badge/Download-Linux%20.deb-A81D33?logo=debian&logoColor=white" alt="Linux .deb"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-x86_64.AppImage"><img src="https://img.shields.io/badge/Download-Linux%20AppImage-FCC624?logo=linux&logoColor=black" alt="Linux AppImage"></a>
 </p>
 
 Затем запусти:
 
 - **Windows** - двойной клик по `.exe`.
-- **macOS** - распакуй и открой `mycat.app` (при первом запуске: правый клик → **Открыть**, чтобы обойти Gatekeeper).
-- **Linux `.deb`** - `sudo apt install ./mycat-linux-amd64.deb`.
-- **Linux AppImage** - `chmod +x mycat-linux-x86_64.AppImage && ./mycat-linux-x86_64.AppImage` (нужен FUSE: `sudo apt install libfuse2`).
+- **macOS** - распакуй и открой `brok.app` (при первом запуске: правый клик → **Открыть**, чтобы обойти Gatekeeper).
+- **Linux `.deb`** - `sudo apt install ./brok-linux-amd64.deb`.
+- **Linux AppImage** - `chmod +x brok-linux-x86_64.AppImage && ./brok-linux-x86_64.AppImage` (нужен FUSE: `sudo apt install libfuse2`).
 
-> Сборки для каждого релиза - на странице **[Releases](https://github.com/yumiaura/myCat/releases)**.
+> Сборки для каждого релиза - на странице **[Releases](https://github.com/Barman-Zarei/Brok/releases)**.
 
 ### Вариант B - pip (Windows / macOS / Linux, Python ≥ 3.10)
 
 ```bash
-pip install mycat
-mycat
+pip install brok
+brok
 ```
 
 На **Linux** также один раз поставь Qt-плагин платформы:
@@ -83,15 +54,15 @@ mycat
 sudo apt install -y libxcb-cursor0
 ```
 
-Обновить или удалить позже: `pip install -U mycat` / `pip uninstall mycat`.
+Обновить или удалить позже: `pip install -U brok` / `pip uninstall brok`.
 
 ### Вариант C - из исходников
 
 ```bash
-git clone https://github.com/yumiaura/myCat
-cd myCat
+git clone https://github.com/Barman-Zarei/Brok
+cd Brok
 pip install .
-mycat                 # или без установки: python3 mycat/main.py
+brok                 # или без установки: python3 brok/main.py
 ```
 
 ## ✨ Возможности
@@ -108,18 +79,18 @@ mycat                 # или без установки: python3 mycat/main.py
    ```bash
    ollama pull llama3.1
    ```
-2. Запусти **mycat**, правый клик по котику → **Ollama…**
+2. Запусти **brok**, правый клик по котику → **Ollama…**
 3. Укажи host/port (по умолчанию `localhost:11434`), нажми **Load models**, выбери модель, нажми **Test**, затем **Save** и поставь галочку **LLM enabled**.
 4. Правый клик → **Chat** - и общайся. 🐾
 
 ## 🎮 Запуск и опции
 
-Запусти `mycat` (или из исходников `python3 mycat/main.py`) и настрой опциями командной строки.
+Запусти `brok` (или из исходников `python3 brok/main.py`) и настрой опциями командной строки.
 
 **`--image, -i <путь>`** 🖼️ - свой ZIP (с одним GIF) вместо котика по умолчанию:
 
 ```bash
-mycat --image ~/my-custom-cat.zip
+brok --image ~/my-custom-cat.zip
 ```
 
 ZIP-**персонаж** должен содержать ровно один `.gif`: первый кадр - статичная поза, потом GIF проигрывается один раз и возвращается к нему. Картинки больше 300×500 уменьшаются автоматически.
@@ -127,7 +98,7 @@ ZIP-**персонаж** должен содержать ровно один `.g
 **`--pos <x> <y>`** 📍 - стартовая позиция (иначе котик появляется снизу-справа и запоминает последнее положение):
 
 ```bash
-mycat --pos 960 540        # центр экрана 1920x1080
+brok --pos 960 540        # центр экрана 1920x1080
 ```
 
 **`--wait <секунды>`** ⏱️ - сколько держать статичный первый кадр до анимации.
@@ -140,7 +111,7 @@ mycat --pos 960 540        # центр экрана 1920x1080
 - **Правая кнопка** - меню (персонажи, Reminder…, Ollama…, Chat, Quit).
 - **Выход** - из меню или Ctrl+C в терминале.
 
-Котик запоминает позицию и выбранный персонаж в `~/.config/mycat/config.ini`.
+Котик запоминает позицию и выбранный персонаж в `~/.config/brok/config.ini`.
 
 ## 🎬 Свой GIF котика
 
@@ -178,7 +149,7 @@ docker compose -f docker-compose.mac.yml up
 ## 🔧 Решение проблем
 
 **Котик в чёрном квадрате / прозрачность не работает** 🫥
-- Прозрачность на X11 требует композитора. Без него mycat обрезает окно по контуру котика, так что это редкость; если квадрат всё же есть - включи композитинг (XFCE: *Window Manager Tweaks → Compositor*) или запусти композитор вроде `picom`.
+- Прозрачность на X11 требует композитора. Без него brok обрезает окно по контуру котика, так что это редкость; если квадрат всё же есть - включи композитинг (XFCE: *Window Manager Tweaks → Compositor*) или запусти композитор вроде `picom`.
 
 **Окно не поверх всех / нет в таскбаре** 📌
 - Некоторые оконные менеджеры перекрывают «поверх всех» - перезапусти сессию рабочего стола или проверь настройки WM.
@@ -187,7 +158,7 @@ docker compose -f docker-compose.mac.yml up
 - В ZIP должен быть ровно один корректный `.gif`. Проверь путь и что файл не повреждён.
 
 **Позиция не сохраняется** 💾
-- Убедись, что `~/.config/mycat/` существует и доступен на запись; файл конфига - `~/.config/mycat/config.ini`.
+- Убедись, что `~/.config/brok/` существует и доступен на запись; файл конфига - `~/.config/brok/config.ini`.
 
 **Проблемы запуска / Windows** 🪟
 - Для установки через pip нужен Python ≥ 3.10 (`python --version`), либо просто используй готовый `.exe`.
@@ -195,11 +166,11 @@ docker compose -f docker-compose.mac.yml up
 - Проверь PySide6: `python -c "import PySide6; print('PySide6 OK')"`.
 
 **Ошибки прав** 🔒
-- На Linux лучше пользовательская установка, а не `sudo` (`pip install --user mycat`).
+- На Linux лучше пользовательская установка, а не `sudo` (`pip install --user brok`).
 
 ### 🤝 Помощь
 
-- Поищи похожие проблемы в [GitHub Issues](https://github.com/yumiaura/myCat/issues).
+- Поищи похожие проблемы в [GitHub Issues](https://github.com/Barman-Zarei/Brok/issues).
 - Прочитай [CONTRIBUTING.md](../CONTRIBUTING.md) про окружение разработки.
 - Открой issue с указанием ОС, окружения рабочего стола, версии Python и ошибок из терминала.
 

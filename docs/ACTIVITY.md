@@ -1,6 +1,6 @@
 # Activity diary & focus sessions
 
-mycat keeps a private, local-only diary of your day - how much you move the
+brok keeps a private, local-only diary of your day - how much you move the
 mouse, how many keys you press, when you focus and when you rest - and shows
 it in the **Activity** dialog (right-click the cat → Activity…).
 
@@ -21,8 +21,8 @@ it in the **Activity** dialog (right-click the cat → Activity…).
 
 ## What is recorded
 
-Two tables in `activity.db` (Linux: `~/.local/share/mycat/`, macOS:
-`~/Library/Application Support/mycat/`, Windows: `%LOCALAPPDATA%\mycat\`):
+Two tables in `activity.db` (Linux: `~/.local/share/brok/`, macOS:
+`~/Library/Application Support/brok/`, Windows: `%LOCALAPPDATA%\brok\`):
 
 | Table | One row per | Fields |
 |---|---|---|
@@ -163,7 +163,7 @@ focus. Once per day; an empty yesterday is skipped silently.
 
 ## Configuration reference
 
-`~/.config/mycat/config.ini`:
+`~/.config/brok/config.ini`:
 
 ```ini
 [activity]

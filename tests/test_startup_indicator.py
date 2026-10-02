@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mycat import main
+from brok import main
 
 
 def test_app_icon_not_null(qapp):

@@ -8,8 +8,8 @@ import zipfile
 
 from PIL import Image
 
-import mycat.main as m
-from mycat import char_pack
+import brok.main as m
+from brok import char_pack
 
 
 def build_pack(tmp_path):

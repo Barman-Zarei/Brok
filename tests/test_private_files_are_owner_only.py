@@ -1,4 +1,4 @@
-"""Every file myCat creates that holds private data is owner-only.
+"""Every file Brok creates that holds private data is owner-only.
 
 `secret_store.secure_file` already existed and was already called from config_store,
 github_notify, llm_prompt and main. These assert the whole population rather than one
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-SOURCE = Path(__file__).resolve().parents[1] / "mycat"
+SOURCE = Path(__file__).resolve().parents[1] / "brok"
 OWNER_ONLY = 0o600
 
 
@@ -62,7 +62,7 @@ def test_the_sweep_found_writers_to_check():
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Windows has no POSIX mode bits")
 def test_saving_a_vendor_key_leaves_an_owner_only_file(tmp_path, monkeypatch):
-    from mycat import llm_prompt, llm_vendors
+    from brok import llm_prompt, llm_vendors
 
     cfg = tmp_path / "config.ini"
     monkeypatch.setattr(llm_prompt, "CFG_DIR", tmp_path)
@@ -86,7 +86,7 @@ def test_saving_a_vendor_key_leaves_an_owner_only_file(tmp_path, monkeypatch):
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Windows has no POSIX mode bits")
 def test_activity_database_is_owner_only(tmp_path):
     """It records per-minute keyboard and mouse counts for the history window."""
-    from mycat import activity_store
+    from brok import activity_store
 
     store = activity_store.ActivityStore(db_path=tmp_path / "activity.db")
     try:
@@ -105,7 +105,7 @@ def test_the_sqlite_journal_cannot_be_read_by_anyone_else(tmp_path):
     test asserts the outcome rather than the mechanism: while a write is in flight, nothing about
     that data is reachable by another user.
     """
-    from mycat import activity_store
+    from brok import activity_store
 
     data_dir = tmp_path / "data"
     data_dir.mkdir(mode=0o755)          # the umask default this is meant to correct

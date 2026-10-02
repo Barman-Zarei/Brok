@@ -5,7 +5,7 @@ from __future__ import annotations
 import configparser
 import json
 
-from mycat import i18n
+from brok import i18n
 
 
 def test_locales_scanned_from_folder():

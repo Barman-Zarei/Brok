@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Brok
+GenericName=Desktop pet
+Comment=A tiny animated desktop pet cat
+Exec=brok
+Icon=brok
+Terminal=false
+Categories=Utility;Amusement;
+Keywords=cat;pet;desktop;companion;

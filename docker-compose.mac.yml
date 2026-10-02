@@ -1,9 +1,9 @@
 services:
-  mycat:
+  brok:
     build:
       context: .
-    image: mycat:local
-    container_name: mycat-app-mac
+    image: brok:local
+    container_name: brok-app-mac
     pull_policy: never
     env_file:
       - .env
@@ -14,5 +14,5 @@ services:
       - LIBGL_ALWAYS_INDIRECT=1
 
     volumes:
-      - ./mycat:/app/mycat
+      - ./brok:/app/brok
     restart: "no"

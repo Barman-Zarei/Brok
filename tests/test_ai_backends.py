@@ -9,7 +9,7 @@ import json
 import pytest
 from PIL import Image
 
-from mycat import ai_backends, ai_char
+from brok import ai_backends, ai_char
 
 
 def png_bytes(color=(200, 100, 80, 255)):

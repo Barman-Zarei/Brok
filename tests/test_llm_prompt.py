@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from mycat import llm_prompt
+from brok import llm_prompt
 
 
 def use_tmp_config(monkeypatch, tmp_path):

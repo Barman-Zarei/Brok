@@ -6,7 +6,7 @@ import io
 import json
 import urllib.error
 
-from mycat.github_notify import (
+from brok.github_notify import (
     DEFAULT_POLL_SECONDS,
     FollowerTracker,
     GitHubNotifier,
@@ -333,7 +333,7 @@ def test_settings_accounts_round_trip_and_migration(tmp_path):
 
 
 def test_parse_accounts():
-    from mycat.github_notify import parse_accounts
+    from brok.github_notify import parse_accounts
 
     assert parse_accounts("olya, bob,  carol ") == ("olya", "bob", "carol")
     assert parse_accounts("") == ()
@@ -559,7 +559,7 @@ def test_401_latches_only_notifications(qapp):
 
 
 def test_multi_account_fetch_merges_and_keeps_etags():
-    from mycat.github_notify import fetch_accounts_events
+    from brok.github_notify import fetch_accounts_events
 
     def opener(request, timeout):
         url = request.full_url

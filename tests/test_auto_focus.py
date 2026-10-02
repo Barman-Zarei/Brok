@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from mycat.activity import focus_count, grade_run, graded_runs, longest_focus_minutes, run_minutes
-from mycat.activity_store import ActivityStore
+from brok.activity import focus_count, grade_run, graded_runs, longest_focus_minutes, run_minutes
+from brok.activity_store import ActivityStore
 
 DAY = datetime(2026, 7, 2).date()
 

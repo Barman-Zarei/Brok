@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from mycat import activity_store
-from mycat.activity_store import ActivityStore
-from mycat.digest import MorningDigest, compose_digest, load_digest_date
+from brok import activity_store
+from brok.activity_store import ActivityStore
+from brok.digest import MorningDigest, compose_digest, load_digest_date
 
 
 class FakeNow:

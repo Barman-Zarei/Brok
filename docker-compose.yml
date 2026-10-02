@@ -1,9 +1,9 @@
 services:
-  mycat:
+  brok:
     build:
       context: .
-    image: mycat:local
-    container_name: mycat-app
+    image: brok:local
+    container_name: brok-app
     pull_policy: never
     env_file:
       - .env
@@ -13,7 +13,7 @@ services:
       - DISPLAY=${DISPLAY:-:0}
 
     volumes:
-      - ./mycat:/app/mycat
+      - ./brok:/app/brok
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
 
     network_mode: host

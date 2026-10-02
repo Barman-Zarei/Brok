@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from mycat.activity_store import ActivityStore
-from mycat.focus import FocusController, FocusSettings, format_elapsed, load_focus_settings, save_focus_settings
+from brok.activity_store import ActivityStore
+from brok.focus import FocusController, FocusSettings, format_elapsed, load_focus_settings, save_focus_settings
 
 
 def test_focus_goal_round_trip(tmp_path):

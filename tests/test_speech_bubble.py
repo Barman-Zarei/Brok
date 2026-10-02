@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from PySide6 import QtWidgets
 
-from mycat import speech_bubble
+from brok import speech_bubble
 
 
 def test_plane_by_default(tmp_path):

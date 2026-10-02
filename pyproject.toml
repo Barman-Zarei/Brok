@@ -3,30 +3,32 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mycat"
+name = "brok"
 version = "0.1.37"
-description = "Desktop Cat: Qt Overlay"
+description = "Brok AI Desktop Companion: Qt Overlay"
 readme = "README.md"
-requires-python = ">=3.10"
-authors = [{ name = "yumiaura" }]
+requires-python = ">=3.8"
+authors = [{ name = "Barman" }]
 classifiers = [
     "Environment :: X11 Applications :: Qt",
     "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.10",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: MacOS",
 ]
 dependencies = [
-    "pillow>=12.0.0",
-    "pyside6>=6.10.0",
+    "pillow>=10.4",
+    # 6.6.3.1 is the newest PySide6 wheel that installs on Python 3.8.
+    "pyside6>=6.6.3",
     # Global key/click COUNTS (the key identity is discarded in the hook — only
     # an integer survives), so the counts work out of the box on a plain
-    # `pip install mycat` everywhere, including the prebuilt exe.
+    # `pip install brok` everywhere, including the prebuilt exe.
     #   - Windows/macOS: pynput (installs cleanly there).
     #   - Linux: python-xlib, a pure-Python X11 backend with wheels. We avoid
     #     pynput on Linux because it hard-requires `evdev`, a C extension with no
-    #     wheel that would make `pip install mycat` fail to build without a
+    #     wheel that would make `pip install brok` fail to build without a
     #     compiler. Off X11 (Wayland) it degrades to cursor-only.
     "pynput>=1.7; sys_platform != 'linux'",
     "python-xlib>=0.33; sys_platform == 'linux'",
@@ -52,24 +54,24 @@ calendar = ["icalendar>=6", "recurring-ical-events>=3"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-# Console script `mycat` → calls mycat.main:main
+# Console script `brok` → calls brok.main:main
 [project.scripts]
-mycat = "mycat.main:main"
+brok = "brok.main:main"
 
 [tool.setuptools.packages.find]
-include = ["mycat*"]
+include = ["brok*"]
 
 # Bundle non-Python data inside the wheel: char zips, the plane sprite and the
 # prompt template.
 [tool.setuptools.package-data]
-mycat = ["chars/*", "chars/*/*", "assets/*", "assets/planes/*", "assets/fonts/*", "locale/*.json", "*.j2"]
+brok = ["chars/*", "chars/*/*", "assets/*", "assets/planes/*", "assets/fonts/*", "locale/*.json", "*.j2"]
 
 [tool.mypy]
 strict = true
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py38"
 extend-exclude = ["README.md", "docs/*"]
 
 [tool.ruff.lint]

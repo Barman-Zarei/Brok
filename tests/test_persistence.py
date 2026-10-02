@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mycat import main
+from brok import main
 
 
 def use_temp_config(monkeypatch, tmp_path):

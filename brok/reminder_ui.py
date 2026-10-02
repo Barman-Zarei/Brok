@@ -1,0 +1,1057 @@
+#!/usr/bin/env python3
+"""Visual flyby + settings dialog for reminders.
+
+``FlybyWindow`` is a frameless, always-on-top, click-through overlay spanning the
+screen width. It paints a cartoon plane (with the current cat char riding it)
+towing a banner that carries the reminder text, then animates the whole group
+across the screen once and closes itself.
+
+``ReminderDialog`` lets the user set the message, the flight direction, and when
+the reminder should fire (relative "in N minutes" or absolute "at HH:MM"), with a
+Test button that launches a flyby immediately.
+"""
+
+from __future__ import annotations
+
+import logging
+import math
+import os
+import time
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from PySide6 import QtCore, QtGui, QtWidgets
+
+if __package__:
+    from . import i18n
+    from . import reminder as reminder_mod
+else:
+    import importlib
+
+    reminder_mod = importlib.import_module("brok.reminder")
+    i18n = importlib.import_module("brok.i18n")
+
+Reminder = reminder_mod.Reminder
+tr = i18n.tr
+
+
+def has_no_x11_compositor() -> bool:
+    """True when running on X11 with no compositor (transparency would be a black box).
+
+    Reuses the detector in main.py. On such sessions FlybyWindow must clip its
+    window to the drawn silhouette instead of a bounding rectangle, otherwise the
+    plane sits in a black box. Returns False if the detector is unavailable.
+    """
+    detect = None
+    try:
+        from .main import x11_compositor_active as detect
+    except Exception:
+        try:
+            from brok.main import x11_compositor_active as detect
+        except Exception:
+            return False
+    try:
+        return detect() is False
+    except Exception:
+        return False
+
+
+DIRECTION_LTR = reminder_mod.DIRECTION_LTR
+DIRECTION_RTL = reminder_mod.DIRECTION_RTL
+
+logger = logging.getLogger(__name__)
+
+# (No drawing primitives need a shared outline colour anymore — the plane is a
+# raster sprite, the cat is drawn raw, the flag uses ``plane_color.darker()``.)
+
+FLAG_TEXT_LIGHT = QtGui.QColor("#ffffff")
+FLAG_TEXT_DARK = QtGui.QColor("#1a1a1a")
+ROPE_COLOR = QtGui.QColor(60, 50, 60, 220)
+
+GAP = 38  # plane edge ↔ flag horizontal gap
+BASE_DURATION_MS = 20000  # one full screen crossing at speed 1.0 (≈20 s)
+DEFAULT_PLANE_WIDTH = 160
+FLAG_POLE_COLOR = QtGui.QColor("#3a2b33")
+
+# Plane livery — one shared shape, four named tints. Multiply-blend keeps the
+# dark outlines dark regardless of tint, so a white-base sprite recolours
+# cleanly to any of these.
+PLANE_COLORS = {
+    "pink": QtGui.QColor("#ff6f91"),
+    "white": QtGui.QColor("#f5f5f5"),
+    "blue": QtGui.QColor("#4a8fe2"),
+    "red": QtGui.QColor("#d94a4a"),
+}
+
+
+def resolve_plane_color(name: str) -> QtGui.QColor:
+    """Map a colour name (or hex) to a QColor; fall back to white if unknown."""
+    if name in PLANE_COLORS:
+        return PLANE_COLORS[name]
+    qc = QtGui.QColor(name)
+    if qc.isValid():
+        return qc
+    return PLANE_COLORS["white"]
+
+
+def tinted_pixmap(base: QtGui.QPixmap, tint: QtGui.QColor) -> QtGui.QPixmap:
+    """Multiply-blend ``base`` by ``tint``, then restore the alpha mask.
+
+    Qt's ``CompositionMode_Multiply`` is Porter-Duff "src over with multiply";
+    in transparent destination pixels its source-over term wins and paints the
+    raw tint colour. We therefore re-apply ``DestinationIn`` with the original
+    pixmap so the alpha mask of ``base`` is preserved (transparent stays
+    transparent, opaque stays opaque, RGB is multiplied).
+    """
+    result = QtGui.QPixmap(base.size())
+    result.fill(QtCore.Qt.GlobalColor.transparent)
+    p = QtGui.QPainter(result)
+    p.drawPixmap(0, 0, base)
+    p.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_Multiply)
+    p.fillRect(result.rect(), tint)
+    p.setCompositionMode(QtGui.QPainter.CompositionMode.CompositionMode_DestinationIn)
+    p.drawPixmap(0, 0, base)
+    p.end()
+    return result
+
+
+# A single fixed plane sprite ships with the package at brok/assets/plane.png.
+# The bundled PNG is already chroma-keyed (transparent background) and cropped
+# to the alpha bbox — no Pillow processing happens at runtime. CANOPY_FRACS
+# (cx, cy, rx, ry as fractions of the cropped sprite, in its right-facing
+# orientation) tells draw_cat_face where to plant the cat head inside the
+# fuselage. Multiply-blend recolouring (pink / white / blue / red) is applied
+# on top of the bundled sprite — that's the only thing the user can customize.
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+PLANES_DIR = ASSETS_DIR / "planes"
+CANOPY_FRACS = (0.485, 0.103, 0.118, 0.230)  # cx, cy, rx, ry (right-facing)
+# Push the cat down this fraction of the plane height so it sits deeper in the
+# cockpit and only the top of the head pokes above the fuselage.
+CAT_SINK_FRAC = 0.13
+# Blink cadence while the plane flies: swap to the closed-eyes frame for
+# BLINK_DUR_S every BLINK_PERIOD_S (only if the char provides a blink frame).
+BLINK_PERIOD_S = 1.7
+BLINK_DUR_S = 0.15
+
+
+def crop_cat_head(pixmap, target_h):
+    """Top 75% of a char frame (head + shoulders + chest), scaled to ``target_h``.
+
+    Shared by the awake and blink frames so both land at the same size/position;
+    returns None for a missing/null pixmap."""
+    if pixmap is None or pixmap.isNull():
+        return None
+    head_h = max(8, int(pixmap.height() * 0.75))
+    head = pixmap.copy(0, 0, pixmap.width(), head_h)
+    return head.scaledToHeight(target_h, QtCore.Qt.TransformationMode.FastTransformation)
+
+
+def available_planes() -> list:
+    """Sorted stems of the selectable plane sprites under assets/planes/."""
+    if not PLANES_DIR.is_dir():
+        return []
+    return sorted(p.stem for p in PLANES_DIR.glob("*.png"))
+
+
+def plane_sprite_path(name: str) -> Path:
+    """Path to the chosen plane sprite, falling back to the bundled plane.png."""
+    candidate = PLANES_DIR / f"{name}.png"
+    if name and candidate.exists():
+        return candidate
+    return ASSETS_DIR / "plane.png"
+
+
+class FlybyWindow(QtWidgets.QWidget):
+    """A one-shot animated overlay: cat peeks from the cockpit of a banner plane.
+
+    The plane is drawn with QPainterPath (streamlined fuselage, tail, wing,
+    propeller disk). A trailing flag is built from a sampled polygon whose
+    vertices follow a sine wave whose amplitude grows linearly from 0 at the
+    leading pole to ``WAVE_AMP_MAX`` at the trailing edge — that gives real
+    cloth-like ripple. Text on the flag is pre-rendered upright and then sliced
+    into thin vertical strips, each translated to follow the local wave height,
+    so the message bends with the cloth without unreadable distortion.
+    """
+
+    def __init__(self, cat_pixmap, reminder, parent=None, blink_pixmap=None) -> None:
+        flags = QtCore.Qt.WindowType.FramelessWindowHint | QtCore.Qt.WindowType.Tool
+        app = QtWidgets.QApplication.instance()
+        platform_name = (app.platformName() or "").lower() if app is not None else ""
+        if platform_name != "offscreen":
+            flags |= QtCore.Qt.WindowType.WindowStaysOnTopHint
+        super().__init__(parent, flags)
+
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        # We DELIBERATELY do not set WA_TransparentForMouseEvents /
+        # WindowTransparentForInput here — the user can grab the plane to drag
+        # it. paintEvent calls setMask() each frame so only the plane+flag
+        # bounding box absorbs events; everywhere else in the band the click
+        # passes through to the window beneath.
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        self.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        self.setCursor(QtCore.Qt.CursorShape.OpenHandCursor)
+        self.setToolTip(tr("Drag to move • Right-click for options"))
+
+        # Drag state — clicking the plane pauses the flight and lets the user
+        # park it; right-click brings up a resume/close menu.
+        self.dragging = False
+        self.drag_anchor = QtCore.QPointF()
+        self.drag_start_offset = QtCore.QPointF()
+        self.user_offset = QtCore.QPointF(0.0, 0.0)
+
+        # Without an X11 compositor a translucent window renders its transparent
+        # pixels black, so a bounding-box mask would put the plane in a black box.
+        # In that case clip the window to the actual drawn silhouette instead.
+        # BROK_SHAPE_MASK=1/0 forces or disables it (mirrors PixelCatWindow).
+        force_mask = os.environ.get("BROK_SHAPE_MASK")
+        if force_mask in ("0", "1"):
+            self.silhouette_mask = force_mask == "1"
+        else:
+            self.silhouette_mask = platform_name == "xcb" and has_no_x11_compositor()
+        # Geometry of what was last painted, captured by the _draw_* helpers so
+        # the mask can follow the real shapes (set each frame in paintEvent).
+        self.flag_shape = None
+        self.flag_pole = None
+        self.rope_path = None
+        self.plane_blit = None
+        self.cat_blit = None
+
+        # Optional link — announcements (a GitHub PR, the morning digest)
+        # attach a URL; a double-click or the context menu opens it.
+        self.link_url = str(getattr(reminder, "url", "") or "")
+        if self.link_url:
+            self.setToolTip(tr("Double-click to open • Drag to move • Right-click for options"))
+
+        default_text = tr(reminder_mod.DEFAULT_TEXT)
+        self.text = (reminder.text or default_text).strip() or default_text
+        self.ltr = reminder.normalized_direction() != DIRECTION_RTL
+        self.progress = 0.0
+        # Set on start(); paintEvent reads monotonic time so the flag ripple and
+        # propeller spin advance smoothly regardless of the position easing curve.
+        self.start_time = None
+
+        # Plane colour — applied to the sprite via multiply-blend. Same shape,
+        # four liveries, all chosen client-side.
+        self.plane_color = resolve_plane_color(getattr(reminder, "plane_color", "white"))
+
+        # Chosen plane sprite (assets/planes/<name>.png, falling back to the
+        # bundled plane.png). Tint baked in here so per-frame drawing is just a
+        # drawPixmap call. If the PNG is missing, paintEvent draws only the flag.
+        # Only plane1 has a cockpit the cat peeks from; the rest fly cat-free.
+        self.plane_name = getattr(reminder, "plane", "plane1")
+        sprite_path = plane_sprite_path(self.plane_name)
+        sprite = QtGui.QPixmap(str(sprite_path))
+        if sprite.isNull():
+            logger.warning("Plane sprite missing at %s — flyby will be flag-only", sprite_path)
+            self.plane_sprite = None
+        else:
+            self.plane_sprite = tinted_pixmap(sprite, self.plane_color)
+        self.canopy_fracs = CANOPY_FRACS
+
+        # Plane size — width is user-configurable, height follows the sprite's
+        # cropped aspect ratio so the plane never gets squashed. Without a
+        # sprite, fall back to a sensible default ratio so the geometry math
+        # still works.
+        self.plane_width = max(80, int(getattr(reminder, "plane_width", DEFAULT_PLANE_WIDTH)))
+        if self.plane_sprite is not None and self.plane_sprite.width() > 0:
+            aspect = self.plane_sprite.height() / self.plane_sprite.width()
+        else:
+            aspect = 0.55
+        self.plane_height = max(40, int(self.plane_width * aspect))
+
+        # Flag height tied to the plane height so they stay proportional
+        # regardless of the user's chosen plane width.
+        self.flag_h = max(36, int(self.plane_height * 0.58))
+        # Band tall enough for the plane + bob + flag with some breathing room.
+        self.band_h = max(self.plane_height, self.flag_h) + 40
+
+        # Cat crop + scale picked so the visible cat is HEAD + SHOULDERS +
+        # UPPER BODY (top 75% of the source) without getting wider than before.
+        # 0.75 crop has aspect ~1.27 (vs 1.73 for top half), so target_h=0.46×ph
+        # still lands at the same width (~48 px at ph=82) but yields a 36%
+        # taller sprite — chest/neck now fills the cockpit area under the face
+        # instead of leaving empty fuselage there.
+        target_h = int(self.plane_height * 0.46)
+        self.cat_face_pixmap = crop_cat_head(cat_pixmap, target_h)
+        # The closed-eyes frame (same crop/scale) — the cat blinks mid-flight when
+        # the char provides one; otherwise the awake face is shown throughout.
+        self.cat_blink_pixmap = crop_cat_head(blink_pixmap, target_h)
+
+        # Geometry: cover the full primary screen so the user can drag the plane
+        # vertically anywhere on it. The plane normally sits inside a band at
+        # ``band_top`` (~10% from the top). The setMask() call in paintEvent
+        # keeps the rest of the screen click-through.
+        screen = QtWidgets.QApplication.primaryScreen().geometry()
+        self.screen_w = screen.width()
+        self.band_top = int(screen.height() * 0.10)
+        self.setGeometry(screen.x(), screen.y(), self.screen_w, screen.height())
+
+        self.banner_w = self.compute_flag_length()
+
+        speed = max(0.25, float(getattr(reminder, "speed", 1.0)))
+        self.anim = QtCore.QVariantAnimation(self)
+        self.anim.setStartValue(0.0)
+        self.anim.setEndValue(1.0)
+        self.anim.setDuration(int(BASE_DURATION_MS / speed))
+        self.anim.setEasingCurve(QtCore.QEasingCurve.Type.InOutSine)
+        self.anim.valueChanged.connect(self.on_value)
+        # On finish we DON'T just close — if the user dragged the plane back,
+        # it could still be on screen at progress=1.0 (the main animation
+        # tracks a fixed travel distance, drag offsets aren't part of that).
+        # after_anim_finished checks the actual on-screen position and either
+        # closes or starts an exit animation that pushes the plane the rest of
+        # the way off the screen.
+        self.anim.finished.connect(self.after_anim_finished)
+        self.exit_anim = None  # set when an exit motion is in progress
+
+    # -- public -------------------------------------------------------------
+
+    def start(self) -> None:
+        self.start_time = time.monotonic()
+        self.show()
+        self.raise_()
+        self.anim.start()
+
+    # -- sizing -------------------------------------------------------------
+
+    def banner_font(self) -> QtGui.QFont:
+        font = QtGui.QFont()
+        font.setBold(True)
+        # 0.40 of the flag height: banner texts got longer (GitHub events,
+        # digests), a smaller face keeps the flag from growing screen-wide.
+        font.setPixelSize(max(10, int(self.flag_h * 0.40)))
+        return font
+
+    def compute_flag_length(self) -> int:
+        fm = QtGui.QFontMetrics(self.banner_font())
+        text_w = fm.horizontalAdvance(self.text)
+        max_w = int(self.screen_w * 0.6)
+        # Min length scales with plane size so a tiny plane doesn't drag a
+        # ridiculously long flag and vice versa.
+        min_w = max(160, int(self.plane_width * 1.0))
+        return max(min_w, min(text_w + 80, max_w))
+
+    def group_width(self) -> int:
+        return self.banner_w + GAP + self.plane_width
+
+    # -- animation ----------------------------------------------------------
+
+    def on_value(self, value) -> None:
+        self.progress = float(value)
+        self.update()
+
+    # -- painting -----------------------------------------------------------
+
+    def paintEvent(self, event: QtGui.QPaintEvent) -> None:
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.SmoothPixmapTransform, True)
+
+        # Forget last frame's shapes; the _draw_* helpers re-record what they paint.
+        self.flag_shape = None
+        self.flag_pole = None
+        self.rope_path = None
+        self.plane_blit = None
+        self.cat_blit = None
+
+        t = 0.0 if self.start_time is None else max(0.0, time.monotonic() - self.start_time)
+        bob = math.sin(t * 1.9) * 2.5  # gentle vertical "alive" motion
+
+        pw, ph = self.plane_width, self.plane_height
+        gw = self.group_width()
+        travel = self.screen_w + gw
+        if self.ltr:
+            left = -gw + self.progress * travel
+            plane_x = left + self.banner_w + GAP
+            flag_attach_x = plane_x - 18  # flag attaches just behind the tail
+            flag_dir = -1  # flag trails to the left
+        else:
+            left = self.screen_w - self.progress * travel
+            plane_x = left
+            flag_attach_x = plane_x + pw + 18
+            flag_dir = +1  # flag trails to the right
+
+        # Apply manual drag offset from the mouse handlers — the plane, flag,
+        # rope and cat all move as one rigid group.
+        plane_x += self.user_offset.x()
+        flag_attach_x += self.user_offset.x()
+        plane_y = self.band_top + (self.band_h - ph - 18) + bob + self.user_offset.y()
+        plane_rect = QtCore.QRectF(plane_x, plane_y, pw, ph)
+
+        # Rope: from plane belly (behind the wing) up to the flag.
+        rope_from_frac_x = 0.18 if self.ltr else 0.82
+        rope_from = QtCore.QPointF(
+            plane_rect.x() + pw * rope_from_frac_x,
+            plane_rect.y() + ph * 0.74,
+        )
+        flag_attach = QtCore.QPointF(flag_attach_x, plane_rect.y() + ph * 0.60)
+
+        # Draw order: flag/rope, then the cat BEHIND the plane, then the plane
+        # sprite on top. The plane silhouette hides the cat's body so only the
+        # head peeks above it. With the taller crop (head+shoulders+chest), the
+        # peek now shows roughly the full head — not just the ear tips.
+        self.draw_flag(painter, flag_attach, flag_dir, self.banner_w, self.flag_h, self.text)
+        if self.plane_sprite is not None:
+            self.draw_rope(painter, rope_from, flag_attach)
+            if self.plane_name == "plane1":
+                self.draw_cat_face(painter, plane_rect, facing_right=self.ltr)
+            self.draw_plane(painter, plane_rect, facing_right=self.ltr)
+
+        # Refresh the input mask so only the plane+flag bbox is interactive.
+        # Areas outside this region are click-through to whatever is below.
+        self.update_input_mask(plane_rect, flag_attach, flag_dir)
+
+    def update_input_mask(self, plane_rect, flag_attach, flag_dir) -> None:
+        # Without a compositor, clip to the drawn silhouette so transparent areas
+        # are not painted black; with a compositor keep the cheap bounding box.
+        if self.silhouette_mask:
+            region = self.silhouette_region()
+            if not region.isEmpty():
+                self.setMask(region)
+                return
+
+        flag_x = flag_attach.x() - self.banner_w if flag_dir < 0 else flag_attach.x()
+        flag_rect = QtCore.QRectF(flag_x, flag_attach.y() - self.flag_h / 2, self.banner_w, self.flag_h)
+        if self.plane_sprite is not None:
+            # Cat head pokes a little above the plane top — include that area in
+            # the mask so the click-region matches what's actually drawn on screen.
+            cat_top = plane_rect.y() - self.plane_height * 0.10
+            union_rect = plane_rect.united(flag_rect)
+            union_rect.setTop(min(union_rect.top(), cat_top))
+        else:
+            union_rect = flag_rect
+        union_rect = union_rect.adjusted(-8, -8, 8, 8).toRect()
+        self.setMask(QtGui.QRegion(union_rect))
+
+    def silhouette_region(self) -> QtGui.QRegion:
+        """Region matching the actually-drawn shapes (flag, pole, rope, plane, cat).
+
+        Used on X11 without a compositor so the window clips to the silhouette
+        instead of a bounding box (which would render a black rectangle).
+        """
+        region = QtGui.QRegion()
+        if self.flag_shape is not None:
+            region += QtGui.QRegion(self.flag_shape.toPolygon())
+        if self.flag_pole is not None:
+            region += QtGui.QRegion(self.flag_pole.toRect())
+        if self.rope_path is not None:
+            stroker = QtGui.QPainterPathStroker()
+            stroker.setWidth(6)
+            outline = stroker.createStroke(self.rope_path).toFillPolygon().toPolygon()
+            region += QtGui.QRegion(outline)
+        for blit in (self.cat_blit, self.plane_blit):
+            if blit is None:
+                continue
+            pixmap, bx, by = blit
+            bitmap = pixmap.mask()
+            if bitmap.isNull():
+                region += QtGui.QRegion(int(bx), int(by), pixmap.width(), pixmap.height())
+            else:
+                region += QtGui.QRegion(bitmap).translated(int(bx), int(by))
+
+        # A window mask that is entirely off-screen stops the window from
+        # receiving paint events, which would freeze the mask there forever and
+        # the plane would never fly in. While the group is still fully off-screen,
+        # keep a 2x2 on-screen anchor at the entry edge so repaints keep coming;
+        # once any part of the plane is on screen the silhouette itself keeps the
+        # cycle alive and no anchor (and no stray pixel) is added.
+        screen = QtCore.QRect(0, 0, self.screen_w, self.height())
+        if not region.boundingRect().intersects(screen):
+            anchor_x = 0 if self.ltr else max(0, self.screen_w - 2)
+            anchor_y = self.band_top + self.band_h // 2
+            region += QtGui.QRegion(anchor_x, anchor_y, 2, 2)
+        return region
+
+    # -- flag (static rectangle, plane-coloured) ----------------------------
+
+    def draw_flag(self, painter, attach, direction, length, height, text) -> None:
+        # Classic banner pennant: rectangular cloth on a pole at the attach
+        # edge, with a V-notch (swallowtail) cut into the trailing edge. This
+        # silhouette reads instantly as a "flag/banner" rather than a notification
+        # badge — the rounded rectangle we had before was the wrong cue.
+        notch_depth = height * 0.30
+        pole_w = max(2.5, height * 0.07)
+        top_y = attach.y() - height / 2
+        bot_y = attach.y() + height / 2
+        notch_y = attach.y()
+
+        if direction < 0:  # flag extends LEFT of the attach point
+            right_x = attach.x()
+            left_x = attach.x() - length
+            notch_x = left_x + notch_depth
+            polygon = QtGui.QPolygonF(
+                [
+                    QtCore.QPointF(right_x, top_y),
+                    QtCore.QPointF(right_x, bot_y),
+                    QtCore.QPointF(left_x, bot_y),
+                    QtCore.QPointF(notch_x, notch_y),
+                    QtCore.QPointF(left_x, top_y),
+                ]
+            )
+            pole_x = right_x
+            text_left = notch_x + 6
+            text_right = right_x - pole_w - 6
+        else:  # flag extends RIGHT of the attach point
+            left_x = attach.x()
+            right_x = attach.x() + length
+            notch_x = right_x - notch_depth
+            polygon = QtGui.QPolygonF(
+                [
+                    QtCore.QPointF(left_x, top_y),
+                    QtCore.QPointF(left_x, bot_y),
+                    QtCore.QPointF(right_x, bot_y),
+                    QtCore.QPointF(notch_x, notch_y),
+                    QtCore.QPointF(right_x, top_y),
+                ]
+            )
+            pole_x = left_x
+            text_left = left_x + pole_w + 6
+            text_right = notch_x - 6
+
+        # Cloth
+        painter.setBrush(self.plane_color)
+        painter.setPen(QtGui.QPen(self.plane_color.darker(150), 2))
+        painter.drawPolygon(polygon)
+        self.flag_shape = polygon
+
+        # Pole — a thin dark vertical bar overlapping the attach edge so the
+        # cloth reads as "sewn to the pole".
+        painter.setPen(QtCore.Qt.PenStyle.NoPen)
+        painter.setBrush(FLAG_POLE_COLOR)
+        pole_rect = QtCore.QRectF(pole_x - pole_w / 2, top_y - 5, pole_w, height + 10)
+        painter.drawRect(pole_rect)
+        self.flag_pole = pole_rect
+
+        # Text — luminance-aware contrast so a white-livery flag stays readable.
+        c = self.plane_color
+        lum = (0.299 * c.red() + 0.587 * c.green() + 0.114 * c.blue()) / 255.0
+        text_color = FLAG_TEXT_DARK if lum > 0.7 else FLAG_TEXT_LIGHT
+
+        font = self.banner_font()
+        fm = QtGui.QFontMetrics(font)
+        inner_w = max(20, int(text_right - text_left))
+        while font.pixelSize() > 11 and fm.horizontalAdvance(text) > inner_w:
+            font.setPixelSize(font.pixelSize() - 1)
+            fm = QtGui.QFontMetrics(font)
+        elided = fm.elidedText(text, QtCore.Qt.TextElideMode.ElideRight, inner_w)
+        text_rect = QtCore.QRectF(text_left, top_y, inner_w, height)
+        painter.setFont(font)
+        painter.setPen(text_color)
+        painter.drawText(text_rect, QtCore.Qt.AlignmentFlag.AlignCenter, elided)
+
+    def draw_rope(self, painter, p_from, p_to) -> None:
+        mid = QtCore.QPointF((p_from.x() + p_to.x()) / 2, max(p_from.y(), p_to.y()) + 16)
+        path = QtGui.QPainterPath(p_from)
+        path.quadTo(mid, p_to)
+        pen = QtGui.QPen(ROPE_COLOR, 2)
+        pen.setCapStyle(QtCore.Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+        painter.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+        painter.drawPath(path)
+        self.rope_path = path
+
+    # -- plane --------------------------------------------------------------
+
+    def draw_plane(self, painter, rect, facing_right) -> None:
+        """Render the PNG plane sprite (nearest-neighbour, aspect-preserved).
+
+        ``FlybyWindow`` only flies when a sprite is loaded — paintEvent skips
+        the plane (and the cat face) entirely if ``plane_sprite`` is ``None``.
+        """
+        sprite = self.plane_sprite
+        if sprite is None:
+            return
+        if not facing_right:
+            sprite = sprite.transformed(QtGui.QTransform().scale(-1, 1))
+        target_w = int(rect.width())
+        target_h = int(rect.height())
+        scaled = sprite.scaled(
+            target_w,
+            target_h,
+            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+            QtCore.Qt.TransformationMode.FastTransformation,
+        )
+        cw, ch = scaled.width(), scaled.height()
+        px = int(rect.x() + (rect.width() - cw) / 2)
+        py = int(rect.y() + (rect.height() - ch) / 2)
+        painter.save()
+        painter.setRenderHint(QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+        painter.drawPixmap(px, py, scaled)
+        painter.restore()
+        self.plane_blit = (scaled, px, py)
+
+    # -- cat face inside the cockpit ---------------------------------------
+
+    def draw_cat_face(self, painter, plane_rect, facing_right) -> None:
+        """Stamp the cat head at the cockpit, sunk ``CAT_SINK_FRAC`` into the plane
+        so only the top of the head pokes above the fuselage. The eyes blink on a
+        cycle when a closed-eyes frame is available. No clip, no glass, no rim —
+        the plane sprite is drawn AFTER this so it covers most of the cat."""
+        # Blink: briefly swap to the closed-eyes frame on a slow cycle.
+        elapsed = 0.0 if self.start_time is None else max(0.0, time.monotonic() - self.start_time)
+        blinking = self.cat_blink_pixmap is not None and (elapsed % BLINK_PERIOD_S) < BLINK_DUR_S
+        cat = self.cat_blink_pixmap if blinking else self.cat_face_pixmap
+        if cat is None or cat.isNull():
+            return
+        x, y, w, h = plane_rect.x(), plane_rect.y(), plane_rect.width(), plane_rect.height()
+        cx_frac_r, cy_frac, canopy_rx, canopy_ry = self.canopy_fracs
+        cx_frac = cx_frac_r if facing_right else (1.0 - cx_frac_r)
+        canopy_cx = x + w * cx_frac
+        canopy_cy = y + h * cy_frac + h * CAT_SINK_FRAC  # sink deeper into the plane
+
+        if not facing_right:
+            cat = cat.transformed(QtGui.QTransform().scale(-1, 1))
+        cw, ch = cat.width(), cat.height()
+        px = int(canopy_cx - cw / 2)
+        py = int(canopy_cy - ch / 2)
+
+        painter.save()
+        painter.setRenderHint(QtGui.QPainter.RenderHint.SmoothPixmapTransform, False)
+        painter.drawPixmap(px, py, cat)
+        painter.restore()
+        self.cat_blit = (cat, px, py)
+
+    # -- interaction: pause + drag + context menu ---------------------------
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            # Pause whichever animation is running so the user has a stationary
+            # target to grab. The exit animation is fully stopped — mouseRelease
+            # will rebuild it from the new dropped position if the plane is
+            # still on screen.
+            if self.anim.state() == QtCore.QAbstractAnimation.State.Running:
+                self.anim.pause()
+            if self.exit_anim is not None:
+                self.exit_anim.stop()
+                self.exit_anim = None
+            self.dragging = True
+            self.drag_anchor = event.globalPosition()
+            self.drag_start_offset = QtCore.QPointF(self.user_offset)
+            self.setCursor(QtCore.Qt.CursorShape.ClosedHandCursor)
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent) -> None:
+        if self.dragging:
+            delta = event.globalPosition() - self.drag_anchor
+            self.user_offset = QtCore.QPointF(
+                self.drag_start_offset.x() + delta.x(),
+                self.drag_start_offset.y() + delta.y(),
+            )
+            self.update()
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent) -> None:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton and self.dragging:
+            self.dragging = False
+            self.setCursor(QtCore.Qt.CursorShape.OpenHandCursor)
+            # Continue the flight from the dropped position. The accumulated
+            # ``user_offset`` is intentionally kept so the plane resumes from
+            # wherever the user parked it rather than snapping back.
+            if self.anim.state() == QtCore.QAbstractAnimation.State.Paused:
+                self.anim.setPaused(False)
+            elif self.anim.state() == QtCore.QAbstractAnimation.State.Stopped:
+                # Main animation has already played out. Re-issue an exit
+                # animation from the new position (or close if the plane is
+                # already past every screen edge).
+                if self.is_plane_fully_offscreen():
+                    self.close()
+                else:
+                    self.begin_exit_animation()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def contextMenuEvent(self, event: QtGui.QContextMenuEvent) -> None:
+        Paused = QtCore.QAbstractAnimation.State.Paused
+        Running = QtCore.QAbstractAnimation.State.Running
+        main_paused = self.anim.state() == Paused
+        main_running = self.anim.state() == Running
+        exit_paused = self.exit_anim is not None and self.exit_anim.state() == Paused
+        exit_running = self.exit_anim is not None and self.exit_anim.state() == Running
+
+        menu = QtWidgets.QMenu(self)
+        if self.link_url:
+            menu.addAction(tr("Open link"), self.open_link)
+            menu.addSeparator()
+        if main_paused or exit_paused or self.anim.state() == QtCore.QAbstractAnimation.State.Stopped:
+            menu.addAction(tr("Resume flight"), self.resume_flight)
+        elif main_running or exit_running:
+            menu.addAction(tr("Pause flight"), self.pause_flight)
+        menu.addSeparator()
+        menu.addAction(tr("Close"), self.close)
+        menu.exec(event.globalPos())
+
+    def open_link(self) -> None:
+        """Open the announcement's URL in the browser and end the flight."""
+        if not self.link_url:
+            return
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(self.link_url))
+        self.close()
+
+    def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent) -> None:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton and self.link_url:
+            self.open_link()
+            event.accept()
+            return
+        super().mouseDoubleClickEvent(event)
+
+    def pause_flight(self) -> None:
+        if self.anim.state() == QtCore.QAbstractAnimation.State.Running:
+            self.anim.pause()
+        if self.exit_anim is not None and self.exit_anim.state() == QtCore.QAbstractAnimation.State.Running:
+            self.exit_anim.pause()
+
+    def resume_flight(self) -> None:
+        # Resume whichever animation was paused. Resuming the main animation
+        # keeps the drag offset; resuming the exit animation continues the
+        # linear push toward the screen edge. If the main animation already
+        # finished and there's no exit animation, start one from the current
+        # parked position (or close if the plane is already off-screen).
+        if self.anim.state() == QtCore.QAbstractAnimation.State.Paused:
+            self.anim.setPaused(False)
+        elif self.exit_anim is not None and self.exit_anim.state() == QtCore.QAbstractAnimation.State.Paused:
+            self.exit_anim.setPaused(False)
+        elif self.anim.state() == QtCore.QAbstractAnimation.State.Stopped:
+            if self.is_plane_fully_offscreen():
+                self.close()
+            else:
+                self.begin_exit_animation()
+
+    # -- exit-from-screen: keep moving the plane until it's fully off ------
+
+    def after_anim_finished(self) -> None:
+        """Main animation ran out — close only if the plane is actually gone."""
+        if self.is_plane_fully_offscreen():
+            self.close()
+        else:
+            self.begin_exit_animation()
+
+    def compute_current_plane_position(self) -> tuple[float, float]:
+        """Return the plane's current (x, y) in window coords, drag offset included."""
+        ph = self.plane_height
+        gw = self.group_width()
+        travel = self.screen_w + gw
+        if self.ltr:
+            plane_x = -gw + self.progress * travel + self.banner_w + GAP
+        else:
+            plane_x = self.screen_w - self.progress * travel
+        plane_x += self.user_offset.x()
+        plane_y = self.band_top + (self.band_h - ph - 18) + self.user_offset.y()
+        return plane_x, plane_y
+
+    def is_plane_fully_offscreen(self) -> bool:
+        plane_x, plane_y = self.compute_current_plane_position()
+        pw, ph = self.plane_width, self.plane_height
+        return plane_x + pw <= 0 or plane_x >= self.screen_w or plane_y + ph <= 0 or plane_y >= self.height()
+
+    def begin_exit_animation(self) -> None:
+        """Linearly continue pushing the plane in the flight direction until it
+        clears the screen. Used after the main animation has finished but the
+        plane is still visible (e.g. because the user dragged it back)."""
+        if self.exit_anim is not None:
+            self.exit_anim.stop()
+        plane_x, _ = self.compute_current_plane_position()
+        pw = self.plane_width
+        if self.ltr:
+            # How far the offset needs to move right so plane_x crosses the right edge
+            dx_needed = (self.screen_w + 20) - plane_x
+        else:
+            dx_needed = -(plane_x + pw + 20)
+        target_offset_x = self.user_offset.x() + dx_needed
+        # Linear motion at "natural cruising speed" matching the main animation.
+        cruise_px_per_sec = (self.screen_w + self.group_width()) / (BASE_DURATION_MS / 1000.0)
+        duration_ms = max(150, int(abs(dx_needed) / max(1.0, cruise_px_per_sec) * 1000))
+
+        self.exit_anim = QtCore.QVariantAnimation(self)
+        self.exit_anim.setStartValue(float(self.user_offset.x()))
+        self.exit_anim.setEndValue(float(target_offset_x))
+        self.exit_anim.setDuration(duration_ms)
+        self.exit_anim.setEasingCurve(QtCore.QEasingCurve.Type.Linear)
+        self.exit_anim.valueChanged.connect(self.on_exit_value)
+        self.exit_anim.finished.connect(self.close)
+        self.exit_anim.start()
+
+    def on_exit_value(self, value) -> None:
+        self.user_offset = QtCore.QPointF(float(value), self.user_offset.y())
+        self.update()
+
+
+class ReminderDialog(QtWidgets.QDialog):
+    """Edit the message, direction and timing of the reminder."""
+
+    def __init__(self, controller, reminder, parent=None) -> None:
+        super().__init__(parent)
+        self.controller = controller
+        self.setWindowTitle(tr("Reminder"))
+        self.setMinimumWidth(380)
+        # Force a complete light theme on the whole dialog. Styling only the input
+        # fields left the dialog background, labels, group box and buttons to the
+        # system palette, which is unreadable (dark text on dark) under a dark
+        # desktop theme. Pin every widget type to dark-on-light with a pink accent.
+        self.setStyleSheet(
+            "QDialog { background: #ffffff; color: #1c1c1c; }"
+            "QLabel, QRadioButton, QCheckBox, QGroupBox {"
+            " color: #1c1c1c; background: transparent; }"
+            "QGroupBox { border: 1px solid #d6d6d6; border-radius: 6px;"
+            " margin-top: 8px; padding-top: 6px; }"
+            "QGroupBox::title { subcontrol-origin: margin; left: 8px;"
+            " padding: 0 4px; color: #1c1c1c; }"
+            "QLineEdit, QSpinBox, QTimeEdit, QComboBox {"
+            " color: #1c1c1c; background: #ffffff;"
+            " border: 1px solid #c0c0c0; border-radius: 4px; padding: 2px 4px;"
+            " selection-color: white; selection-background-color: #ff6f91; }"
+            "QComboBox QAbstractItemView {"
+            " color: #1c1c1c; background: #ffffff;"
+            " selection-color: white; selection-background-color: #ff6f91; }"
+            "QPushButton {"
+            " color: #1c1c1c; background: #f0f0f0;"
+            " border: 1px solid #c0c0c0; border-radius: 4px; padding: 4px 14px; }"
+            "QPushButton:hover { background: #e7e7e7; }"
+            "QPushButton:disabled { color: #9a9a9a; background: #f5f5f5; }"
+        )
+
+        existing = reminder or Reminder()
+
+        layout = QtWidgets.QVBoxLayout(self)
+        form = QtWidgets.QFormLayout()
+        form.setLabelAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+
+        self.text_edit = QtWidgets.QLineEdit(existing.text)
+        self.text_edit.setPlaceholderText(tr("What should the cat remind you about?"))
+        self.text_edit.setMaxLength(120)
+        form.addRow(tr("Message"), self.text_edit)
+
+        self.direction = QtWidgets.QComboBox()
+        self.direction.addItem(tr("Left → Right"), DIRECTION_LTR)
+        self.direction.addItem(tr("Right → Left"), DIRECTION_RTL)
+        idx = self.direction.findData(existing.normalized_direction())
+        self.direction.setCurrentIndex(max(0, idx))
+        form.addRow(tr("Direction"), self.direction)
+
+        self.plane_combo = QtWidgets.QComboBox()
+        self.plane_combo.setIconSize(QtCore.QSize(48, 24))
+        for name in available_planes():
+            sprite = QtGui.QPixmap(str(plane_sprite_path(name)))
+            icon = (
+                QtGui.QIcon(
+                    sprite.scaled(
+                        48,
+                        24,
+                        QtCore.Qt.AspectRatioMode.KeepAspectRatio,
+                        QtCore.Qt.TransformationMode.SmoothTransformation,
+                    )
+                )
+                if not sprite.isNull()
+                else QtGui.QIcon()
+            )
+            self.plane_combo.addItem(icon, name.capitalize(), name)
+        idx = self.plane_combo.findData(existing.plane)
+        self.plane_combo.setCurrentIndex(max(0, idx))
+        form.addRow(tr("Plane"), self.plane_combo)
+
+        self.color = QtWidgets.QComboBox()
+        for name, qcolor in PLANE_COLORS.items():
+            swatch = QtGui.QPixmap(20, 20)
+            swatch.fill(qcolor)
+            self.color.addItem(QtGui.QIcon(swatch), name.capitalize(), name)
+        idx = self.color.findData(existing.plane_color)
+        self.color.setCurrentIndex(max(0, idx))
+        form.addRow(tr("Plane color"), self.color)
+
+        self.plane_width_spin = QtWidgets.QSpinBox()
+        self.plane_width_spin.setRange(120, 500)
+        self.plane_width_spin.setSuffix(tr(" px"))
+        # Height follows the sprite's aspect ratio — only the width is user-set.
+        self.plane_width_spin.setValue(max(120, int(existing.plane_width)))
+        form.addRow(tr("Plane width"), self.plane_width_spin)
+
+        layout.addLayout(form)
+
+        # Timing: "in N minutes" or "at HH:MM".
+        timing_box = QtWidgets.QGroupBox(tr("When"))
+        timing_layout = QtWidgets.QGridLayout(timing_box)
+
+        self.in_radio = QtWidgets.QRadioButton(tr("In"))
+        self.in_spin = QtWidgets.QSpinBox()
+        self.in_spin.setRange(0, 1440)
+        self.in_spin.setSuffix(tr(" min"))
+        # 0 = fire on the very next scheduler tick (within ~1s).
+        self.in_spin.setSpecialValueText(tr("now"))
+        self.in_spin.setValue(max(0, existing.in_minutes))
+
+        self.at_radio = QtWidgets.QRadioButton(tr("At"))
+        self.at_time = QtWidgets.QTimeEdit()
+        self.at_time.setDisplayFormat("HH:mm")
+        if existing.mode == "at" and existing.fire_at is not None:
+            self.at_time.setTime(QtCore.QTime(existing.fire_at.hour, existing.fire_at.minute))
+        else:
+            self.at_time.setTime(QtCore.QTime.currentTime().addSecs(600))
+
+        timing_layout.addWidget(self.in_radio, 0, 0)
+        timing_layout.addWidget(self.in_spin, 0, 1)
+        timing_layout.addWidget(self.at_radio, 1, 0)
+        timing_layout.addWidget(self.at_time, 1, 1)
+
+        self.repeat = QtWidgets.QCheckBox(tr("Repeat daily"))
+        self.repeat.setChecked(existing.repeat_daily)
+        timing_layout.addWidget(self.repeat, 2, 0, 1, 2)
+
+        layout.addWidget(timing_box)
+
+        if existing.mode == "at":
+            self.at_radio.setChecked(True)
+        else:
+            self.in_radio.setChecked(True)
+        self.sync_timing_enabled()
+        self.in_radio.toggled.connect(self.sync_timing_enabled)
+
+        # Buttons: Test, Reset (left) · Save, Close (right) — same order as
+        # every other brok dialog.
+        buttons = QtWidgets.QHBoxLayout()
+        test_btn = QtWidgets.QPushButton(tr("Test"))
+        reset_btn = QtWidgets.QPushButton(tr("Reset"))
+        close_btn = QtWidgets.QPushButton(tr("Close"))
+        save_btn = QtWidgets.QPushButton(tr("Save"))
+        save_btn.setDefault(True)
+        test_btn.clicked.connect(self.on_test)
+        reset_btn.clicked.connect(self.on_clear)
+        close_btn.clicked.connect(self.reject)
+        save_btn.clicked.connect(self.on_save)
+        buttons.addWidget(test_btn)
+        buttons.addWidget(reset_btn)
+        buttons.addStretch(1)
+        buttons.addWidget(save_btn)
+        buttons.addWidget(close_btn)
+
+        # Status sits ABOVE the buttons, matching the other dialogs.
+        self.status_label = QtWidgets.QLabel("")
+        self.status_label.setWordWrap(True)
+        layout.addWidget(self.status_label)
+        layout.addLayout(buttons)
+
+        # On reopen, the dialog must visibly reflect the live schedule (Olya:
+        # "if I open it again it looks reset"). A 1-second countdown keeps the
+        # status line honest about how much time is left until the flyby.
+        self.countdown = QtCore.QTimer(self)
+        self.countdown.setInterval(1000)
+        self.countdown.timeout.connect(self.refresh_pending)
+        self.refresh_pending()
+        if self.status_label.text():
+            self.countdown.start()
+
+    def refresh_pending(self) -> None:
+        """Show the pending reminder as a short 'Reminder in N min. (HH:MM)' line."""
+        reminder = self.controller.reminder
+        if reminder is None or not reminder.enabled or reminder.fire_at is None:
+            self.countdown.stop()
+            self.status_label.clear()
+            return
+        remaining = int((reminder.fire_at - datetime.now()).total_seconds())
+        if remaining <= 0:
+            self.countdown.stop()
+            self.status_label.clear()
+            return
+        if remaining >= 60:
+            left = f"{(remaining + 59) // 60} {tr('min')}"  # ceil, so 10:00 shows "10 min"
+        else:
+            left = f"{remaining} {tr('sec')}"
+        at = reminder.fire_at.strftime("%H:%M")
+        daily = tr(", daily") if reminder.repeat_daily else ""
+        self.status_label.setStyleSheet("color: #1c7c2f;")
+        self.status_label.setText(
+            tr("Reminder in {left}. ({at}{daily})").format(left=left, at=at, daily=daily)
+        )
+
+    def sync_timing_enabled(self) -> None:
+        in_mode = self.in_radio.isChecked()
+        self.in_spin.setEnabled(in_mode)
+        self.at_time.setEnabled(not in_mode)
+        # Daily repeat only makes sense for a fixed time of day.
+        self.repeat.setEnabled(not in_mode)
+        if in_mode:
+            self.repeat.setChecked(False)
+
+    def build_reminder(self) -> Reminder:
+        text = self.text_edit.text().strip() or reminder_mod.DEFAULT_TEXT
+        direction = self.direction.currentData()
+        plane_color = self.color.currentData() or "white"
+        plane_width = self.plane_width_spin.value()
+        plane = self.plane_combo.currentData() or "plane1"
+        now = datetime.now()
+        if self.in_radio.isChecked():
+            minutes = self.in_spin.value()
+            fire_at = now + timedelta(minutes=minutes)
+            return Reminder(
+                text=text,
+                direction=direction,
+                fire_at=fire_at,
+                repeat_daily=False,
+                enabled=True,
+                plane_color=plane_color,
+                plane_width=plane_width,
+                plane=plane,
+                mode="in",
+                in_minutes=minutes,
+            )
+        qt_time = self.at_time.time()
+        fire_at = now.replace(hour=qt_time.hour(), minute=qt_time.minute(), second=0, microsecond=0)
+        if fire_at <= now:
+            fire_at += timedelta(days=1)
+        return Reminder(
+            text=text,
+            direction=direction,
+            fire_at=fire_at,
+            repeat_daily=self.repeat.isChecked(),
+            enabled=True,
+            plane_color=plane_color,
+            plane_width=plane_width,
+            plane=plane,
+            mode="at",
+            in_minutes=self.in_spin.value(),
+        )
+
+    def on_test(self) -> None:
+        # Force left->right when previewing? No — honour the chosen direction.
+        self.controller.test(self.build_reminder())
+
+    def on_clear(self) -> None:
+        self.countdown.stop()
+        self.controller.clear()
+        # Full reset: wipe the schedule AND restore the form to defaults,
+        # including the message text ("Do you feed brok?").
+        defaults = Reminder()
+        self.text_edit.setText(defaults.text)
+        self.direction.setCurrentIndex(
+            max(0, self.direction.findData(defaults.normalized_direction()))
+        )
+        color_idx = self.color.findData(defaults.plane_color)
+        if color_idx >= 0:
+            self.color.setCurrentIndex(color_idx)
+        plane_idx = self.plane_combo.findData(defaults.plane)
+        if plane_idx >= 0:
+            self.plane_combo.setCurrentIndex(plane_idx)
+        self.plane_width_spin.setValue(max(120, defaults.plane_width))
+        self.in_spin.setValue(max(0, defaults.in_minutes))
+        self.repeat.setChecked(defaults.repeat_daily)
+        self.in_radio.setChecked(True)
+        self.at_time.setTime(QtCore.QTime.currentTime().addSecs(600))
+        self.sync_timing_enabled()
+        self.status_label.setStyleSheet("color: #777777;")
+        self.status_label.setText(tr("Reminder cleared."))
+
+    def on_save(self) -> None:
+        reminder = self.build_reminder()
+        self.controller.set_reminder(reminder)
+        # Show the short countdown straight away — it doubles as the "saved"
+        # confirmation, so nothing swaps in a few seconds later.
+        self.refresh_pending()
+        if self.status_label.text():
+            self.countdown.start()
+        else:
+            self.status_label.setStyleSheet("color: #1c7c2f;")
+            self.status_label.setText(tr("Reminder set."))

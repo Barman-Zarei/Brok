@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch mycat on Linux/macOS. Passes through any flags, e.g.:
+# Launch brok on Linux/macOS. Passes through any flags, e.g.:
 #   ./run.sh                     # default
 #   ./run.sh --openai            # OpenAI chat
 #   ./run.sh --ollama            # Ollama chat
@@ -26,4 +26,4 @@ if [[ "$(uname)" != "Darwin" && -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]
     fi
 fi
 
-exec "$PYTHON" -m mycat "$@"
+exec "$PYTHON" -m brok "$@"

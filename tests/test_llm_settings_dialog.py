@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6 import QtWidgets
 
-from mycat import llm_settings_ui
+from brok import llm_settings_ui
 
 
 def make_window():

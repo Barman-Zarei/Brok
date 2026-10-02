@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mycat import update_check
+from brok import update_check
 
 
 def test_parse_version():

@@ -8,7 +8,7 @@ import sys
 
 import pytest
 
-from mycat import secret_store
+from brok import secret_store
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="POSIX file modes")

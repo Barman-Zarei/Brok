@@ -6,7 +6,7 @@ import urllib.request
 
 import pytest
 
-from mycat import updater
+from brok import updater
 
 
 class FakeResponse:
@@ -46,26 +46,26 @@ def test_can_self_update():
 def test_update_hint():
     assert updater.update_hint("deb").lower().startswith("download")
     assert "AppImage" in updater.update_hint("appimage")
-    assert updater.update_hint("source") in ("git pull", "pip install --upgrade mycat")
+    assert updater.update_hint("source") in ("git pull", "pip install --upgrade brok")
 
 
 def test_asset_names():
-    assert updater.asset_name("windows") == "mycat-windows-x64.exe"
-    assert updater.asset_name("appimage") == "mycat-linux-x86_64.AppImage"
-    assert updater.asset_name("deb") == "mycat-linux-amd64.deb"
-    assert updater.asset_name("macos") in ("mycat-macos-arm64.zip", "mycat-macos-x64.zip")
+    assert updater.asset_name("windows") == "brok-windows-x64.exe"
+    assert updater.asset_name("appimage") == "brok-linux-x86_64.AppImage"
+    assert updater.asset_name("deb") == "brok-linux-amd64.deb"
+    assert updater.asset_name("macos") in ("brok-macos-arm64.zip", "brok-macos-x64.zip")
     assert updater.asset_name("source") == ""
 
 
 def test_asset_url_uses_stable_latest_download():
     url = updater.asset_url("appimage")
-    assert url == "https://github.com/yumiaura/myCat/releases/latest/download/mycat-linux-x86_64.AppImage"
+    assert url == "https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-x86_64.AppImage"
     assert updater.asset_url("source") == ""
 
 
 def test_staging_path_for_temp_kinds():
     # deb/macos/windows stage in the temp dir under their asset name.
-    assert updater.staging_path("deb").endswith("mycat-linux-amd64.deb")
+    assert updater.staging_path("deb").endswith("brok-linux-amd64.deb")
 
 
 def test_update_hint_is_git_pull_in_checkout():
@@ -127,11 +127,11 @@ def test_install_kind_is_snap_inside_a_snap(monkeypatch):
     # snapd sets SNAP for every snap app; it wins over APPIMAGE and the .deb default.
     monkeypatch.setattr(updater.sys, "frozen", True, raising=False)
     monkeypatch.setattr(updater.sys, "platform", "linux")
-    monkeypatch.setenv("SNAP", "/snap/mycat/12")
+    monkeypatch.setenv("SNAP", "/snap/brok/12")
     assert updater.install_kind() == "snap"
 
 
 def test_snap_is_told_to_refresh_not_self_updated():
     assert not updater.can_self_update("snap")
-    assert updater.update_hint("snap") == "snap refresh mycat"
+    assert updater.update_hint("snap") == "snap refresh brok"
     assert updater.asset_name("snap") == ""

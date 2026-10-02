@@ -6,9 +6,9 @@ from pathlib import Path
 
 from PySide6 import QtGui
 
-import mycat
+import brok
 
-FONT = Path(mycat.__file__).resolve().parent / "assets" / "fonts" / "NotoEmoji-Regular.ttf"
+FONT = Path(brok.__file__).resolve().parent / "assets" / "fonts" / "NotoEmoji-Regular.ttf"
 
 
 def test_emoji_font_is_bundled():

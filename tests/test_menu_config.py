@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mycat import menu_config
+from brok import menu_config
 
 
 def test_default_visibility(tmp_path):

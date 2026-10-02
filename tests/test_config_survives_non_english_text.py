@@ -1,6 +1,6 @@
 """config.ini round-trips the languages the UI ships in, on any Windows locale.
 
-myCat ships English, 한국어, 中文 and Русский, and several config values are free text the
+Brok ships English, 한국어, 中文 and Русский, and several config values are free text the
 user types — the AI prompt, the negative prompt. Text I/O without an explicit encoding uses
 the locale's codec on Windows, so a Korean prompt on a Western-locale machine raised
 UnicodeEncodeError on save rather than writing the file.
@@ -33,7 +33,7 @@ def test_a_prompt_round_trips_whatever_the_machine_locale_is(tmp_path, monkeypat
     Both halves on purpose. Naming utf-8 on the write alone moves the failure rather than
     fixing it: the save succeeds and the next start raises UnicodeDecodeError instead.
     """
-    from mycat import ai_backends
+    from brok import ai_backends
 
     cfg = tmp_path / "config.ini"
     monkeypatch.setattr(ai_backends, "CFG_DIR", tmp_path)
@@ -81,7 +81,7 @@ def test_a_config_written_before_utf8_still_opens(tmp_path, monkeypatch, codec, 
     just refuse to crash on one, but read the value back correctly, via the locale-codec
     fallback in `config_store.read_config_text`.
     """
-    from mycat import config_store
+    from brok import config_store
 
     try:
         as_locale = text.encode(codec)

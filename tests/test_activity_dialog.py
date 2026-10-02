@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from mycat.activity import ActivityCollector, ActivitySettings
-from mycat.activity_store import ActivityStore
-from mycat.activity_ui import ActivityDialog
-from mycat.focus import FocusController
+from brok.activity import ActivityCollector, ActivitySettings
+from brok.activity_store import ActivityStore
+from brok.activity_ui import ActivityDialog
+from brok.focus import FocusController
 
 
 class FakeNow:
@@ -60,7 +60,7 @@ def test_now_line_mirrors_focus_tooltip(tmp_path, qapp):
 
 
 def test_table_has_session_rows_and_totals(tmp_path, qapp):
-    from mycat import activity_store
+    from brok import activity_store
 
     dialog, controller, now = make_dialog(tmp_path)
     store = controller.store
@@ -225,9 +225,9 @@ def test_save_writes_three_flags(tmp_path, qapp, monkeypatch):
     dialog, controller, now = make_dialog(tmp_path)
     saved = []
     focus_saved = []
-    # Never touch the real ~/.config/mycat/config.ini from a test.
-    monkeypatch.setattr("mycat.activity.save_activity_settings", lambda settings, **kw: saved.append(settings))
-    monkeypatch.setattr("mycat.focus.save_focus_settings", lambda settings, **kw: focus_saved.append(settings))
+    # Never touch the real ~/.config/brok/config.ini from a test.
+    monkeypatch.setattr("brok.activity.save_activity_settings", lambda settings, **kw: saved.append(settings))
+    monkeypatch.setattr("brok.focus.save_focus_settings", lambda settings, **kw: focus_saved.append(settings))
     dialog.enabled_box.setChecked(True)
     dialog.mouse_box.setChecked(True)
     dialog.keyboard_box.setChecked(False)
@@ -243,8 +243,8 @@ def test_save_writes_three_flags(tmp_path, qapp, monkeypatch):
 def test_save_persists_and_applies_pomodoro_goal(tmp_path, qapp, monkeypatch):
     dialog, controller, now = make_dialog(tmp_path)
     focus_saved = []
-    monkeypatch.setattr("mycat.activity.save_activity_settings", lambda settings, **kw: None)
-    monkeypatch.setattr("mycat.focus.save_focus_settings", lambda settings, **kw: focus_saved.append(settings))
+    monkeypatch.setattr("brok.activity.save_activity_settings", lambda settings, **kw: None)
+    monkeypatch.setattr("brok.focus.save_focus_settings", lambda settings, **kw: focus_saved.append(settings))
     dialog.goal_spin.setValue(30)
     dialog.save_settings()
     assert len(focus_saved) == 1
@@ -256,8 +256,8 @@ def test_save_persists_and_applies_pomodoro_goal(tmp_path, qapp, monkeypatch):
 def test_save_persists_and_applies_tooltip_toggle(tmp_path, qapp, monkeypatch):
     dialog, controller, now = make_dialog(tmp_path)
     focus_saved = []
-    monkeypatch.setattr("mycat.activity.save_activity_settings", lambda settings, **kw: None)
-    monkeypatch.setattr("mycat.focus.save_focus_settings", lambda settings, **kw: focus_saved.append(settings))
+    monkeypatch.setattr("brok.activity.save_activity_settings", lambda settings, **kw: None)
+    monkeypatch.setattr("brok.focus.save_focus_settings", lambda settings, **kw: focus_saved.append(settings))
     assert not dialog.tooltip_box.isChecked()  # off by default
     dialog.tooltip_box.setChecked(True)
     dialog.save_settings()

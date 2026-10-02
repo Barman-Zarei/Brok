@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from mycat import reminder
+from brok import reminder
 
 
 def test_normalized_direction():
@@ -41,7 +41,7 @@ def test_plane_roundtrips_through_config(monkeypatch, tmp_path):
 
 
 def test_available_planes_lists_bundled_sprites():
-    from mycat import reminder_ui
+    from brok import reminder_ui
 
     planes = reminder_ui.available_planes()
     assert "plane1" in planes

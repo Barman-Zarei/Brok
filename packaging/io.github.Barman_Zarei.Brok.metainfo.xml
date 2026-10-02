@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata: the name, summary and screenshot that the AppImage
+     catalog (appimage.github.io) and software centres show for Brok. Shipped
+     in the AppImage and the .deb under /usr/share/metainfo/. -->
+<component type="desktop-application">
+  <id>io.github.Barman_Zarei.Brok</id>
+  <name>Brok</name>
+  <summary>A tiny animated desktop pet cat</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <developer id="io.github.Barman_Zarei">
+    <name>Barman</name>
+  </developer>
+  <description>
+    <p>
+      A small cat that sits on your desktop, blinks, follows your cursor with its
+      eyes, and flies little reminder banners across the screen. The window has
+      no borders and can be dragged anywhere.
+    </p>
+  </description>
+  <launchable type="desktop-id">brok.desktop</launchable>
+  <url type="homepage">https://github.com/Barman-Zarei/Brok</url>
+  <url type="bugtracker">https://github.com/Barman-Zarei/Brok/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>The cat on the desktop</caption>
+      <image>https://raw.githubusercontent.com/Barman-Zarei/Brok/main/docs/screenshot.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+</component>

@@ -1,10 +1,10 @@
-# Make your own mycat char
+# Make your own brok char
 
 ## Generate a custom chibi cat with OpenAI
 
 Right-click the desktop cat and choose **Chars → Create custom with AI…**. Add
 one to three reference photos of the same person, enter a character name and an
-OpenAI API key, then generate. myCat sends resized copies of the references in
+OpenAI API key, then generate. Brok sends resized copies of the references in
 one Image API request and stores only the resulting character pack locally;
 selecting the saved character later does not call the API again.
 
@@ -16,12 +16,12 @@ call.
 Generated characters appear beside the bundled characters. Remove one with
 **Chars → Delete custom**. Deleting is local and does not make an API request.
 The key can be remembered in the operating-system keyring when the optional
-`mycat[secure]` dependency and a supported keyring backend are available;
+`brok[secure]` dependency and a supported keyring backend are available;
 otherwise use `OPENAI_API_KEY` or enter it for each generation.
 
 The generator uses `gpt-image-1.5` because these packs need a transparent PNG
 background. Reference photos are resized in memory to reduce image-input usage
-and are not copied to the myCat data directory.
+and are not copied to the Brok data directory.
 
 A char is a single `<name>.zip`. The simplest is one animated **GIF** - see the
 Quick start below. The full format turns the cat into a small **state machine**:
@@ -33,7 +33,7 @@ animations that play on idle, on click, on wake/sleep, and on low battery.
 ## Quick start - a simple char (one GIF)
 
 The simplest char needs no `config.json` and no eyes - just **one animated GIF**
-in a zip. Its first frame is the resting pose myCat shows while idle; the rest is
+in a zip. Its first frame is the resting pose Brok shows while idle; the rest is
 the little animation that plays now and then.
 
 1. **Draw a few frames** with a transparent background (PNGs work well). Frame 1
@@ -52,13 +52,13 @@ the little animation that plays now and then.
    zip redcat.zip redcat.gif
    ```
 4. **Try it right away**
-   - Launch with it: `mycat --image /path/to/redcat.zip`
+   - Launch with it: `brok --image /path/to/redcat.zip`
    - Or install it: drop `redcat.zip` into your chars folder and it shows up in
      the right-click **Chars** menu instantly (no restart):
-     - **Linux:** `~/.local/share/mycat/chars/` (or `$XDG_DATA_HOME/mycat/chars/`)
-     - **macOS:** `~/Library/Application Support/mycat/chars/`
-     - **Windows:** `%LOCALAPPDATA%\mycat\chars\`
-5. **Share it** (optional) - put `redcat.zip` in `mycat/chars/` and open a pull
+     - **Linux:** `~/.local/share/brok/chars/` (or `$XDG_DATA_HOME/brok/chars/`)
+     - **macOS:** `~/Library/Application Support/brok/chars/`
+     - **Windows:** `%LOCALAPPDATA%\brok\chars\`
+5. **Share it** (optional) - put `redcat.zip` in `brok/chars/` and open a pull
    request. ⚠️ Only share art **you drew yourself**.
 
 Keep it within ~300×500 (anything larger is scaled down proportionally). Want
@@ -233,7 +233,7 @@ cat.zip
 
 ## Implementation status
 
-The full state machine is **live** (`mycat/char_pack.py` + `PixelCatWindow`):
+The full state machine is **live** (`brok/char_pack.py` + `PixelCatWindow`):
 awake (cursor-tracking pupils), blink, click reaction (`clickN.gif` or squint),
 idle-random (`idleN.gif`), yawn, sleep (`sleep_in/out` + held `sleep.png`), and
 hungry (`hungryN.gif` on low battery), plus the `idle` and `battery` config

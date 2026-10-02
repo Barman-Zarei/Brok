@@ -8,7 +8,7 @@ import urllib.request
 
 import pytest
 
-from mycat import llm_openai_compat
+from brok import llm_openai_compat
 
 
 class FakeResponse:

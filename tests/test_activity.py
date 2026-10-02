@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from mycat import activity_store
-from mycat.activity import (
+from brok import activity_store
+from brok.activity import (
     ACTIVE_MOUSE_PX_THRESHOLD,
     ActivityCollector,
     ActivitySettings,
@@ -15,7 +15,7 @@ from mycat.activity import (
     load_activity_settings,
     save_activity_settings,
 )
-from mycat.activity_store import ActivityStore
+from brok.activity_store import ActivityStore
 
 
 class FakePoint:

@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from mycat import autostart
+from brok import autostart
 
 
 def test_launch_command_is_nonempty():
@@ -14,7 +14,7 @@ def test_launch_command_is_nonempty():
 
 
 def test_launch_command_quotes_installed_script_path(monkeypatch):
-    exe = "/home/anna maria/.local/bin/mycat"
+    exe = "/home/anna maria/.local/bin/brok"
     monkeypatch.setattr(autostart.shutil, "which", lambda _name: exe)
     assert autostart.launch_command() == f'"{exe}"'
 
@@ -23,7 +23,7 @@ def test_launch_command_fallback_quotes_python(monkeypatch):
     monkeypatch.setattr(autostart.shutil, "which", lambda _name: None)
     command = autostart.launch_command()
     assert command.startswith(f'"{sys.executable}"')
-    assert command.endswith("-m mycat")
+    assert command.endswith("-m brok")
 
 
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux XDG autostart")
@@ -31,7 +31,7 @@ def test_linux_desktop_exec_survives_space_in_path(monkeypatch, tmp_path):
     import shlex
 
     monkeypatch.setenv("HOME", str(tmp_path))
-    exe = "/home/anna maria/.local/bin/mycat"
+    exe = "/home/anna maria/.local/bin/brok"
     monkeypatch.setattr(autostart.shutil, "which", lambda _name: exe)
 
     autostart.set_enabled(True)
@@ -45,7 +45,7 @@ def test_linux_desktop_exec_survives_space_in_path(monkeypatch, tmp_path):
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux XDG autostart")
 def test_linux_enable_disable_roundtrip(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
-    desktop = tmp_path / ".config" / "autostart" / "mycat.desktop"
+    desktop = tmp_path / ".config" / "autostart" / "brok.desktop"
 
     assert autostart.is_enabled() is False
     autostart.set_enabled(True)
@@ -60,5 +60,5 @@ def test_linux_enable_disable_roundtrip(monkeypatch, tmp_path):
 
 def test_launch_command_inside_a_snap_names_the_snap(monkeypatch):
     # The $SNAP path changes with every revision; the snap's command does not.
-    monkeypatch.setenv("SNAP_NAME", "mycat")
-    assert autostart.launch_command() == "mycat"
+    monkeypatch.setenv("SNAP_NAME", "brok")
+    assert autostart.launch_command() == "brok"

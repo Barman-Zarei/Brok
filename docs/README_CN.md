@@ -1,80 +1,51 @@
-[EN](https://github.com/yumiaura/myCat/blob/main/README.md) | [RU](https://github.com/yumiaura/myCat/blob/main/docs/README_RU.md) | CN | [ID](https://github.com/yumiaura/myCat/blob/main/docs/README_ID.md) | [KO](https://github.com/yumiaura/myCat/blob/main/docs/README_KO.md)
+[EN](https://github.com/Barman-Zarei/Brok/blob/main/README.md) | [RU](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_RU.md) | CN | [ID](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_ID.md) | [KO](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_KO.md)
 
 # 桌面猫咪：QT 悬浮应用 🐱
 
-[<img src="https://raw.githubusercontent.com/yumiaura/myCat/refs/heads/main/docs/cat.gif" width="164" alt="cat.gif"/>](https://github.com/yumiaura)
+[<img src="https://raw.githubusercontent.com/Barman-Zarei/Brok/refs/heads/main/docs/cat.gif" width="164" alt="cat.gif"/>](https://github.com/yumiaura)
 
 <p class="badges">
-  <a href="https://github.com/yumiaura/myCat/releases/latest"><img src="https://img.shields.io/github/v/release/yumiaura/myCat?label=download&color=blue" alt="Latest release"></a>
-  <img src="https://img.shields.io/pypi/pyversions/mycat?color=brightgreen" alt="Python Versions">
-  <a href="https://pypi.org/project/mycat/"><img src="https://img.shields.io/pypi/v/mycat?color=brightgreen" alt="PyPI Version"></a>
-  <a href="https://pypi.org/project/mycat/"><img src="https://img.shields.io/pepy/dt/mycat?label=pypi%20%7C%20downloads&color=brightgreen" alt="Pepy Total Downloads"/></a>
-  <a href="https://buymeacoffee.com/yumiaura"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=000" alt="Buy Me a Coffee"></a>
-  <a href="https://www.patreon.com/yumiaura"><img src="https://img.shields.io/badge/Patreon-support-F96854?logo=patreon&logoColor=fff" alt="Patreon"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest"><img src="https://img.shields.io/github/v/release/Barman-Zarei/Brok?label=download&color=blue" alt="Latest release"></a>
+  <img src="https://img.shields.io/pypi/pyversions/brok?color=brightgreen" alt="Python Versions">
+  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pypi/v/brok?color=brightgreen" alt="PyPI Version"></a>
+  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pepy/dt/brok?label=pypi%20%7C%20downloads&color=brightgreen" alt="Pepy Total Downloads"/></a>
 </p>
 
 我为您制作了一只可爱的小动画猫咪 🐈，陪伴您的桌面。<br>
 这是一个轻量级的 Python + Qt 应用 —— 无边框，可轻松拖动。<br>
 启动时先静态显示第一帧 5 秒，然后播放一次 GIF 动画，再回到静态第一帧。<br>
-如果您喜欢，下次也许我会分享 [AnimeGirl](https://github.com/yumiaura/mycat/discussions/1) 版本~ 😉
+如果您喜欢，下次也许我会分享 [AnimeGirl](https://github.com/Barman-Zarei/Brok/discussions/1) 版本~ 😉
 
 ## 🚀 快速开始
 
 选择最方便的方式 —— 猫咪支持 **Windows、macOS 和 Linux**。
-
-### Homebrew (macOS)
-
-从 [yumiaura tap](https://github.com/yumiaura/homebrew-tap) 安装：
-
-```bash
-brew install --cask yumiaura/tap/mycat
-```
-
-也可以先添加 tap，再安装应用：
-
-```bash
-brew tap yumiaura/tap
-brew install --cask mycat
-```
-
-更新：
-
-```bash
-brew upgrade --cask mycat
-```
-
-卸载：
-
-```bash
-brew uninstall --cask mycat
-```
 
 ### 方式 A —— 预编译二进制（无需 Python）
 
 选择适合你系统的版本 —— 每个按钮都会下载**最新发布**：
 
 <p>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-windows-x64.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0wIDMuNDQ5IDkuNzUgMi4xdjkuNDUxSDB6TTEwLjk0OSAxLjk0OSAyNCAwdjExLjRIMTAuOTQ5ek0wIDEyLjZoOS43NXY5LjQ1MUwwIDIwLjY5OXpNMTAuOTQ5IDEyLjZIMjRWMjRsLTEyLjktMS44MDF6Ii8%2BPC9zdmc%2B" alt="Windows"></a>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white" alt="macOS Apple Silicon"></a>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-macos-x64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Intel-555555?logo=apple&logoColor=white" alt="macOS Intel"></a>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-linux-amd64.deb"><img src="https://img.shields.io/badge/Download-Linux%20.deb-A81D33?logo=debian&logoColor=white" alt="Linux .deb"></a>
-  <a href="https://github.com/yumiaura/myCat/releases/latest/download/mycat-linux-x86_64.AppImage"><img src="https://img.shields.io/badge/Download-Linux%20AppImage-FCC624?logo=linux&logoColor=black" alt="Linux AppImage"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-windows-x64.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0wIDMuNDQ5IDkuNzUgMi4xdjkuNDUxSDB6TTEwLjk0OSAxLjk0OSAyNCAwdjExLjRIMTAuOTQ5ek0wIDEyLjZoOS43NXY5LjQ1MUwwIDIwLjY5OXpNMTAuOTQ5IDEyLjZIMjRWMjRsLTEyLjktMS44MDF6Ii8%2BPC9zdmc%2B" alt="Windows"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white" alt="macOS Apple Silicon"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-x64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Intel-555555?logo=apple&logoColor=white" alt="macOS Intel"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-amd64.deb"><img src="https://img.shields.io/badge/Download-Linux%20.deb-A81D33?logo=debian&logoColor=white" alt="Linux .deb"></a>
+  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-x86_64.AppImage"><img src="https://img.shields.io/badge/Download-Linux%20AppImage-FCC624?logo=linux&logoColor=black" alt="Linux AppImage"></a>
 </p>
 
 然后运行：
 
 - **Windows** —— 双击 `.exe`。
-- **macOS** —— 解压并打开 `mycat.app`（首次启动：右键 → **打开** 以绕过 Gatekeeper）。
-- **Linux `.deb`** —— `sudo apt install ./mycat-linux-amd64.deb`。
-- **Linux AppImage** —— `chmod +x mycat-linux-x86_64.AppImage && ./mycat-linux-x86_64.AppImage`（需要 FUSE：`sudo apt install libfuse2`）。
+- **macOS** —— 解压并打开 `brok.app`（首次启动：右键 → **打开** 以绕过 Gatekeeper）。
+- **Linux `.deb`** —— `sudo apt install ./brok-linux-amd64.deb`。
+- **Linux AppImage** —— `chmod +x brok-linux-x86_64.AppImage && ./brok-linux-x86_64.AppImage`（需要 FUSE：`sudo apt install libfuse2`）。
 
-> 所有版本的构建都在 **[Releases](https://github.com/yumiaura/myCat/releases)** 页面。
+> 所有版本的构建都在 **[Releases](https://github.com/Barman-Zarei/Brok/releases)** 页面。
 
 ### 方式 B —— pip（Windows / macOS / Linux，Python ≥ 3.10）
 
 ```bash
-pip install mycat
-mycat
+pip install brok
+brok
 ```
 
 在 **Linux** 上还需安装一次 Qt 平台插件：
@@ -83,15 +54,15 @@ mycat
 sudo apt install -y libxcb-cursor0
 ```
 
-升级或卸载：`pip install -U mycat` / `pip uninstall mycat`。
+升级或卸载：`pip install -U brok` / `pip uninstall brok`。
 
 ### 方式 C —— 从源码运行
 
 ```bash
-git clone https://github.com/yumiaura/myCat
-cd myCat
+git clone https://github.com/Barman-Zarei/Brok
+cd Brok
 pip install .
-mycat                 # 或者不安装直接运行：python3 mycat/main.py
+brok                 # 或者不安装直接运行：python3 brok/main.py
 ```
 
 ## ✨ 功能
@@ -108,18 +79,18 @@ mycat                 # 或者不安装直接运行：python3 mycat/main.py
    ```bash
    ollama pull llama3.1
    ```
-2. 启动 **mycat**，右键猫咪 → **Ollama…**
+2. 启动 **brok**，右键猫咪 → **Ollama…**
 3. 设置主机/端口（默认 `localhost:11434`），点击 **Load models**，选择一个模型，点 **Test**，然后 **Save** 并勾选 **LLM enabled**。
 4. 右键 → **Chat** 开始聊天。🐾
 
 ## 🎮 用法与选项
 
-运行 `mycat`（或从源码 `python3 mycat/main.py`），用命令行选项自定义。
+运行 `brok`（或从源码 `python3 brok/main.py`），用命令行选项自定义。
 
 **`--image, -i <路径>`** 🖼️ —— 使用自定义 ZIP（含一个 GIF）代替默认猫咪：
 
 ```bash
-mycat --image ~/my-custom-cat.zip
+brok --image ~/my-custom-cat.zip
 ```
 
 角色 **ZIP** 必须只含一个 `.gif`：第一帧为静态姿势，GIF 播放一次后回到该帧。超过 300×500 的图片会自动缩小。
@@ -127,7 +98,7 @@ mycat --image ~/my-custom-cat.zip
 **`--pos <x> <y>`** 📍 —— 指定起始位置（否则猫咪出现在右下角并记住上次拖动的位置）：
 
 ```bash
-mycat --pos 960 540        # 1920x1080 屏幕中心
+brok --pos 960 540        # 1920x1080 屏幕中心
 ```
 
 **`--wait <秒>`** ⏱️ —— 播放动画前保持静态第一帧的时长。
@@ -140,7 +111,7 @@ mycat --pos 960 540        # 1920x1080 屏幕中心
 - **右键** 打开菜单（角色、Reminder…、Ollama…、Chat、Quit）。
 - 从菜单 **退出**，或在终端按 Ctrl+C。
 
-猫咪会把位置和所选角色保存在 `~/.config/mycat/config.ini`。
+猫咪会把位置和所选角色保存在 `~/.config/brok/config.ini`。
 
 ## 🎬 制作自己的猫咪 GIF
 
@@ -178,7 +149,7 @@ docker compose -f docker-compose.mac.yml up
 ## 🔧 故障排查
 
 **猫咪显示在黑框里 / 透明无效** 🫥
-- X11 的透明需要合成器。无合成器时 mycat 会沿猫咪轮廓裁剪窗口，所以很少出现；若仍有黑框，请启用显示合成（XFCE：*Window Manager Tweaks → Compositor*）或运行 `picom` 之类的合成器。
+- X11 的透明需要合成器。无合成器时 brok 会沿猫咪轮廓裁剪窗口，所以很少出现；若仍有黑框，请启用显示合成（XFCE：*Window Manager Tweaks → Compositor*）或运行 `picom` 之类的合成器。
 
 **窗口不置顶 / 不显示在任务栏** 📌
 - 某些窗口管理器会覆盖“置顶”设置 —— 重启桌面会话或检查 WM 设置。
@@ -187,7 +158,7 @@ docker compose -f docker-compose.mac.yml up
 - ZIP 必须只含一个有效的 `.gif`。检查路径与文件是否损坏。
 
 **位置不保存** 💾
-- 确保 `~/.config/mycat/` 存在且可写；配置文件为 `~/.config/mycat/config.ini`。
+- 确保 `~/.config/brok/` 存在且可写；配置文件为 `~/.config/brok/config.ini`。
 
 **Windows / 启动问题** 🪟
 - pip 安装需要 Python ≥ 3.10（`python --version`），或直接用预编译的 `.exe`。
@@ -195,11 +166,11 @@ docker compose -f docker-compose.mac.yml up
 - 验证 PySide6：`python -c "import PySide6; print('PySide6 OK')"`。
 
 **权限错误** 🔒
-- 在 Linux 上优先用户安装而非 `sudo`（`pip install --user mycat`）。
+- 在 Linux 上优先用户安装而非 `sudo`（`pip install --user brok`）。
 
 ### 🤝 获取帮助
 
-- 在 [GitHub Issues](https://github.com/yumiaura/myCat/issues) 搜索类似问题。
+- 在 [GitHub Issues](https://github.com/Barman-Zarei/Brok/issues) 搜索类似问题。
 - 阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 了解开发环境。
 - 新建 issue，附上系统、桌面环境、Python 版本和终端错误信息。
 

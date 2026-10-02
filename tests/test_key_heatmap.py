@@ -5,8 +5,8 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from mycat import activity_store, key_heatmap
-from mycat.activity import ActivityCollector, ActivitySettings
+from brok import activity_store, key_heatmap
+from brok.activity import ActivityCollector, ActivitySettings
 
 
 class FakeKeyCode:

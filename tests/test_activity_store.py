@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from mycat.activity_store import BREAK, FOCUS, ActivityStore
+from brok.activity_store import BREAK, FOCUS, ActivityStore
 
 
 def test_creates_db_and_records_sessions(tmp_path):

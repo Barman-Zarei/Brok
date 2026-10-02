@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from mycat.github_notify import GitHubSettings
-from mycat.github_ui import INBOX_CHOICES, GitHubDialog
+from brok.github_notify import GitHubSettings
+from brok.github_ui import INBOX_CHOICES, GitHubDialog
 
 
 class _Notifier:

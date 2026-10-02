@@ -38,19 +38,19 @@ jobs:
           pip install openai
 
       - name: Build with PyInstaller
-        run: pyinstaller --noconfirm mycat.spec
+        run: pyinstaller --noconfirm brok.spec
 
       - name: Rename artefact
         shell: bash
         run: |
           # Version-less name so /releases/latest/download/<name> is a stable link.
-          mv dist/mycat.exe "dist/mycat-windows-x64.exe"
+          mv dist/brok.exe "dist/brok-windows-x64.exe"
           ls -la dist/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mycat-windows
-          path: dist/mycat-windows-x64.exe
+          name: brok-windows
+          path: dist/brok-windows-x64.exe
           if-no-files-found: error
 
   build-macos:
@@ -71,20 +71,20 @@ jobs:
           pip install openai
 
       - name: Build with PyInstaller
-        run: pyinstaller --noconfirm mycat.spec
+        run: pyinstaller --noconfirm brok.spec
 
       - name: Stamp the app version into Info.plist
         run: |
           # The spec ships a 0.0.0 placeholder; write the real version so macOS
           # sees a new version on each update and refreshes the app icon/metadata
           # (a stale bundle version makes LaunchServices keep the cached icon).
-          VERSION=$(python -c "import importlib.metadata as m; print(m.version('mycat'))")
-          PLIST=dist/mycat.app/Contents/Info.plist
+          VERSION=$(python -c "import importlib.metadata as m; print(m.version('brok'))")
+          PLIST=dist/brok.app/Contents/Info.plist
           for key in CFBundleShortVersionString CFBundleVersion; do
             /usr/libexec/PlistBuddy -c "Set :$key $VERSION" "$PLIST" \
               || /usr/libexec/PlistBuddy -c "Add :$key string $VERSION" "$PLIST"
           done
-          echo "Stamped mycat.app version = $VERSION"
+          echo "Stamped brok.app version = $VERSION"
 
       - name: Zip .app bundle
         run: |
@@ -92,13 +92,13 @@ jobs:
           # ditto is the recommended way to zip a macOS bundle — preserves
           # extended attrs/resource forks unlike plain `zip -r`. Version-less
           # name so /releases/latest/download/<name> is a stable link.
-          ditto -c -k --keepParent mycat.app "mycat-macos-arm64.zip"
+          ditto -c -k --keepParent brok.app "brok-macos-arm64.zip"
           ls -la
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mycat-macos
-          path: dist/mycat-macos-arm64.zip
+          name: brok-macos
+          path: dist/brok-macos-arm64.zip
           if-no-files-found: error
 
   build-macos-intel:
@@ -122,20 +122,20 @@ jobs:
           pip install openai
 
       - name: Build with PyInstaller
-        run: pyinstaller --noconfirm mycat.spec
+        run: pyinstaller --noconfirm brok.spec
 
       - name: Stamp the app version into Info.plist
         run: |
           # The spec ships a 0.0.0 placeholder; write the real version so macOS
           # sees a new version on each update and refreshes the app icon/metadata
           # (a stale bundle version makes LaunchServices keep the cached icon).
-          VERSION=$(python -c "import importlib.metadata as m; print(m.version('mycat'))")
-          PLIST=dist/mycat.app/Contents/Info.plist
+          VERSION=$(python -c "import importlib.metadata as m; print(m.version('brok'))")
+          PLIST=dist/brok.app/Contents/Info.plist
           for key in CFBundleShortVersionString CFBundleVersion; do
             /usr/libexec/PlistBuddy -c "Set :$key $VERSION" "$PLIST" \
               || /usr/libexec/PlistBuddy -c "Add :$key string $VERSION" "$PLIST"
           done
-          echo "Stamped mycat.app version = $VERSION"
+          echo "Stamped brok.app version = $VERSION"
 
       - name: Zip .app bundle
         run: |
@@ -143,13 +143,13 @@ jobs:
           # ditto is the recommended way to zip a macOS bundle — preserves
           # extended attrs/resource forks unlike plain `zip -r`. Version-less
           # name so /releases/latest/download/<name> is a stable link.
-          ditto -c -k --keepParent mycat.app "mycat-macos-x64.zip"
+          ditto -c -k --keepParent brok.app "brok-macos-x64.zip"
           ls -la
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mycat-macos-intel
-          path: dist/mycat-macos-x64.zip
+          name: brok-macos-intel
+          path: dist/brok-macos-x64.zip
           if-no-files-found: error
 
   release:
@@ -167,9 +167,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/mycat-windows/*
-            artifacts/mycat-macos/*
-            artifacts/mycat-macos-intel/*
+            artifacts/brok-windows/*
+            artifacts/brok-macos/*
+            artifacts/brok-macos-intel/*
           fail_on_unmatched_files: true
           # Auto-generated notes from PRs/commits since the previous tag.
           generate_release_notes: true

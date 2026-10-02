@@ -54,22 +54,22 @@ jobs:
           pip install openai
 
       - name: Build with PyInstaller
-        run: pyinstaller --noconfirm mycat.spec
+        run: pyinstaller --noconfirm brok.spec
 
       - name: Assemble AppDir and build AppImage
         run: |
           set -euo pipefail
           mkdir -p AppDir/usr/bin AppDir/usr/share/icons/hicolor/256x256/apps
-          install -m0755 dist/mycat AppDir/usr/bin/mycat
-          # The .desktop and icon must sit at the AppDir root (Icon=mycat ->
-          # AppDir/mycat.png), and a copy under hicolor is good practice.
-          install -m0644 packaging/mycat.desktop AppDir/mycat.desktop
-          install -m0644 packaging/mycat.png AppDir/mycat.png
-          install -m0644 packaging/mycat.png AppDir/usr/share/icons/hicolor/256x256/apps/mycat.png
+          install -m0755 dist/brok AppDir/usr/bin/brok
+          # The .desktop and icon must sit at the AppDir root (Icon=brok ->
+          # AppDir/brok.png), and a copy under hicolor is good practice.
+          install -m0644 packaging/brok.desktop AppDir/brok.desktop
+          install -m0644 packaging/brok.png AppDir/brok.png
+          install -m0644 packaging/brok.png AppDir/usr/share/icons/hicolor/256x256/apps/brok.png
           # AppStream metadata: the AppImage catalog shows its summary and
           # screenshot instead of a capture of the first-run dialog.
-          install -Dm0644 packaging/io.github.yumiaura.myCat.metainfo.xml AppDir/usr/share/metainfo/io.github.yumiaura.myCat.metainfo.xml
-          printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexec "$HERE/usr/bin/mycat" "$@"\n' > AppDir/AppRun
+          install -Dm0644 packaging/io.github.Barman_Zarei.Brok.metainfo.xml AppDir/usr/share/metainfo/io.github.Barman_Zarei.Brok.metainfo.xml
+          printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexec "$HERE/usr/bin/brok" "$@"\n' > AppDir/AppRun
           chmod +x AppDir/AppRun
 
           # appimagetool from AppImage/appimagetool, not the retired AppImageKit:
@@ -83,24 +83,24 @@ jobs:
           # changes, and AppImageUpdate, Gear Lever and similar tools fetch only
           # the changed blocks of a new release.
           ARCH=x86_64 ./appimagetool --appimage-extract-and-run \
-            -u "gh-releases-zsync|yumiaura|myCat|latest|mycat-linux-x86_64.AppImage.zsync" \
-            AppDir mycat-linux-x86_64.AppImage
+            -u "gh-releases-zsync|Barman-Zarei|Brok|latest|brok-linux-x86_64.AppImage.zsync" \
+            AppDir brok-linux-x86_64.AppImage
           # Fail rather than publish an AppImage whose update file is missing.
-          test -s mycat-linux-x86_64.AppImage.zsync
-          ls -la mycat-linux-x86_64.AppImage mycat-linux-x86_64.AppImage.zsync
+          test -s brok-linux-x86_64.AppImage.zsync
+          ls -la brok-linux-x86_64.AppImage brok-linux-x86_64.AppImage.zsync
           # The same file under a name without "linux", which the AppImage
           # catalog asks for. The original name stays: the README links to it,
           # and the update information of every AppImage out there points at
           # its .zsync.
-          cp mycat-linux-x86_64.AppImage mycat-x86_64.AppImage
+          cp brok-linux-x86_64.AppImage brok-x86_64.AppImage
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mycat-appimage
+          name: brok-appimage
           path: |
-            mycat-linux-x86_64.AppImage
-            mycat-linux-x86_64.AppImage.zsync
-            mycat-x86_64.AppImage
+            brok-linux-x86_64.AppImage
+            brok-linux-x86_64.AppImage.zsync
+            brok-x86_64.AppImage
           if-no-files-found: error
 
       - name: Attach AppImage to the GitHub Release
@@ -108,8 +108,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            mycat-linux-x86_64.AppImage
-            mycat-linux-x86_64.AppImage.zsync
+            brok-linux-x86_64.AppImage
+            brok-linux-x86_64.AppImage.zsync
           fail_on_unmatched_files: true
 
       # A step of its own, after the one above, so this copy is uploaded last:
@@ -119,5 +119,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: mycat-x86_64.AppImage
+          files: brok-x86_64.AppImage
           fail_on_unmatched_files: true

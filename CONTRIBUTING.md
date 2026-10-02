@@ -1,6 +1,6 @@
-# myCat — for contributors 🐱
+# Brok — for contributors 🐱
 
-Hi — and thank you for being here. myCat is a tiny desktop pet, and its little
+Hi — and thank you for being here. Brok is a tiny desktop pet, and its little
 characters (the "skins") are the whole point of it. This is a short, friendly
 guide for anyone who'd like to add one or help out.
 
@@ -14,7 +14,7 @@ Good news: a skin is tiny. Under the hood it's just **one animated GIF inside a
 - The **ZIP's filename is the name shown in the menu** — `redcat.zip` appears as
   **redcat**.
 - Inside the ZIP there's a single animated **`.gif`**.
-- The GIF's **first frame is the resting pose** myCat shows while idle (for about
+- The GIF's **first frame is the resting pose** Brok shows while idle (for about
   5 seconds, or `--wait` seconds). Then the GIF plays through once and settles
   back on that first frame.
 - Keep it within **300×500 px** — anything larger is scaled down automatically
@@ -41,7 +41,7 @@ convert -delay 12 -loop 0 frame1.png frame2.png frame3.png redcat.gif
 convert sheet.png -crop 50%x100% +repage -set delay '200,100' -loop 0 redcat.gif
 ```
 
-`-delay` is in hundredths of a second per frame; `-loop 0` is fine — myCat
+`-delay` is in hundredths of a second per frame; `-loop 0` is fine — Brok
 handles the "play once, then rest" behaviour itself.
 
 ### 4. Package it as a ZIP
@@ -54,23 +54,23 @@ zip redcat.zip redcat.gif
 
 ### 5. Try it right away
 
-- **Launch with it:** `mycat --image /path/to/redcat.zip`
+- **Launch with it:** `brok --image /path/to/redcat.zip`
 - **Install it for keeps:** drop `redcat.zip` into your personal chars folder and
   it shows up in the right-click **Chars** menu instantly — no restart:
-  - **Linux:** `~/.local/share/mycat/chars/` (or `$XDG_DATA_HOME/mycat/chars/`)
-  - **macOS:** `~/Library/Application Support/mycat/chars/`
-  - **Windows:** `%LOCALAPPDATA%\mycat\chars\`
+  - **Linux:** `~/.local/share/brok/chars/` (or `$XDG_DATA_HOME/brok/chars/`)
+  - **macOS:** `~/Library/Application Support/brok/chars/`
+  - **Windows:** `%LOCALAPPDATA%\brok\chars\`
 
 ### 6. Share it with everyone (optional)
 
-Want it bundled with myCat for everyone? Put `redcat.zip` into `mycat/chars/`
+Want it bundled with Brok for everyone? Put `redcat.zip` into `brok/chars/`
 and open a pull request. ⚠️ Please only share art **you drew yourself** — see
 **Artwork & licensing** below.
 
 ### If something looks off
 
 - **A black box around the cat** → the GIF needs a transparent background. (On
-  Linux/X11 a compositor helps; without one, myCat clips the window to the cat's
+  Linux/X11 a compositor helps; without one, Brok clips the window to the cat's
   outline.)
 - **It doesn't move** → make sure it's a real multi-frame animated GIF, not a
   single still image.
@@ -81,8 +81,8 @@ and open a pull request. ⚠️ Please only share art **you drew yourself** — 
 1. Draw your frames — **first frame = idle pose**, transparent background, ≤300×500.
 2. Export them as one **animated GIF**.
 3. `zip myname.zip myname.gif` — the **zip name is the menu name**.
-4. Test it: `mycat --image myname.zip`, or drop the zip in your chars folder.
-5. To contribute it: put it in `mycat/chars/` and open a PR — **only your own art.**
+4. Test it: `brok --image myname.zip`, or drop the zip in your chars folder.
+5. To contribute it: put it in `brok/chars/` and open a PR — **only your own art.**
 
 ## 🐞 Hit a problem? Open an Issue
 
@@ -93,10 +93,10 @@ it.
 ## 🛠 Working on the code
 
 ```bash
-git clone https://github.com/yumiaura/mycat.git
-cd mycat
+git clone https://github.com/Barman-Zarei/Brok.git
+cd brok
 pip install -e .          # add [calendar] for ICS reminders, [secure] for the OS keyring
-./run.sh                  # or: mycat / python -m mycat
+./run.sh                  # or: brok / python -m brok
 ```
 
 On Linux, Qt also wants a few system libs: `libegl1 libgl1 libxkbcommon0 libdbus-1-3`.

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mycat import llm_vendors
+from brok import llm_vendors
 
 
 def use_tmp_config(monkeypatch, tmp_path):

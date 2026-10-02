@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from PySide6 import QtCore, QtGui, QtWidgets  # noqa: E402
 
-import mycat.main as cat  # noqa: E402
+import brok.main as cat  # noqa: E402
 
 PAD = 0.45            # transparent margin (fraction of sprite) for transform headroom
 NAP_AFTER = 18.0      # seconds idle + calm before dozing off

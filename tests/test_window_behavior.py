@@ -10,8 +10,8 @@ import zipfile
 from PIL import Image
 from PySide6 import QtCore, QtGui
 
-import mycat.main as m
-from mycat import char_pack
+import brok.main as m
+from brok import char_pack
 
 
 def png():

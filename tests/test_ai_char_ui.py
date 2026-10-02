@@ -7,8 +7,8 @@ import io
 from PIL import Image
 from PySide6 import QtCore, QtWidgets
 
-from mycat import char_catalog
-from mycat.ai_char_ui import AICharDialog
+from brok import char_catalog
+from brok.ai_char_ui import AICharDialog
 
 
 def png_bytes(size=(400, 600), color=(150, 190, 230, 255)):

@@ -6,7 +6,7 @@ import io
 import urllib.error
 from datetime import datetime, timedelta, timezone
 
-from mycat.calendar_ics import (
+from brok.calendar_ics import (
     CalendarController,
     CalendarSettings,
     ReminderTracker,

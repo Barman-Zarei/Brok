@@ -10,7 +10,7 @@ import zipfile
 import pytest
 from PIL import Image
 
-from mycat import ai_char, char_catalog
+from brok import ai_char, char_catalog
 
 
 def png_bytes(size=(40, 60), color=(200, 100, 80, 255)):

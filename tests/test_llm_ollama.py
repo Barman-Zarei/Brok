@@ -8,7 +8,7 @@ import urllib.request
 
 import pytest
 
-from mycat import llm_ollama
+from brok import llm_ollama
 
 
 class FakeResponse:

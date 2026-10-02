@@ -12,13 +12,13 @@ to nothing. Everything below is the public part.
 
 ## Project overview
 
-`mycat` is a desktop pet: a frameless, always-on-top, draggable PySide6 window
+`brok` is a desktop pet: a frameless, always-on-top, draggable PySide6 window
 showing an animated character, plus a set of opt-in companions that speak through
 that character (reminders, a private activity diary, focus, GitHub notifications,
 ICS calendar reminders and an LLM chat).
 
-- Published on PyPI as `mycat`; console entry point `mycat.main:main`.
-- Requires Python 3.10 or newer. Hard dependencies are only PySide6 and Pillow,
+- Published on PyPI as `brok`; console entry point `brok.main:main`.
+- Requires Python 3.8 or newer. Hard dependencies are only PySide6 and Pillow,
   plus a key/click counter: `pynput` off Linux, `python-xlib` on Linux.
 - Prebuilt Windows/macOS binaries and a `.deb`/AppImage are built by the workflows
   in `.github/workflows/`.
@@ -28,9 +28,9 @@ ICS calendar reminders and an LLM chat).
 ```bash
 pip install -e .                   # extras: [calendar] (ICS), [secure] (OS keyring)
 
-mycat                              # console script
-python -m mycat                    # module entry (__main__.py)
-python mycat/main.py               # direct script, a path shim keeps this working
+brok                              # console script
+python -m brok                    # module entry (__main__.py)
+python brok/main.py               # direct script, a path shim keeps this working
 ./run.sh                           # Linux/macOS launcher, passes flags through
 
 ruff check .                       # lint (line-length 120; rules C4,E,F,I,PERF,UP)
@@ -60,7 +60,7 @@ and 3.12) runs ruff plus the pytest line above. Two rules make the suite surviva
   (drag, context menu, char switching, position persistence) and the tray icon.
   It is the big file; most features are attached to the window from their own module.
 - `char_pack.py` / `char_catalog.py`: a char is a `.zip` (or folder) read fully in
-  memory, discovered in the bundled `mycat/chars/` and in the per-user chars dir.
+  memory, discovered in the bundled `brok/chars/` and in the per-user chars dir.
   Two formats coexist: a legacy single animated GIF (first frame is the idle pose)
   and the interactive pack with `config.json` (static/blink frames, pupils, anims).
   The format is documented in [docs/CHARS.md](docs/CHARS.md).
@@ -91,21 +91,21 @@ and 3.12) runs ruff plus the pytest line above. Two rules make the suite surviva
 ### Configuration and private data
 
 - `paths.py` is the single source of truth: `config.ini` lives in
-  `~/.config/mycat/` on *every* platform (existing installs depend on it).
+  `~/.config/brok/` on *every* platform (existing installs depend on it).
 - Data uses per-OS conventions instead. `activity_store.user_data_dir()` and
-  `char_catalog.user_chars_dir()` resolve to `%LOCALAPPDATA%\mycat`,
-  `~/Library/Application Support/mycat`, `$XDG_DATA_HOME/mycat`.
+  `char_catalog.user_chars_dir()` resolve to `%LOCALAPPDATA%\brok`,
+  `~/Library/Application Support/brok`, `$XDG_DATA_HOME/brok`.
 - Read and write config sections through `config_store.py`, and call
   `secret_store.secure_file()` on anything private you create: `config.ini` can
   hold an API key, and `activity.db` holds the diary. `secret_store` also wraps the
   optional OS keyring, degrading to plaintext config when no backend exists.
 - `.env` (project root or cwd) is loaded once per process by `llm_prompt.py`;
-  `MYCAT_ENV_FILE` overrides the path. Precedence for LLM settings:
+  `BROK_ENV_FILE` overrides the path. Precedence for LLM settings:
   `config.ini` > env vars > defaults.
 
 ### Interface languages
 
-`i18n.py` scans `mycat/locale/*.json` at startup: English, Русский, 简体中文,
+`i18n.py` scans `brok/locale/*.json` at startup: English, Русский, 简体中文,
 한국어 today. Every user-facing string goes through `i18n.tr("English source
 text")`, and the English text is the catalogue key, so it must match the JSON
 exactly. Do not build a message by concatenating a translated fragment with data;
@@ -125,4 +125,4 @@ language is a new JSON file and no code change.
   and `publish.yml` ships to PyPI while `release-binaries.yml` builds the binaries.
   Keep `CHANGELOG.md` current in the same change.
 - Artwork: only characters drawn by the person contributing them can be added to
-  `mycat/chars/`. See the licensing note in [CONTRIBUTING.md](CONTRIBUTING.md).
+  `brok/chars/`. See the licensing note in [CONTRIBUTING.md](CONTRIBUTING.md).

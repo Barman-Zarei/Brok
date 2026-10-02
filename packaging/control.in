@@ -1,11 +1,11 @@
-Package: mycat
+Package: brok
 Version: @VERSION@
 Section: utils
 Priority: optional
 Architecture: amd64
 Depends: libc6, libxcb-cursor0, libgl1, libegl1, libglib2.0-0, libxkbcommon0, fontconfig
-Maintainer: yumiaura <yumiaura@users.noreply.github.com>
-Homepage: https://github.com/yumiaura/myCat
+Maintainer: Barman-Zarei <Barman-Zarei@users.noreply.github.com>
+Homepage: https://github.com/Barman-Zarei/Brok
 Description: tiny animated desktop pet cat
  A small cat that sits on your desktop, blinks, follows your cursor, and flies
  little reminder banners across the screen. This is a self-contained build that

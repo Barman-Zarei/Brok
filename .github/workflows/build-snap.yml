@@ -1,7 +1,7 @@
 name: Build snap
 
 # Same tag trigger as the other release workflows. Builds the PyInstaller
-# onefile Linux binary, packs it into the mycat snap (snap/snapcraft.yaml),
+# onefile Linux binary, packs it into the brok snap (snap/snapcraft.yaml),
 # installs that snap on the runner and checks it starts and shows its window,
 # then publishes it to the Snap Store's stable channel. Branch pushes that
 # touch the snap, and manual dispatches, build and test it without publishing.
@@ -57,7 +57,7 @@ jobs:
           pip install openai
 
       - name: Build with PyInstaller
-        run: pyinstaller --noconfirm mycat.spec
+        run: pyinstaller --noconfirm brok.spec
 
       - name: Pack the snap
         run: |
@@ -74,24 +74,24 @@ jobs:
           set -euo pipefail
           sudo apt-get install -y --no-install-recommends xvfb x11-utils
           sudo snap install --dangerous "$SNAP_FILE"
-          snap connections mycat
+          snap connections brok
           Xvfb :99 -ac -screen 0 1280x800x24 &
           sleep 2
-          # /snap/bin explicitly: pip also installed a `mycat` earlier in PATH.
-          DISPLAY=:99 timeout 30 /snap/bin/mycat > mycat.log 2>&1 &
+          # /snap/bin explicitly: pip also installed a `brok` earlier in PATH.
+          DISPLAY=:99 timeout 30 /snap/bin/brok > brok.log 2>&1 &
           APP=$!
           sleep 20
           if ! kill -0 "$APP" 2>/dev/null ; then
-            echo "mycat exited within 20 seconds"
-            cat mycat.log
+            echo "brok exited within 20 seconds"
+            cat brok.log
             exit 1
           fi
-          DISPLAY=:99 xwininfo -root -tree | grep -i '"mycat"' || { cat mycat.log ; exit 1 ; }
+          DISPLAY=:99 xwininfo -root -tree | grep -i '"brok"' || { cat brok.log ; exit 1 ; }
           kill "$APP" || true
 
       - uses: actions/upload-artifact@v4
         with:
-          name: mycat-snap
+          name: brok-snap
           path: ${{ env.SNAP_FILE }}
           if-no-files-found: error
 

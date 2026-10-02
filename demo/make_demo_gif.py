@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render a looping demo GIF of the cat: eyes aimed right between them, then a blink.
 
-Built straight from the packaged ``cat`` char (``mycat/chars/cat.zip``) so the
+Built straight from the packaged ``cat`` char (``brok/chars/cat.zip``) so the
 demo matches what the app actually draws:
 
 - ``static.png`` is the body with empty eye sockets; the pupils
@@ -26,7 +26,7 @@ from pathlib import Path
 from PIL import Image, ImageFilter
 
 REPO = Path(__file__).resolve().parent.parent
-CAT_ZIP = REPO / "mycat" / "chars" / "cat.zip"
+CAT_ZIP = REPO / "brok" / "chars" / "cat.zip"
 OUTPUT = REPO / "docs" / "cat.gif"
 
 PAD = 10              # uniform transparent border around the cat, in final px

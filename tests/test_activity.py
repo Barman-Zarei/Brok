@@ -1,5 +1,7 @@
 """Activity diary: collector buckets, day classification, totals, retention."""
 
+from __future__ import annotations
+
 from datetime import date, datetime, timedelta
 
 from mycat import activity_store

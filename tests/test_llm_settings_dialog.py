@@ -1,5 +1,7 @@
 """Tests for the vendor settings dialog (Qt offscreen, no network)."""
 
+from __future__ import annotations
+
 from PySide6 import QtWidgets
 
 from mycat import llm_settings_ui

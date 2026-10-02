@@ -17,6 +17,8 @@ expansion is a swamp not worth hand-rolling). They are an optional extra:
 nothing else breaks.
 """
 
+from __future__ import annotations
+
 import logging
 import urllib.request
 from dataclasses import dataclass

@@ -19,6 +19,11 @@ SOURCE = Path(__file__).resolve().parents[1] / "mycat"
 OWNER_ONLY = 0o600
 
 
+def _unparse(node):
+    """ast.unparse exists only on Python 3.9+; fall back to the dump on 3.8."""
+    return ast.unparse(node) if hasattr(ast, "unparse") else ast.dump(node)
+
+
 def config_writers() -> list[str]:
     """Every `open(<a config path>, 'w')` in the package, as file:line."""
     found = []
@@ -33,7 +38,7 @@ def config_writers() -> list[str]:
             mode = node.args[1]
             if not (isinstance(mode, ast.Constant) and "w" in str(mode.value)):
                 continue
-            target = ast.unparse(node.args[0]).lower()
+            target = _unparse(node.args[0]).lower()
             if "cfg" not in target and "config" not in target:
                 continue
             window = "\n".join(lines[node.lineno - 1: node.lineno + 6])

@@ -1,5 +1,7 @@
 """Tests for the cross-platform autostart toggle (Linux path)."""
 
+from __future__ import annotations
+
 import sys
 
 import pytest
@@ -36,7 +38,7 @@ def test_linux_desktop_exec_survives_space_in_path(monkeypatch, tmp_path):
     text = autostart.linux_desktop_path().read_text()
     exec_value = next(
         line for line in text.splitlines() if line.startswith("Exec=")
-    ).removeprefix("Exec=")
+    )[len("Exec="):]
     assert shlex.split(exec_value) == [exe]
 
 

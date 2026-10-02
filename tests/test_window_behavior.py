@@ -1,5 +1,7 @@
 """Cat-window behaviour: dragging the frameless window and pupil gaze."""
 
+from __future__ import annotations
+
 import io
 import json
 import math

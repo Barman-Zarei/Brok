@@ -27,6 +27,8 @@ Main-thread only for announcing: pollers run in worker threads and hand their
 results to the GUI thread via a Qt signal before anything is announced.
 """
 
+from __future__ import annotations
+
 import configparser
 import json
 import logging

@@ -1,5 +1,7 @@
 """Tests for first-run autostart-prompt bookkeeping (livability phase A)."""
 
+from __future__ import annotations
+
 from mycat import main
 
 

@@ -1,5 +1,7 @@
 """GitHub notifier: tracker baseline/dedupe, URL mapping, settings, polling."""
 
+from __future__ import annotations
+
 import io
 import json
 import urllib.error

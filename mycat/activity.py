@@ -30,6 +30,8 @@ The two COUNT tracks switch independently (``mouse_enabled`` = click counts,
 the diary is on — the cat's eyes track the cursor anyway — so it has no toggle.
 """
 
+from __future__ import annotations
+
 import logging
 import threading
 from dataclasses import dataclass

@@ -1,5 +1,7 @@
 """i18n: folder-scanned catalogs, translation lookup, persistence and the menu."""
 
+from __future__ import annotations
+
 import configparser
 import json
 

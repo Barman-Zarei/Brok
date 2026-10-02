@@ -1,5 +1,7 @@
 """Morning digest: once per day, after 05:00, only when there is a story."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 
 from mycat import activity_store

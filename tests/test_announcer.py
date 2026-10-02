@@ -1,5 +1,7 @@
 """Announcer queue: pacing, one-at-a-time, FIFO order (nothing is suppressed)."""
 
+from __future__ import annotations
+
 from mycat import reminder
 from mycat.announcer import MIN_GAP_SECONDS, SKY_STALE_SECONDS, Announcement, Announcer
 

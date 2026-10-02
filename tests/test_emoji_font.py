@@ -1,5 +1,7 @@
 """The bundled emoji fallback font ships and is a usable font."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from PySide6 import QtGui

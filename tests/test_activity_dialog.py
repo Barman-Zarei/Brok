@@ -1,5 +1,7 @@
 """ActivityDialog: the live "Now" line mirrors the focus tooltip."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 
 from mycat.activity import ActivityCollector, ActivitySettings

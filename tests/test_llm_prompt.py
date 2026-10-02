@@ -1,5 +1,7 @@
 """Tests for config persistence: Ollama url/model and the LLM enabled flag."""
 
+from __future__ import annotations
+
 import os
 import stat
 import sys

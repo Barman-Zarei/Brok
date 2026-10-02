@@ -7,6 +7,8 @@ bottom — it only unlocks the private inbox categories, which stay greyed out
 until the token is entered and verified with "Test".
 """
 
+from __future__ import annotations
+
 import logging
 import os
 

@@ -11,6 +11,8 @@ the reminder should fire (relative "in N minutes" or absolute "at HH:MM"), with 
 Test button that launches a flyby immediately.
 """
 
+from __future__ import annotations
+
 import logging
 import math
 import os

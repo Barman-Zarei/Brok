@@ -1,5 +1,7 @@
 """Tests for the app icon helper used for the taskbar entry."""
 
+from __future__ import annotations
+
 from mycat import main
 
 

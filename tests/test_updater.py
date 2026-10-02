@@ -1,5 +1,7 @@
 """Self-updater pure logic: install-kind detection and asset naming."""
 
+from __future__ import annotations
+
 import urllib.request
 
 import pytest

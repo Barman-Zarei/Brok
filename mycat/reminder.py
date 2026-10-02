@@ -13,6 +13,8 @@ Only ``QtCore`` is imported here; the visual flyby and the settings dialog live
 in ``reminder_ui`` and are imported lazily so a headless run never needs widgets.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta

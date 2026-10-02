@@ -1,5 +1,7 @@
 """The keyboard heatmap: cell mapping, cold→hot colour, and the session tally."""
 
+from __future__ import annotations
+
 import tempfile
 from pathlib import Path
 

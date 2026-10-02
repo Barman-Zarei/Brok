@@ -1,5 +1,7 @@
 """Pluggable generation backends: model listing, request shaping, settings."""
 
+from __future__ import annotations
+
 import base64
 import io
 import json

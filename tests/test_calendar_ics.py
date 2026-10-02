@@ -1,5 +1,7 @@
 """Calendar ICS: parsing (incl. RRULE), reminder windows, settings, fetch."""
 
+from __future__ import annotations
+
 import io
 import urllib.error
 from datetime import datetime, timedelta, timezone

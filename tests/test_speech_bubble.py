@@ -5,6 +5,8 @@ from the flyby plane to a bubble above the cat (default off = flyby). Hiding the
 Reminder entry in *Show in menu* ticks the same box (handled in the dialog).
 """
 
+from __future__ import annotations
+
 from PySide6 import QtWidgets
 
 from mycat import speech_bubble

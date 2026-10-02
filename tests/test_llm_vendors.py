@@ -1,5 +1,7 @@
 """Tests for the vendor registry: presets, key resolution, save/load."""
 
+from __future__ import annotations
+
 from mycat import llm_vendors
 
 

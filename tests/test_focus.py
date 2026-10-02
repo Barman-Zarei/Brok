@@ -1,5 +1,7 @@
 """Auto-focus watcher: tooltip and the earned/rest banner on active vs idle runs."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 
 from mycat.activity_store import ActivityStore

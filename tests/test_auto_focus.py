@@ -1,5 +1,7 @@
 """Auto-focus grading: activity runs become 🍅 (≥25 min) or 🍌 (fell short)."""
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta
 
 from mycat.activity import focus_count, grade_run, graded_runs, longest_focus_minutes, run_minutes

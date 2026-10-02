@@ -228,7 +228,7 @@ def remove_plain_background(image_bytes: bytes, *, tolerance: int = 48) -> bytes
     return output.getvalue()
 
 
-BackgroundRemovalFn = Callable[[bytes], bytes]
+BackgroundRemovalFn = "Callable[[bytes], bytes]"  # py3.8: collections.abc.Callable is not subscriptable at runtime
 
 BACKGROUND_REMOVAL_NONE = "none"
 BACKGROUND_REMOVAL_PLAIN = "plain"

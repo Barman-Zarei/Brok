@@ -1,5 +1,7 @@
 """ActivityStore: schema, session records, per-day queries."""
 
+from __future__ import annotations
+
 from datetime import date, datetime
 
 from mycat.activity_store import BREAK, FOCUS, ActivityStore

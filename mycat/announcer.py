@@ -11,6 +11,8 @@ Main-thread only: pollers running in worker threads must hand their events to
 the GUI thread (e.g. via a Qt signal) before calling :meth:`Announcer.announce`.
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from dataclasses import dataclass

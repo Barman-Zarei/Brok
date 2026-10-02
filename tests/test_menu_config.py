@@ -1,5 +1,7 @@
 """Menu-entry visibility: defaults, persistence, and robustness."""
 
+from __future__ import annotations
+
 from mycat import menu_config
 
 

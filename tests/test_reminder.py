@@ -1,5 +1,7 @@
 """Tests for pure reminder logic (no Qt event loop required)."""
 
+from __future__ import annotations
+
 from datetime import datetime
 
 from mycat import reminder

@@ -5,6 +5,8 @@ The log speaks in honest wording ("away from the computer", not "not
 working"); the only place silence is praised is a pomodoro break.
 """
 
+from __future__ import annotations
+
 import csv
 import logging
 from datetime import date, datetime, timedelta

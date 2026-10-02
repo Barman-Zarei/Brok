@@ -6,6 +6,8 @@ Activity and Reminder windows all share the same look instead of each one
 falling back to whatever the system theme happens to be.
 """
 
+from __future__ import annotations
+
 LIGHT_QSS = (
     "QDialog { background: #ffffff; color: #1c1c1c; }"
     "QLabel, QCheckBox, QGroupBox { color: #1c1c1c; background: transparent; }"

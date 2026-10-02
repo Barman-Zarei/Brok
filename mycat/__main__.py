@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Allow running: python -m mycat
 def main():
     from .main import main as entry

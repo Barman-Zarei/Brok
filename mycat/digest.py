@@ -10,6 +10,8 @@ session. The last delivered date is remembered in the config so a restart
 never re-delivers the same paper.
 """
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path

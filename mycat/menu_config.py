@@ -8,6 +8,8 @@ reached again. Hiding an entry only removes the menu shortcut — the feature
 itself (reminders firing, activity tracking, …) keeps running.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from . import config_store, paths

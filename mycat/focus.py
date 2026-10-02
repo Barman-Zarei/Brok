@@ -16,6 +16,8 @@ is always shown. The 🍅 / 🍌 accounting lives in :mod:`mycat.activity` (runs
 graded by length); this class only drives the live tooltip and the rest banner.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from datetime import datetime

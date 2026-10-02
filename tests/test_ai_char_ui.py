@@ -1,5 +1,7 @@
 """AI character dialog — click-to-copy, and the generate/preview/save flow."""
 
+from __future__ import annotations
+
 import io
 
 from PIL import Image

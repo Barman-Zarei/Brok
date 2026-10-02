@@ -1,5 +1,7 @@
 """State-machine engine tests: yawn / sleep / wake / click, driven by injected time."""
 
+from __future__ import annotations
+
 import io
 import json
 import zipfile

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Settings dialog for the opt-in ICS calendar reminders."""
 
+from __future__ import annotations
+
 import logging
 
 from PySide6 import QtCore, QtWidgets

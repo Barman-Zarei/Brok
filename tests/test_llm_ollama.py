@@ -1,5 +1,7 @@
 """Tests for the Ollama HTTP backend and the model-list helper (urllib mocked)."""
 
+from __future__ import annotations
+
 import json
 import urllib.error
 import urllib.request

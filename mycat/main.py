@@ -9,6 +9,8 @@ Dependencies:
 pip install PySide6
 """
 
+from __future__ import annotations
+
 import argparse
 import configparser
 import getpass

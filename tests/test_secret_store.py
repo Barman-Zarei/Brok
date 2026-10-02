@@ -1,5 +1,7 @@
 """Tests for the security helpers (chmod 600 + keyring fallback)."""
 
+from __future__ import annotations
+
 import os
 import stat
 import sys

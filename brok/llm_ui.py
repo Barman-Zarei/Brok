@@ -1,4 +1,4 @@
-"""Chat UI layer for PixelCat."""
+"""Chat UI layer for Brok."""
 
 from __future__ import annotations
 

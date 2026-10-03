@@ -6,7 +6,7 @@ import json
 import threading
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator
 
 
 class ProviderError(Exception):
@@ -21,7 +21,7 @@ class UrllibTransport:
     def __init__(self, timeout: float = 120.0) -> None:
         self.timeout = timeout
 
-    def _open(self, url: str, headers: Dict[str, str], body: Optional[dict]):
+    def _open(self, url: str, headers: dict[str, str], body: dict | None):
         data = json.dumps(body).encode("utf-8") if body is not None else None
         hdrs = {"Content-Type": "application/json", **headers}
         req = urllib.request.Request(url, data=data, headers=hdrs, method="POST" if data else "GET")
@@ -33,20 +33,22 @@ class UrllibTransport:
                 detail = exc.read().decode("utf-8", "replace")[:300]
             except Exception:  # noqa: BLE001
                 pass
-            raise ProviderError(f"HTTP {exc.code} from {url}: {detail}", retryable=exc.code >= 500 or exc.code == 429) from exc
+            raise ProviderError(
+                f"HTTP {exc.code} from {url}: {detail}", retryable=exc.code >= 500 or exc.code == 429
+            ) from exc
         except (urllib.error.URLError, OSError, ValueError) as exc:
             raise ProviderError(f"Cannot reach {url}: {exc}") from exc
 
-    def get_json(self, url: str, headers: Dict[str, str]) -> Any:
+    def get_json(self, url: str, headers: dict[str, str]) -> Any:
         with self._open(url, headers, None) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
-    def post_json(self, url: str, headers: Dict[str, str], body: dict) -> Any:
+    def post_json(self, url: str, headers: dict[str, str], body: dict) -> Any:
         with self._open(url, headers, body) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     def stream_lines(
-        self, url: str, headers: Dict[str, str], body: dict, cancel: Optional[threading.Event] = None
+        self, url: str, headers: dict[str, str], body: dict, cancel: threading.Event | None = None
     ) -> Iterator[str]:
         with self._open(url, headers, body) as resp:
             for raw in resp:

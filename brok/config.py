@@ -6,7 +6,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from . import paths
 
@@ -14,7 +14,7 @@ from . import paths
 @dataclass
 class AIConfig:
     provider: str = "ollama"
-    fallbacks: List[str] = field(default_factory=lambda: ["ollama"])
+    fallbacks: list[str] = field(default_factory=lambda: ["ollama"])
     local_only: bool = False
     claude_model: str = "claude-sonnet-5-5"
     ollama_host: str = "http://127.0.0.1:11434"
@@ -103,7 +103,7 @@ class BrokConfig:
         return paths.config_dir() / "brok.json"
 
     @classmethod
-    def load(cls, path: Optional[Path] = None, env: Optional[dict] = None) -> "BrokConfig":
+    def load(cls, path: Path | None = None, env: dict | None = None) -> BrokConfig:
         cfg = cls()
         p = Path(path) if path else cls.default_path()
         try:
@@ -113,7 +113,7 @@ class BrokConfig:
         apply_env(cfg, os.environ if env is None else env)
         return cfg
 
-    def save(self, path: Optional[Path] = None) -> Path:
+    def save(self, path: Path | None = None) -> Path:
         p = Path(path) if path else self.default_path()
         p.parent.mkdir(parents=True, exist_ok=True)
         tmp = p.with_suffix(".tmp")

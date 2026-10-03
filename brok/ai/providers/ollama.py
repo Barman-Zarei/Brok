@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import Iterator, List, Optional
+from typing import Iterator
 from urllib.parse import urlparse
 
 from ..messages import Message, StreamEvent, ToolCall, ToolSchema
@@ -22,12 +22,12 @@ class OllamaProvider(AIProvider):
         host = urlparse(self.host).hostname or ""
         return host in ("127.0.0.1", "localhost", "::1")
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         data = self.transport.get_json(f"{self.host}/api/tags", {})
         return [m["name"] for m in data.get("models", [])]
 
     @staticmethod
-    def _convert(messages: List[Message], system: str) -> list:
+    def _convert(messages: list[Message], system: str) -> list:
         out: list = [{"role": "system", "content": system}] if system else []
         for m in messages:
             item: dict = {"role": m.role, "content": m.content}
@@ -38,11 +38,14 @@ class OllamaProvider(AIProvider):
             out.append(item)
         return out
 
-    def chat(self, messages, system="", tools: Optional[List[ToolSchema]] = None, cancel=None) -> Iterator[StreamEvent]:
+    def chat(self, messages, system="", tools: list[ToolSchema] | None = None, cancel=None) -> Iterator[StreamEvent]:
         body: dict = {"model": self.model, "messages": self._convert(messages, system), "stream": True}
         if tools:
             body["tools"] = [
-                {"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.parameters}}
+                {
+                    "type": "function",
+                    "function": {"name": t.name, "description": t.description, "parameters": t.parameters},
+                }
                 for t in tools
             ]
         n = 0

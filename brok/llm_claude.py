@@ -8,8 +8,12 @@ from .ai.transport import ProviderError, UrllibTransport
 
 
 def _provider(base_url: str, api_key: str, model: str, timeout: float) -> ClaudeProvider:
-    return ClaudeProvider(model=model, key_resolver=lambda: api_key, base_url=base_url or "https://api.anthropic.com",
-                          transport=UrllibTransport(timeout))
+    return ClaudeProvider(
+        model=model,
+        key_resolver=lambda: api_key,
+        base_url=base_url or "https://api.anthropic.com",
+        transport=UrllibTransport(timeout),
+    )
 
 
 def fetch_models(base_url: str, api_key: str, timeout: float) -> list[str]:

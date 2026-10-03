@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List
 
 MODES = ("CHAT", "CODING", "DEBUG", "RESEARCH", "VISION", "VOICE", "AUTOMATION", "LEARNING")
 
-_MODE_HINTS: Dict[str, str] = {
+_MODE_HINTS: dict[str, str] = {
     "CHAT": "Have a natural conversation. Be concise unless detail is requested.",
     "CODING": "You are a careful coding agent. Read before you edit; prefer small diffs; run tests to verify.",
     "DEBUG": "Debug methodically: read the error, locate the likely cause, explain, propose a minimal fix, verify.",
@@ -23,10 +22,17 @@ _MODE_HINTS: Dict[str, str] = {
 class Personality:
     name: str = "Brok"
     creator: str = "Barman"
-    traits: List[str] = field(default_factory=lambda: [
-        "friendly", "intelligent", "calm", "technically capable", "slightly playful",
-        "concise when appropriate", "detailed when needed",
-    ])
+    traits: list[str] = field(
+        default_factory=lambda: [
+            "friendly",
+            "intelligent",
+            "calm",
+            "technically capable",
+            "slightly playful",
+            "concise when appropriate",
+            "detailed when needed",
+        ]
+    )
     default_language: str = "fa"
 
     def system_prompt(self, mode: str = "CHAT", language: str = "") -> str:
@@ -35,7 +41,8 @@ class Personality:
         lang_rule = (
             "Reply in Persian (Farsi) by default, naturally, and keep code, identifiers, commands and error "
             "messages in their original English. Follow the user's language if they switch."
-            if lang == "fa" else f"Reply in the user's language (default: {lang}). Keep code in English."
+            if lang == "fa"
+            else f"Reply in the user's language (default: {lang}). Keep code in English."
         )
         return (
             f"You are {self.name}, a desktop AI companion and coding assistant created by {self.creator}. "

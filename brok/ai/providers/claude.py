@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Callable, Dict, Iterator, List, Optional
+from typing import Callable, Iterator
 
 from ..messages import Message, StreamEvent, ToolCall, ToolSchema
 from ..transport import ProviderError
@@ -24,8 +24,14 @@ class ClaudeProvider(AIProvider):
     is_local = False
     supports_vision = True
 
-    def __init__(self, model: str = DEFAULT_MODEL, key_resolver: Optional[Callable[[], str]] = None,
-                 base_url: str = API_URL, max_tokens: int = 4096, transport=None) -> None:
+    def __init__(
+        self,
+        model: str = DEFAULT_MODEL,
+        key_resolver: Callable[[], str] | None = None,
+        base_url: str = API_URL,
+        max_tokens: int = 4096,
+        transport=None,
+    ) -> None:
         super().__init__(model, transport)
         self._resolver = key_resolver
         self.base_url = base_url.rstrip("/")
@@ -34,18 +40,20 @@ class ClaudeProvider(AIProvider):
     def _key(self) -> str:
         key = (self._resolver() if self._resolver else "") or os.environ.get("ANTHROPIC_API_KEY", "")
         if not key:
-            raise ProviderError("Claude API key missing: set ANTHROPIC_API_KEY or store it in the keyring.", retryable=False)
+            raise ProviderError(
+                "Claude API key missing: set ANTHROPIC_API_KEY or store it in the keyring.", retryable=False
+            )
         return key
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> dict[str, str]:
         return {"x-api-key": self._key(), "anthropic-version": API_VERSION}
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         data = self.transport.get_json(f"{self.base_url}/v1/models?limit=100", self._headers())
         return [m["id"] for m in data.get("data", [])]
 
     @staticmethod
-    def _convert(messages: List[Message]) -> list:
+    def _convert(messages: list[Message]) -> list:
         out: list = []
 
         def push(role: str, blocks: list) -> None:
@@ -71,14 +79,20 @@ class ClaudeProvider(AIProvider):
                 push("user", blocks)
         return out
 
-    def chat(self, messages, system="", tools: Optional[List[ToolSchema]] = None, cancel=None) -> Iterator[StreamEvent]:
-        body: dict = {"model": self.model, "max_tokens": self.max_tokens, "stream": True,
-                      "messages": self._convert(messages)}
+    def chat(self, messages, system="", tools: list[ToolSchema] | None = None, cancel=None) -> Iterator[StreamEvent]:
+        body: dict = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "stream": True,
+            "messages": self._convert(messages),
+        }
         if system:
             body["system"] = system
         if tools:
-            body["tools"] = [{"name": t.name, "description": t.description, "input_schema": t.parameters} for t in tools]
-        blocks: Dict[int, dict] = {}
+            body["tools"] = [
+                {"name": t.name, "description": t.description, "input_schema": t.parameters} for t in tools
+            ]
+        blocks: dict[int, dict] = {}
         stop = "stop"
         for line in self.transport.stream_lines(f"{self.base_url}/v1/messages", self._headers(), body, cancel):
             if not line.startswith("data:"):

@@ -9,13 +9,13 @@ from brok.commands import parse_command
 from brok.config import BrokConfig
 from brok.memory import MemoryStore, SensitiveContentError
 
-TB = '''Traceback (most recent call last):
+TB = """Traceback (most recent call last):
   File "app/main.py", line 3, in run
     total(None)
   File "app/util.py", line 2, in total
     return sum(items)
 TypeError: 'NoneType' object is not iterable
-'''
+"""
 
 
 def test_memory_crud_and_privacy(tmp_path):
@@ -64,7 +64,9 @@ def test_learning_prompts():
 
 
 def test_health_report(tmp_path):
-    (tmp_path / "a.py").write_text("# TODO: fix\ntry:\n    pass\nexcept:\n    pass\nkey='sk-ant-abcdefghijklmnop'\neval('1')\n")
+    (tmp_path / "a.py").write_text(
+        "# TODO: fix\ntry:\n    pass\nexcept:\n    pass\nkey='sk-ant-abcdefghijklmnop'\neval('1')\n"
+    )
     r = analyze(str(tmp_path))
     cats = {f.category for f in r.findings}
     assert {"todo", "quality", "security", "tests"} <= cats and "not a professional" in r.disclaimer

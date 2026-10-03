@@ -21,11 +21,25 @@ class AvatarState(enum.Enum):
 
 #: Higher wins when two sources request a state at once (an error must not be hidden by "typing").
 PRIORITY = {
-    AvatarState.SLEEPING: 0, AvatarState.IDLE: 1, AvatarState.HAPPY: 2, AvatarState.LISTENING: 3,
-    AvatarState.TYPING: 4, AvatarState.WORKING: 5, AvatarState.CODING: 5, AvatarState.THINKING: 6,
-    AvatarState.SPEAKING: 7, AvatarState.CONFUSED: 8, AvatarState.SUCCESS: 8, AvatarState.NOTIFICATION: 9,
+    AvatarState.SLEEPING: 0,
+    AvatarState.IDLE: 1,
+    AvatarState.HAPPY: 2,
+    AvatarState.LISTENING: 3,
+    AvatarState.TYPING: 4,
+    AvatarState.WORKING: 5,
+    AvatarState.CODING: 5,
+    AvatarState.THINKING: 6,
+    AvatarState.SPEAKING: 7,
+    AvatarState.CONFUSED: 8,
+    AvatarState.SUCCESS: 8,
+    AvatarState.NOTIFICATION: 9,
     AvatarState.ERROR: 10,
 }
 #: Transient states that fall back to IDLE after N seconds.
-TRANSIENT_SECONDS = {AvatarState.HAPPY: 3.0, AvatarState.SUCCESS: 3.0, AvatarState.ERROR: 5.0,
-                     AvatarState.CONFUSED: 4.0, AvatarState.NOTIFICATION: 6.0}
+TRANSIENT_SECONDS = {
+    AvatarState.HAPPY: 3.0,
+    AvatarState.SUCCESS: 3.0,
+    AvatarState.ERROR: 5.0,
+    AvatarState.CONFUSED: 4.0,
+    AvatarState.NOTIFICATION: 6.0,
+}

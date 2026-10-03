@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, List
 
 from PIL import Image, ImageDraw
 
@@ -20,14 +19,19 @@ def render_frame(state: AvatarState, step: int = 0, theme: str = "cyan") -> Imag
     d = ImageDraw.Draw(img)
     s = lambda v: int(v * SS)  # noqa: E731
     ph = 2 * math.pi * (step % FRAMES) / FRAMES
-    bob = math.sin(ph) * 3 if state in (AvatarState.IDLE, AvatarState.HAPPY, AvatarState.SPEAKING, AvatarState.SUCCESS) else 0
+    bob = (
+        math.sin(ph) * 3
+        if state in (AvatarState.IDLE, AvatarState.HAPPY, AvatarState.SPEAKING, AvatarState.SUCCESS)
+        else 0
+    )
     if state is AvatarState.SLEEPING:
         bob = math.sin(ph) * 1.5
     oy = bob
 
     def rr(box, r, fill, outline=None, w=0):
-        d.rounded_rectangle([s(box[0]), s(box[1] + oy), s(box[2]), s(box[3] + oy)], radius=s(r), fill=fill,
-                            outline=outline, width=s(w))
+        d.rounded_rectangle(
+            [s(box[0]), s(box[1] + oy), s(box[2]), s(box[3] + oy)], radius=s(r), fill=fill, outline=outline, width=s(w)
+        )
 
     def ell(box, fill):
         d.ellipse([s(box[0]), s(box[1] + oy), s(box[2]), s(box[3] + oy)], fill=fill)
@@ -57,11 +61,20 @@ def render_frame(state: AvatarState, step: int = 0, theme: str = "cyan") -> Imag
     if state in (AvatarState.CODING, AvatarState.TYPING):  # tiny keyboard
         rr((60, 262, 180, 276), 4, c["panel"], c["line"], 2)
         for k in range(6):
-            d.rectangle([s(68 + k * 18), s(266 + oy), s(78 + k * 18), s(272 + oy)], fill=c["accent"] if (k + step) % 3 == 0 else c["body"])
+            d.rectangle(
+                [s(68 + k * 18), s(266 + oy), s(78 + k * 18), s(272 + oy)],
+                fill=c["accent"] if (k + step) % 3 == 0 else c["body"],
+            )
     # head + antenna
     tilt = 6 if state is AvatarState.CONFUSED else 0
     ln([(120, 52), (120 + tilt, 30)], c["line"], 4)
-    tip = c["warn"] if state in (AvatarState.NOTIFICATION, AvatarState.THINKING) else c["error"] if state is AvatarState.ERROR else c["glow"]
+    tip = (
+        c["warn"]
+        if state in (AvatarState.NOTIFICATION, AvatarState.THINKING)
+        else c["error"]
+        if state is AvatarState.ERROR
+        else c["glow"]
+    )
     ell((112 + tilt, 20, 128 + tilt, 36), tip if (state is not AvatarState.THINKING or step % 2 == 0) else c["panel"])
     rr((50, 52, 190, 180), 28, c["body"], c["line"], 3)
     rr((64, 70, 176, 150), 18, c["panel"], c["line"], 2)
@@ -109,5 +122,5 @@ def render_frame(state: AvatarState, step: int = 0, theme: str = "cyan") -> Imag
     return img.resize((W, H), Image.LANCZOS)
 
 
-def render_state(state: AvatarState, theme: str = "cyan") -> List[Image.Image]:
+def render_state(state: AvatarState, theme: str = "cyan") -> list[Image.Image]:
     return [render_frame(state, i, theme) for i in range(FRAMES)]

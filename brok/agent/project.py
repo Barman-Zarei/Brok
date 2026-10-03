@@ -6,7 +6,6 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
 
 from .workspace import SKIP_DIRS
 
@@ -14,18 +13,18 @@ from .workspace import SKIP_DIRS
 @dataclass
 class ProjectInfo:
     root: str
-    languages: List[str] = field(default_factory=list)
-    frameworks: List[str] = field(default_factory=list)
-    package_managers: List[str] = field(default_factory=list)
-    entry_points: List[str] = field(default_factory=list)
-    dependencies: List[str] = field(default_factory=list)
-    test_command: Optional[str] = None
-    lint_command: Optional[str] = None
-    format_command: Optional[str] = None
-    build_system: Optional[str] = None
+    languages: list[str] = field(default_factory=list)
+    frameworks: list[str] = field(default_factory=list)
+    package_managers: list[str] = field(default_factory=list)
+    entry_points: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    test_command: str | None = None
+    lint_command: str | None = None
+    format_command: str | None = None
+    build_system: str | None = None
     has_tests: bool = False
     git_repo: bool = False
-    config_files: List[str] = field(default_factory=list)
+    config_files: list[str] = field(default_factory=list)
 
 
 def _read(p: Path) -> str:
@@ -49,8 +48,13 @@ def detect_project(root: str) -> ProjectInfo:
         info.package_managers.append("poetry" if has("poetry.lock") else "pipenv" if has("Pipfile") else "pip")
         text = _read(r / "pyproject.toml") + _read(r / "requirements.txt") + _read(r / "setup.py")
         low = text.lower()
-        for fw, key in (("Django", "django"), ("Flask", "flask"), ("FastAPI", "fastapi"), ("PySide6", "pyside6"),
-                        ("Kivy", "kivy")):
+        for fw, key in (
+            ("Django", "django"),
+            ("Flask", "flask"),
+            ("FastAPI", "fastapi"),
+            ("PySide6", "pyside6"),
+            ("Kivy", "kivy"),
+        ):
             if key in low:
                 add(info.frameworks, fw)
         if has("manage.py"):
@@ -118,7 +122,7 @@ def detect_project(root: str) -> ProjectInfo:
     exts = {}
     for dp, dns, fns in os.walk(root):
         dns[:] = [d for d in dns if d not in SKIP_DIRS]
-        if dp[len(root):].count(os.sep) > 4:
+        if dp[len(root) :].count(os.sep) > 4:
             dns[:] = []
         for fn in fns:
             exts[os.path.splitext(fn)[1].lower()] = exts.get(os.path.splitext(fn)[1].lower(), 0) + 1
@@ -133,6 +137,9 @@ def detect_project(root: str) -> ProjectInfo:
         add(info.languages, "HTML/CSS/JS")
     if exts.get(".py") and "Python" not in info.languages:
         add(info.languages, "Python")
-    info.has_tests = (r / "tests").is_dir() or (r / "test").is_dir() or bool(
-        any(f.startswith("test_") for f in os.listdir(root) if f.endswith(".py")))
+    info.has_tests = (
+        (r / "tests").is_dir()
+        or (r / "test").is_dir()
+        or bool(any(f.startswith("test_") for f in os.listdir(root) if f.endswith(".py")))
+    )
     return info

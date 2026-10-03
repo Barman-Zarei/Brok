@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import os
 import time
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
 
 from . import paths
 from .logging_setup import redact
@@ -34,9 +34,9 @@ def looks_sensitive(text: str) -> bool:
 
 
 class MemoryStore:
-    def __init__(self, path: Optional[Path] = None) -> None:
+    def __init__(self, path: Path | None = None) -> None:
         self.path = Path(path) if path else paths.config_dir() / "memory.json"
-        self._items: Dict[str, MemoryItem] = {}
+        self._items: dict[str, MemoryItem] = {}
         self._load()
 
     def _load(self) -> None:
@@ -49,7 +49,9 @@ class MemoryStore:
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps([asdict(i) for i in self._items.values()], ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.write_text(
+            json.dumps([asdict(i) for i in self._items.values()], ensure_ascii=False, indent=1), encoding="utf-8"
+        )
         try:
             os.chmod(tmp, 0o600)
         except OSError:
@@ -66,8 +68,10 @@ class MemoryStore:
         self._save()
         return item
 
-    def list(self, kind: Optional[str] = None, scope: Optional[str] = None) -> List[MemoryItem]:
-        out = [i for i in self._items.values() if (kind is None or i.kind == kind) and (scope is None or i.scope == scope)]
+    def list(self, kind: str | None = None, scope: str | None = None) -> builtins.list[MemoryItem]:
+        out = [
+            i for i in self._items.values() if (kind is None or i.kind == kind) and (scope is None or i.scope == scope)
+        ]
         return sorted(out, key=lambda i: i.created)
 
     def edit(self, item_id: str, text: str) -> MemoryItem:
@@ -83,7 +87,7 @@ class MemoryStore:
             self._save()
         return gone
 
-    def clear(self, kind: Optional[str] = None) -> int:
+    def clear(self, kind: str | None = None) -> int:
         ids = [i.id for i in self.list(kind)]
         for i in ids:
             del self._items[i]
@@ -92,10 +96,9 @@ class MemoryStore:
 
     def context_for(self, project: str = "", limit_chars: int = 2000) -> str:
         """Memory to prepend to a prompt: preferences, long-term, and this project's notes."""
-        parts: List[str] = []
-        for i in self.list("preference") + self.list("longterm") + (self.list("project", project) if project else []):
-            parts.append(f"- {i.text}")
+        items = self.list("preference") + self.list("longterm") + (self.list("project", project) if project else [])
+        parts = [f"- {i.text}" for i in items]
         return "\n".join(parts)[:limit_chars]
 
-    def counts(self) -> Dict[str, int]:
+    def counts(self) -> dict[str, int]:
         return {k: len(self.list(k)) for k in KINDS}

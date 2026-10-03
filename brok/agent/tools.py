@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import enum
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Callable
 
 from ..ai.messages import ToolSchema
 
@@ -29,10 +29,10 @@ class Confirm(enum.Enum):
 @dataclass
 class ApprovalRequest:
     tool: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
     risk: Risk
     summary: str
-    diff: Optional[str] = None  # BEFORE/AFTER preview for edits
+    diff: str | None = None  # BEFORE/AFTER preview for edits
 
 
 class ToolError(Exception):
@@ -43,15 +43,15 @@ class ToolError(Exception):
 class ToolSpec:
     name: str
     description: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     risk: Risk
     confirm: Confirm
     func: Callable[..., str]
     # Optional dynamic override, e.g. run_command depends on the command text.
-    dynamic: Optional[Callable[[Dict[str, Any]], "tuple[Risk, Confirm, str]"]] = None
-    preview: Optional[Callable[[Dict[str, Any]], Optional[str]]] = None
+    dynamic: Callable[[dict[str, Any]], tuple[Risk, Confirm, str]] | None = None
+    preview: Callable[[dict[str, Any]], str | None] | None = None
     # Runs BEFORE any approval prompt; returns an error string to refuse outright (e.g. blocked commands).
-    precheck: Optional[Callable[[Dict[str, Any]], Optional[str]]] = None
+    precheck: Callable[[dict[str, Any]], str | None] | None = None
 
 
 @dataclass
@@ -59,7 +59,7 @@ class PermissionPolicy:
     """Decides whether a tool call needs the user. Dangerous tools can never be silent."""
 
     auto_approve_medium: bool = False
-    approver: Optional[Callable[[ApprovalRequest], bool]] = None  # None => deny anything needing approval
+    approver: Callable[[ApprovalRequest], bool] | None = None  # None => deny anything needing approval
 
     def needs_confirmation(self, risk: Risk, confirm: Confirm) -> bool:
         if confirm in (Confirm.ALWAYS, Confirm.REQUIRED):
@@ -76,25 +76,25 @@ def _tool_schema(spec: ToolSpec) -> ToolSchema:
 
 
 class ToolRegistry:
-    def __init__(self, policy: Optional[PermissionPolicy] = None) -> None:
+    def __init__(self, policy: PermissionPolicy | None = None) -> None:
         self.policy = policy or PermissionPolicy()
-        self._tools: Dict[str, ToolSpec] = {}
+        self._tools: dict[str, ToolSpec] = {}
 
     def register(self, spec: ToolSpec) -> None:
         if spec.name in self._tools:
             raise ValueError(f"duplicate tool {spec.name}")
         self._tools[spec.name] = spec
 
-    def names(self) -> List[str]:
+    def names(self) -> list[str]:
         return sorted(self._tools)
 
     def get(self, name: str) -> ToolSpec:
         return self._tools[name]
 
-    def schemas(self) -> List[ToolSchema]:
+    def schemas(self) -> list[ToolSchema]:
         return [_tool_schema(s) for s in self._tools.values()]
 
-    def execute(self, name: str, arguments: Dict[str, Any]) -> str:
+    def execute(self, name: str, arguments: dict[str, Any]) -> str:
         """Run a tool through the permission gate. Always returns text for the model."""
         spec = self._tools.get(name)
         if spec is None:

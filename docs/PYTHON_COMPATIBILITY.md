@@ -1,6 +1,6 @@
 # Python Compatibility
 
-**Brok runs on Python 3.8+ (verified: full test suite, 318 tests, passes on 3.8.20 and 3.12.3).**
+**Brok runs on Python 3.8+ (verified: full test suite, 400 tests, passes on 3.8.20 and 3.12.3).**
 
 Earlier audit note claiming 3.8 was impossible was wrong; it was corrected after actually testing.
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import zipfile
 from pathlib import Path
-from typing import Dict, Optional
 
 from .renderer import render_state
 from .states import AvatarState
@@ -18,7 +17,7 @@ def _save_gif(frames, path: Path, ms: int = 140) -> None:
 def build_pack_dir(out: Path, theme: str = "cyan") -> Path:
     """Write ``<out>/pack.json`` and one GIF per AvatarState. Third-party packs use the same layout."""
     out.mkdir(parents=True, exist_ok=True)
-    manifest: Dict[str, str] = {}
+    manifest: dict[str, str] = {}
     for st in AvatarState:
         f = out / f"{st.value}.gif"
         _save_gif(render_state(st, theme), f)
@@ -43,7 +42,7 @@ def build_legacy_zip(path: Path, theme: str = "cyan") -> Path:
     return path
 
 
-def load_pack(folder: Path) -> Optional[Dict[AvatarState, Path]]:
+def load_pack(folder: Path) -> dict[AvatarState, Path] | None:
     """Validate a pack dir; returns {state: gif path} or None if invalid (falls back to the built-in robot)."""
     try:
         data = json.loads((folder / "pack.json").read_text(encoding="utf-8"))

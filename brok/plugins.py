@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List
+from typing import Callable
 
 from .agent.tools import Confirm, Risk, ToolRegistry, ToolSpec
 
@@ -15,7 +15,7 @@ ENTRY_POINT_GROUP = "brok.plugins"
 class PluginAPI:
     def __init__(self, registry: ToolRegistry, plugin_name: str) -> None:
         self._reg, self._plugin = registry, plugin_name
-        self.commands: Dict[str, Callable[[str], str]] = {}
+        self.commands: dict[str, Callable[[str], str]] = {}
 
     def register_tool(self, spec: ToolSpec) -> None:
         # Third-party tools are never silent: floor MEDIUM risk and at least configurable confirmation.
@@ -40,9 +40,9 @@ class Plugin(ABC):
 class PluginManager:
     def __init__(self, registry: ToolRegistry) -> None:
         self.registry = registry
-        self.loaded: List[str] = []
-        self.errors: Dict[str, str] = {}
-        self.commands: Dict[str, Callable[[str], str]] = {}
+        self.loaded: list[str] = []
+        self.errors: dict[str, str] = {}
+        self.commands: dict[str, Callable[[str], str]] = {}
 
     def load(self, plugin: Plugin) -> bool:
         """A broken plugin must never take the app down."""

@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import json
-import os
 
 import pytest
-from PIL import Image
 
 from brok.agent.builtin_tools import build_registry
-from brok.agent.tools import PermissionPolicy, Confirm, Risk, ToolSpec
+from brok.agent.tools import Confirm, PermissionPolicy, Risk, ToolSpec
 from brok.avatar.assets import build_legacy_zip, build_pack_dir, load_pack
 from brok.avatar.engine import AvatarEngine
 from brok.avatar.manager import AvatarManager
@@ -186,8 +184,17 @@ def test_github_write_needs_token(tmp_path, monkeypatch):
 
 
 # ---------- web ----------
-@pytest.mark.parametrize("url", ["http://127.0.0.1/x", "http://localhost:8080", "file:///etc/passwd",
-                                 "http://169.254.169.254/latest/meta-data", "ftp://a.b", "http://10.0.0.1"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://127.0.0.1/x",
+        "http://localhost:8080",
+        "file:///etc/passwd",
+        "http://169.254.169.254/latest/meta-data",
+        "ftp://a.b",
+        "http://10.0.0.1",
+    ],
+)
 def test_ssrf_guard(url):
     assert not is_public_url(url)
 
@@ -228,7 +235,9 @@ class GoodPlugin(Plugin):
     name = "demo"
 
     def register(self, api):
-        api.register_tool(ToolSpec("hello", "d", {"type": "object", "properties": {}}, Risk.LOW, Confirm.NEVER, lambda: "hi"))
+        api.register_tool(
+            ToolSpec("hello", "d", {"type": "object", "properties": {}}, Risk.LOW, Confirm.NEVER, lambda: "hi")
+        )
         api.register_command("greet", lambda a: "hello " + a)
 
 

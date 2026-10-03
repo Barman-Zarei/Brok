@@ -9,7 +9,7 @@ import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Callable, List, Optional
+from typing import Callable
 from urllib.parse import quote, urlparse
 
 from ..agent.tools import Confirm, Risk, ToolError, ToolRegistry, ToolSpec
@@ -26,7 +26,7 @@ class SearchProvider(ABC):
     name = "base"
 
     @abstractmethod
-    def search(self, query: str, limit: int = 5) -> List[SearchResult]: ...
+    def search(self, query: str, limit: int = 5) -> list[SearchResult]: ...
 
 
 class BraveSearchProvider(SearchProvider):
@@ -37,16 +37,20 @@ class BraveSearchProvider(SearchProvider):
 
         self._key, self.t = key_resolver, transport or UrllibTransport(20)
 
-    def search(self, query: str, limit: int = 5) -> List[SearchResult]:
+    def search(self, query: str, limit: int = 5) -> list[SearchResult]:
         import os
 
         key = os.environ.get("BRAVE_API_KEY", "") or self._key()
         if not key:
             raise ToolError("web search key missing: set BRAVE_API_KEY")
-        data = self.t.get_json("https://api.search.brave.com/res/v1/web/search?q=%s&count=%d" % (quote(query), limit),
-                               {"X-Subscription-Token": key, "Accept": "application/json"})
-        return [SearchResult(r.get("title", ""), r.get("url", ""), r.get("description", ""))
-                for r in data.get("web", {}).get("results", [])[:limit]]
+        data = self.t.get_json(
+            f"https://api.search.brave.com/res/v1/web/search?q={quote(query)}&count={limit}",
+            {"X-Subscription-Token": key, "Accept": "application/json"},
+        )
+        return [
+            SearchResult(r.get("title", ""), r.get("url", ""), r.get("description", ""))
+            for r in data.get("web", {}).get("results", [])[:limit]
+        ]
 
 
 def is_public_url(url: str) -> bool:
@@ -68,7 +72,7 @@ def is_public_url(url: str) -> bool:
 class _Text(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
-        self.parts: List[str] = []
+        self.parts: list[str] = []
         self._skip = 0
 
     def handle_starttag(self, tag, attrs):
@@ -88,7 +92,7 @@ def html_to_text(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(p.parts))
 
 
-def fetch_page(url: str, max_chars: int = 8000, opener: Optional[Callable] = None) -> str:
+def fetch_page(url: str, max_chars: int = 8000, opener: Callable | None = None) -> str:
     if not is_public_url(url):
         raise ToolError("refusing to fetch non-public or non-http(s) URL")
     req = urllib.request.Request(url, headers={"User-Agent": "Brok"})
@@ -100,7 +104,7 @@ def fetch_page(url: str, max_chars: int = 8000, opener: Optional[Callable] = Non
     return html_to_text(raw)[:max_chars]
 
 
-def register_web_tools(reg: ToolRegistry, provider: Optional[SearchProvider]) -> None:
+def register_web_tools(reg: ToolRegistry, provider: SearchProvider | None) -> None:
     S = {"type": "string"}
 
     def web_search(query: str) -> str:
@@ -109,7 +113,23 @@ def register_web_tools(reg: ToolRegistry, provider: Optional[SearchProvider]) ->
         res = provider.search(query)
         return "\n".join(f"{r.title}\n{r.url}\n{r.snippet}\n" for r in res) or "no results"
 
-    reg.register(ToolSpec("web_search", "Search the web (prefer official docs; do not guess versions).",
-                          {"type": "object", "properties": {"query": S}, "required": ["query"]}, Risk.LOW, Confirm.NEVER, web_search))
-    reg.register(ToolSpec("fetch_url", "Fetch a public web page as text.",
-                          {"type": "object", "properties": {"url": S}, "required": ["url"]}, Risk.MEDIUM, Confirm.CONFIGURABLE, fetch_page))
+    reg.register(
+        ToolSpec(
+            "web_search",
+            "Search the web (prefer official docs; do not guess versions).",
+            {"type": "object", "properties": {"query": S}, "required": ["query"]},
+            Risk.LOW,
+            Confirm.NEVER,
+            web_search,
+        )
+    )
+    reg.register(
+        ToolSpec(
+            "fetch_url",
+            "Fetch a public web page as text.",
+            {"type": "object", "properties": {"url": S}, "required": ["url"]},
+            Risk.MEDIUM,
+            Confirm.CONFIGURABLE,
+            fetch_page,
+        )
+    )

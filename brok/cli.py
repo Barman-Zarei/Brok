@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import List, Optional
 
 from .agent.debugger import debug_prompt
 from .agent.health import analyze
@@ -37,8 +36,13 @@ def _run_agent(cfg: BrokConfig, task: str, project: str, mode: str, approver=ter
     mem = MemoryStore()
     task = (mem.context_for(project) and f"[Memory]\n{mem.context_for(project)}\n\n" or "") + task
     c = cfg.coding
-    loop = AgentLoop(orch, reg, Limits(c.max_iterations, c.timeout_seconds, c.token_budget, c.tool_budget), mode,
-                     on_event=lambda k, t: print(t, end="", flush=True) if k == "text" else print(f"\n🔧 {t}"))
+    loop = AgentLoop(
+        orch,
+        reg,
+        Limits(c.max_iterations, c.timeout_seconds, c.token_budget, c.tool_budget),
+        mode,
+        on_event=lambda k, t: print(t, end="", flush=True) if k == "text" else print(f"\n🔧 {t}"),
+    )
     chain = orch.chain()
     prov = ("LOCAL AI" if chain[0].is_local else "CLOUD AI") if chain else "NO PROVIDER"
     print(f"[{prov}] working in {project} …")
@@ -53,7 +57,7 @@ def _run_agent(cfg: BrokConfig, task: str, project: str, mode: str, approver=ter
     return 0 if res.status == "done" else 1
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="brok-agent", description="Brok coding agent (terminal)")
     ap.add_argument("--project", default=".", help="project root the agent may access")
     sub = ap.add_subparsers(dest="cmd", required=True)

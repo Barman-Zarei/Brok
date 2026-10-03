@@ -25,3 +25,7 @@ Not yet verified: GUI launch (needs display; offscreen only), Windows/macOS beha
 
 ## Brand occurrence census (108 files)
 `mycat` ~1058, `yumiaura` 177, `Desktop Cat` 5. Needs classification into: package/import names, config paths, UI strings, URLs, attribution (keep). Not a blind replace.
+
+---
+## Status after the Brok migration
+Test suite: 400 passed on Python 3.8.20 and 3.12.3 (was 313 passed + 3 env-only failures upstream); ruff clean.

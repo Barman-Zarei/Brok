@@ -7,8 +7,22 @@ from pathlib import Path
 
 from .tools import ToolError
 
-SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".mypy_cache", ".ruff_cache",
-             ".pytest_cache", ".idea", ".dart_tool", ".gradle", "target"}
+SKIP_DIRS = {
+    ".git",
+    "node_modules",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".idea",
+    ".dart_tool",
+    ".gradle",
+    "target",
+}
 _BLOCKED_NAMES = {".env", "id_rsa", "id_ed25519", ".netrc", "credentials.json"}
 
 

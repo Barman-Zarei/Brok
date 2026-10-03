@@ -6,7 +6,7 @@ import html
 import os
 import threading
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -15,9 +15,8 @@ from .agent.builtin_tools import build_registry  # noqa: F401  (re-exported for 
 from .agent.health import analyze
 from .agent.loop import AgentLoop, Limits
 from .agent.project import detect_project
-from .agent.tools import ApprovalRequest, PermissionPolicy, ToolRegistry
+from .agent.tools import ApprovalRequest, ToolRegistry
 from .ai.orchestrator import AIOrchestrator, infer_mode
-from .ai.transport import ProviderError
 from .avatar.engine import AvatarEngine
 from .avatar.manager import AvatarManager
 from .commands import parse_command
@@ -82,17 +81,23 @@ class AgentWorker(QtCore.QThread):
 
 
 class WorkspaceWindow(QtWidgets.QMainWindow):
-    def __init__(self, project: str, orchestrator: AIOrchestrator,
-                 registry_factory: Callable[[str, Callable], ToolRegistry],
-                 limits: Optional[Limits] = None, language: str = "fa", parent=None,
-                 avatar: Optional[AvatarManager] = None) -> None:
+    def __init__(
+        self,
+        project: str,
+        orchestrator: AIOrchestrator,
+        registry_factory: Callable[[str, Callable], ToolRegistry],
+        limits: Limits | None = None,
+        language: str = "fa",
+        parent=None,
+        avatar: AvatarManager | None = None,
+    ) -> None:
         super().__init__(parent)
         self.orch, self.registry_factory = orchestrator, registry_factory
         self.limits, self.language = limits or Limits(), language
         self.avatar = avatar or AvatarManager(AvatarEngine())
         self.project = ""
-        self.current_file: Optional[Path] = None
-        self.worker: Optional[AgentWorker] = None
+        self.current_file: Path | None = None
+        self.worker: AgentWorker | None = None
         self.setWindowTitle(tr("Coding Workspace"))
         self.resize(1280, 800)
         self._build_ui()
@@ -175,8 +180,13 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self.info_view = QtWidgets.QPlainTextEdit()
         self.info_view.setReadOnly(True)
         tabs = QtWidgets.QTabWidget()
-        for name, w in (("Diff", self.diff_view), ("Output", term), ("Problems", self.problems), ("Git", self.git_view),
-                        ("Project", self.info_view)):
+        for name, w in (
+            ("Diff", self.diff_view),
+            ("Output", term),
+            ("Problems", self.problems),
+            ("Git", self.git_view),
+            ("Project", self.info_view),
+        ):
             tabs.addTab(w, tr(name))
         self.tabs = tabs
         self._dock("Output", tabs, B)
@@ -198,9 +208,11 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         info = detect_project(self.project)
         self.info_view.setPlainText(
             f"Languages: {', '.join(info.languages) or '—'}\nFrameworks: {', '.join(info.frameworks) or '—'}\n"
-            f"Package managers: {', '.join(info.package_managers) or '—'}\nEntry points: {', '.join(info.entry_points) or '—'}\n"
+            f"Package managers: {', '.join(info.package_managers) or '—'}\n"
+            f"Entry points: {', '.join(info.entry_points) or '—'}\n"
             f"Tests: {info.test_command or '—'}\nLint: {info.lint_command or '—'}\nBuild: {info.build_system or '—'}\n"
-            f"Git: {'yes' if info.git_repo else 'no'}")
+            f"Git: {'yes' if info.git_repo else 'no'}"
+        )
         self.git_view.setPlainText(self.registry.execute("git_status", {}) if info.git_repo else "—")
         self.problems.clear()
         rep = analyze(self.project)
@@ -336,7 +348,7 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
 
-def open_workspace(parent=None, project: str = "") -> Optional[WorkspaceWindow]:
+def open_workspace(parent=None, project: str = "") -> WorkspaceWindow | None:
     """Entry point used by the tray/context menu."""
     from .config import BrokConfig
     from .core import build_orchestrator, build_tools
@@ -350,7 +362,12 @@ def open_workspace(parent=None, project: str = "") -> Optional[WorkspaceWindow]:
     tracker = PrivacyTracker()
     orch = build_orchestrator(cfg, tracker)
     c = cfg.coding
-    win = WorkspaceWindow(project, orch, lambda root, appr: build_tools(cfg, root, appr, tracker),
-                          Limits(c.max_iterations, c.timeout_seconds, c.token_budget, c.tool_budget), cfg.ui.language)
+    win = WorkspaceWindow(
+        project,
+        orch,
+        lambda root, appr: build_tools(cfg, root, appr, tracker),
+        Limits(c.max_iterations, c.timeout_seconds, c.token_budget, c.tool_budget),
+        cfg.ui.language,
+    )
     win.show()
     return win

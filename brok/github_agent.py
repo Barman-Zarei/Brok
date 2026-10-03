@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 from .agent.tools import Confirm, Risk, ToolError, ToolRegistry, ToolSpec
 from .ai.transport import ProviderError, UrllibTransport
@@ -12,10 +12,10 @@ API = "https://api.github.com"
 
 
 class GitHubClient:
-    def __init__(self, token_resolver: Optional[Callable[[], str]] = None, transport=None, base: str = API) -> None:
+    def __init__(self, token_resolver: Callable[[], str] | None = None, transport=None, base: str = API) -> None:
         self._resolver, self.t, self.base = token_resolver, transport or UrllibTransport(30), base
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> dict[str, str]:
         tok = os.environ.get("GITHUB_TOKEN", "") or (self._resolver() if self._resolver else "")
         h = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Brok"}
         if tok:
@@ -47,25 +47,44 @@ class GitHubClient:
 def register_github_tools(reg: ToolRegistry, gh: GitHubClient) -> None:
     S = {"type": "string"}
     obj = lambda props, req=None: {"type": "object", "properties": props, "required": req or list(props)}  # noqa: E731
-    repo = lambda r: r if r.count("/") == 1 and all(c.isalnum() or c in "-_./" for c in r) else (_ for _ in ()).throw(ToolError("repo must be owner/name"))  # noqa: E731
+
+    def repo(r: str) -> str:
+        if r.count("/") == 1 and all(c.isalnum() or c in "-_./" for c in r) and ".." not in r:
+            return r
+        raise ToolError("repo must be owner/name")
 
     def issues(repository: str) -> str:
-        return "\n".join(f"#{i['number']} {i['title']}" for i in gh.get(f"/repos/{repo(repository)}/issues?state=open")
-                         if "pull_request" not in i) or "no open issues"
+        return (
+            "\n".join(
+                f"#{i['number']} {i['title']}"
+                for i in gh.get(f"/repos/{repo(repository)}/issues?state=open")
+                if "pull_request" not in i
+            )
+            or "no open issues"
+        )
 
     def prs(repository: str) -> str:
-        return "\n".join(f"#{p['number']} {p['title']}" for p in gh.get(f"/repos/{repo(repository)}/pulls?state=open")) or "no open PRs"
+        return (
+            "\n".join(f"#{p['number']} {p['title']}" for p in gh.get(f"/repos/{repo(repository)}/pulls?state=open"))
+            or "no open PRs"
+        )
 
     def commits(repository: str) -> str:
-        return "\n".join(f"{c['sha'][:7]} {c['commit']['message'].splitlines()[0]}"
-                         for c in gh.get(f"/repos/{repo(repository)}/commits?per_page=10"))
+        return "\n".join(
+            f"{c['sha'][:7]} {c['commit']['message'].splitlines()[0]}"
+            for c in gh.get(f"/repos/{repo(repository)}/commits?per_page=10")
+        )
 
     def branches(repository: str) -> str:
         return "\n".join(b["name"] for b in gh.get(f"/repos/{repo(repository)}/branches?per_page=100"))
 
     def browse(repository: str, path: str = "") -> str:
         data = gh.get(f"/repos/{repo(repository)}/contents/{path.lstrip('/')}")
-        return "\n".join(f"{d['type']} {d['path']}" for d in data) if isinstance(data, list) else f"file {data.get('path')} ({data.get('size')} bytes)"
+        return (
+            "\n".join(f"{d['type']} {d['path']}" for d in data)
+            if isinstance(data, list)
+            else f"file {data.get('path')} ({data.get('size')} bytes)"
+        )
 
     def create_issue(repository: str, title: str, body: str = "") -> str:
         r = gh.post(f"/repos/{repo(repository)}/issues", {"title": title, "body": body})
@@ -86,9 +105,32 @@ def register_github_tools(reg: ToolRegistry, gh: GitHubClient) -> None:
         ("github_commits", "Recent commits.", {"repository": S}, None, L, N, commits),
         ("github_branches", "List branches.", {"repository": S}, None, L, N, branches),
         ("github_browse", "Browse repo files.", {"repository": S, "path": S}, ["repository"], L, N, browse),
-        ("github_create_issue", "Create an issue (remote change).", {"repository": S, "title": S, "body": S}, ["repository", "title"], H, REQ, create_issue),
-        ("github_create_branch", "Create a branch (remote change).", {"repository": S, "branch": S, "from_sha": S}, None, H, REQ, create_branch),
-        ("github_create_pr", "Open a pull request (remote change).", {"repository": S, "title": S, "head": S, "base": S, "body": S},
-         ["repository", "title", "head", "base"], H, REQ, create_pr),
+        (
+            "github_create_issue",
+            "Create an issue (remote change).",
+            {"repository": S, "title": S, "body": S},
+            ["repository", "title"],
+            H,
+            REQ,
+            create_issue,
+        ),
+        (
+            "github_create_branch",
+            "Create a branch (remote change).",
+            {"repository": S, "branch": S, "from_sha": S},
+            None,
+            H,
+            REQ,
+            create_branch,
+        ),
+        (
+            "github_create_pr",
+            "Open a pull request (remote change).",
+            {"repository": S, "title": S, "head": S, "base": S, "body": S},
+            ["repository", "title", "head", "base"],
+            H,
+            REQ,
+            create_pr,
+        ),
     ]:
         reg.register(ToolSpec(name, desc, obj(props, req), risk, conf, fn))

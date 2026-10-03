@@ -32,15 +32,29 @@ def sse(*events):
 
 def test_claude_streams_text_and_tool_use(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-123456789")
-    t = FakeTransport(sse(
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "سلام"}},
-        {"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "tu1", "name": "read_file"}},
-        {"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": '{"path":'}},
-        {"type": "content_block_delta", "index": 1, "delta": {"type": "input_json_delta", "partial_json": '"a.py"}'}},
-        {"type": "content_block_stop", "index": 1},
-        {"type": "message_delta", "delta": {"stop_reason": "tool_use"}},
-        {"type": "message_stop"},
-    ))
+    t = FakeTransport(
+        sse(
+            {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "سلام"}},
+            {
+                "type": "content_block_start",
+                "index": 1,
+                "content_block": {"type": "tool_use", "id": "tu1", "name": "read_file"},
+            },
+            {
+                "type": "content_block_delta",
+                "index": 1,
+                "delta": {"type": "input_json_delta", "partial_json": '{"path":'},
+            },
+            {
+                "type": "content_block_delta",
+                "index": 1,
+                "delta": {"type": "input_json_delta", "partial_json": '"a.py"}'},
+            },
+            {"type": "content_block_stop", "index": 1},
+            {"type": "message_delta", "delta": {"stop_reason": "tool_use"}},
+            {"type": "message_stop"},
+        )
+    )
     p = ClaudeProvider(transport=t)
     ev = list(p.chat([Message("user", "hi")], "sys", [ToolSchema("read_file", "d", {"type": "object"})]))
     assert ev[0].text == "سلام"
@@ -58,9 +72,11 @@ def test_claude_requires_key(monkeypatch):
 
 
 def test_claude_converts_tool_results_and_images(monkeypatch):
-    msgs = [Message("user", "look", images=[ImageInput("QUJD")]),
-            Message("assistant", "", [ToolCall("t1", "read_file", {"path": "x"})]),
-            Message("tool", "content", tool_call_id="t1")]
+    msgs = [
+        Message("user", "look", images=[ImageInput("QUJD")]),
+        Message("assistant", "", [ToolCall("t1", "read_file", {"path": "x"})]),
+        Message("tool", "content", tool_call_id="t1"),
+    ]
     out = ClaudeProvider._convert(msgs)
     assert out[0]["content"][0]["type"] == "image"
     assert out[1]["content"][0]["type"] == "tool_use"
@@ -68,8 +84,20 @@ def test_claude_converts_tool_results_and_images(monkeypatch):
 
 
 def test_ollama_stream_and_local_flag():
-    t = FakeTransport([json.dumps({"message": {"content": "he"}}), json.dumps({"message": {"content": "llo",
-        "tool_calls": [{"function": {"name": "git_status", "arguments": {}}}]}, "done": True})])
+    t = FakeTransport(
+        [
+            json.dumps({"message": {"content": "he"}}),
+            json.dumps(
+                {
+                    "message": {
+                        "content": "llo",
+                        "tool_calls": [{"function": {"name": "git_status", "arguments": {}}}],
+                    },
+                    "done": True,
+                }
+            ),
+        ]
+    )
     p = OllamaProvider(transport=t)
     ev = list(p.chat([Message("user", "x")]))
     assert "".join(e.text for e in ev if e.kind == "text") == "hello"
@@ -84,11 +112,31 @@ def test_ollama_models():
 
 def test_openai_tool_call_assembly(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-0123456789abcdef")
-    t = FakeTransport(sse(
-        {"choices": [{"delta": {"content": "x"}}]},
-        {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "c1", "function": {"name": "list_directory", "arguments": '{"pa'}}]}}]},
-        {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": 'th":"."}'}}]}, "finish_reason": "tool_calls"}]},
-    ) + ["data: [DONE]"])
+    t = FakeTransport(
+        sse(
+            {"choices": [{"delta": {"content": "x"}}]},
+            {
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {"index": 0, "id": "c1", "function": {"name": "list_directory", "arguments": '{"pa'}}
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "choices": [
+                    {
+                        "delta": {"tool_calls": [{"index": 0, "function": {"arguments": 'th":"."}'}}]},
+                        "finish_reason": "tool_calls",
+                    }
+                ]
+            },
+        )
+        + ["data: [DONE]"]
+    )
     ev = list(OpenAIProvider(transport=t).chat([Message("user", "x")]))
     assert ev[1].tool_call.arguments == {"path": "."} and ev[-1].stop_reason == "tool_use"
 

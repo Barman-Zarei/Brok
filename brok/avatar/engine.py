@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Callable, List, Optional
+from typing import Callable
 
 from .states import PRIORITY, TRANSIENT_SECONDS, AvatarState
 
@@ -15,7 +15,7 @@ class AvatarEngine:
         self.clock = clock
         self.state = AvatarState.IDLE
         self._since = clock()
-        self._listeners: List[Callable[[AvatarState, AvatarState], None]] = []
+        self._listeners: list[Callable[[AvatarState, AvatarState], None]] = []
 
     def subscribe(self, fn: Callable[[AvatarState, AvatarState], None]) -> None:
         self._listeners.append(fn)

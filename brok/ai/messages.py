@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,16 +18,16 @@ class ImageInput:
 class ToolCall:
     id: str
     name: str
-    arguments: Dict[str, Any] = field(default_factory=dict)
+    arguments: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class Message:
     role: str  # "user" | "assistant" | "tool"
     content: str = ""
-    tool_calls: List[ToolCall] = field(default_factory=list)
-    tool_call_id: Optional[str] = None  # set on role == "tool"
-    images: List[ImageInput] = field(default_factory=list)
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    tool_call_id: str | None = None  # set on role == "tool"
+    images: list[ImageInput] = field(default_factory=list)
 
 
 @dataclass
@@ -36,12 +36,12 @@ class ToolSchema:
 
     name: str
     description: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
 
 
 @dataclass
 class StreamEvent:
     kind: str  # "text" | "tool_call" | "done" | "error"
     text: str = ""
-    tool_call: Optional[ToolCall] = None
+    tool_call: ToolCall | None = None
     stop_reason: str = ""

@@ -8,7 +8,6 @@ import re
 import shlex
 import subprocess
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 SAFE, CONFIRM, BLOCKED = "safe", "confirm", "blocked"
 
@@ -26,7 +25,10 @@ _BLOCK_PATTERNS = [
     (r"(?i)\bformat\s+[a-z]:", "disk formatting"),
     (r"(?i)\b(del|erase)\b.*\s/[sq]\b", "recursive deletion"),
     (r"(?i)\b(rd|rmdir)\b.*\s/s\b", "recursive deletion"),
-    (r"(?i)(\.ssh/id_|\.aws/credentials|/etc/shadow|\.gnupg|\.netrc|login\.keychain|credentials\.json)", "credential access"),
+    (
+        r"(?i)(\.ssh/id_|\.aws/credentials|/etc/shadow|\.gnupg|\.netrc|login\.keychain|credentials\.json)",
+        "credential access",
+    ),
     (r"(?i)\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z|da)?sh\b", "pipe remote script to shell"),
     (r"(?i)\bgit\s+push\b.*--mirror", "remote mirror push"),
 ]
@@ -45,7 +47,7 @@ _META = re.compile(r"[;&|`><]|\$\(|\n")
 @dataclass
 class Verdict:
     level: str
-    reasons: List[str] = field(default_factory=list)
+    reasons: list[str] = field(default_factory=list)
     shell: str = ""
     os_name: str = ""
 
@@ -54,12 +56,12 @@ class Verdict:
         return self.level != BLOCKED
 
 
-def detect_shell(os_name: Optional[str] = None) -> str:
+def detect_shell(os_name: str | None = None) -> str:
     os_name = os_name or platform.system()
     return "cmd/powershell" if os_name == "Windows" else (os.path.basename(os.environ.get("SHELL", "")) or "sh")
 
 
-def classify_command(command: str, os_name: Optional[str] = None) -> Verdict:
+def classify_command(command: str, os_name: str | None = None) -> Verdict:
     os_name = os_name or platform.system()
     v = Verdict(SAFE, [], detect_shell(os_name), os_name)
     cmd = command.strip()
@@ -86,7 +88,7 @@ def classify_command(command: str, os_name: Optional[str] = None) -> Verdict:
 _SECRET_ENV = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)", re.I)
 
 
-def scrubbed_env() -> Dict[str, str]:
+def scrubbed_env() -> dict[str, str]:
     """Environment without secrets, so executed commands cannot read API keys."""
     return {k: v for k, v in os.environ.items() if not _SECRET_ENV.search(k)}
 
@@ -98,15 +100,24 @@ class CommandResult:
     timed_out: bool = False
 
 
-def run_command(command: str, cwd: str, timeout: int = 120, max_output: int = 20000,
-                os_name: Optional[str] = None) -> CommandResult:
+def run_command(
+    command: str, cwd: str, timeout: int = 120, max_output: int = 20000, os_name: str | None = None
+) -> CommandResult:
     """Run without a shell (argv list). Caller must already have classified/approved."""
     import shlex as _sh
 
     argv = _sh.split(command, posix=(os_name or platform.system()) != "Windows")
     try:
-        p = subprocess.run(argv, cwd=cwd, env=scrubbed_env(), capture_output=True, timeout=timeout, text=True,
-                           errors="replace", stdin=subprocess.DEVNULL)
+        p = subprocess.run(
+            argv,
+            cwd=cwd,
+            env=scrubbed_env(),
+            capture_output=True,
+            timeout=timeout,
+            text=True,
+            errors="replace",
+            stdin=subprocess.DEVNULL,
+        )
     except subprocess.TimeoutExpired as exc:
         out = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
         return CommandResult(-1, out[-max_output:] + f"\n[timed out after {timeout}s]", True)
@@ -114,5 +125,5 @@ def run_command(command: str, cwd: str, timeout: int = 120, max_output: int = 20
         return CommandResult(-1, f"cannot run: {exc}")
     out = (p.stdout or "") + (p.stderr or "")
     if len(out) > max_output:
-        out = out[:max_output // 2] + "\n…[truncated]…\n" + out[-max_output // 2:]
+        out = out[: max_output // 2] + "\n…[truncated]…\n" + out[-max_output // 2 :]
     return CommandResult(p.returncode, out)

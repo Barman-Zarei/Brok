@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 COMMANDS = {
-    "chat": "CHAT", "code": "CODING", "fix": "DEBUG", "explain": "CODING", "test": "CODING", "run": "AUTOMATION",
-    "search": "RESEARCH", "git": "CODING", "github": "CODING", "remind": "AUTOMATION", "settings": "CHAT",
+    "chat": "CHAT",
+    "code": "CODING",
+    "fix": "DEBUG",
+    "explain": "CODING",
+    "test": "CODING",
+    "run": "AUTOMATION",
+    "search": "RESEARCH",
+    "git": "CODING",
+    "github": "CODING",
+    "remind": "AUTOMATION",
+    "settings": "CHAT",
     "learn": "LEARNING",
 }
 
@@ -19,7 +27,7 @@ class ParsedCommand:
     mode: str
 
 
-def parse_command(line: str) -> Optional[ParsedCommand]:
+def parse_command(line: str) -> ParsedCommand | None:
     """``/fix this error`` → ParsedCommand('fix', 'this error', 'DEBUG'); natural language → mode inferred."""
     from .ai.orchestrator import infer_mode
 

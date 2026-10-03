@@ -15,10 +15,14 @@ def test_claude_is_a_builtin_vendor_needing_a_key():
 
 
 def test_claude_backend_reply(monkeypatch):
-    lines = ["data: " + json.dumps(e) for e in (
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "سلام "}},
-        {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "دنیا"}},
-        {"type": "message_stop"})]
+    lines = [
+        "data: " + json.dumps(e)
+        for e in (
+            {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "سلام "}},
+            {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "دنیا"}},
+            {"type": "message_stop"},
+        )
+    ]
     b = llm_claude.ClaudeBackend(base_url="", api_key="sk-ant-xxxxxxxxxxxx", model="m", timeout=5)
     b.provider.transport = type("T", (), {"stream_lines": lambda s, u, h, body, c=None: iter(lines)})()
     assert b.reply("hi", "sys") == "سلام دنیا"

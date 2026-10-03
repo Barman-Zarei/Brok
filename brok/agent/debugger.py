@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass
-from typing import List, Optional
 
 _FRAME = re.compile(r'File "([^"]+)", line (\d+), in (\S+)')
 _LAST = re.compile(r"^([A-Za-z_][\w.]*(?:Error|Exception|Warning|Exit|Interrupt))\s*:?\s*(.*)$", re.M)
@@ -22,7 +21,7 @@ class Frame:
 class ParsedError:
     error_type: str
     message: str
-    frames: List[Frame]
+    frames: list[Frame]
 
 
 def parse_traceback(text: str) -> ParsedError:
@@ -35,7 +34,7 @@ def parse_traceback(text: str) -> ParsedError:
 def source_context(root: str, err: ParsedError, radius: int = 6, max_frames: int = 4) -> str:
     """Code around the innermost project frames (files outside root are skipped)."""
     root = os.path.realpath(root)
-    blocks: List[str] = []
+    blocks: list[str] = []
     for fr in reversed(err.frames):
         full = os.path.realpath(fr.file if os.path.isabs(fr.file) else os.path.join(root, fr.file))
         if not full.startswith(root + os.sep) or not os.path.isfile(full):
@@ -57,5 +56,6 @@ def debug_prompt(error_text: str, root: str, logs: str = "", language: str = "fa
         "Debug this error. Pipeline: 1) locate the likely cause 2) explain it simply 3) propose a minimal fix "
         "4) apply it with write_file (diff is shown to the user) 5) run_tests to verify 6) report the result. "
         f"{lang}\n\nERROR ({err.error_type}): {err.message}\n\n```\n{error_text[-4000:]}\n```\n\n"
-        f"RELEVANT SOURCE:\n{ctx or '(none found inside the project)'}\n" + (f"\nLOGS:\n{logs[-2000:]}\n" if logs else "")
+        f"RELEVANT SOURCE:\n{ctx or '(none found inside the project)'}\n"
+        + (f"\nLOGS:\n{logs[-2000:]}\n" if logs else "")
     )

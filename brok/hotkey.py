@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 _SPECIAL = {"ctrl", "alt", "shift", "cmd", "space", "enter", "tab", "esc"}
@@ -22,7 +22,7 @@ def to_pynput(combo: str) -> str:
 class HotkeyManager:
     def __init__(self, combo: str, callback: Callable[[], None]) -> None:
         self.combo, self.callback = combo, callback
-        self._listener: Optional[object] = None
+        self._listener: object | None = None
         self.status = "stopped"
 
     def start(self) -> bool:

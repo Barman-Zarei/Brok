@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.8", "3.10", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v5
 
@@ -38,6 +38,13 @@ jobs:
       # unstable when many tests share one process (a later Qt test can crash or
       # hang on an earlier test's teardown). --timeout bounds any stuck test to
       # seconds; --timeout-method=thread is required to bound a hang under --forked.
+      - name: Package validation
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+
+      # No API keys are needed: providers are tested against fake transports.
       - name: Tests
         env:
           QT_QPA_PLATFORM: offscreen

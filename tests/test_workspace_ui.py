@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import time
 
 import pytest
@@ -65,8 +64,16 @@ def test_panels_populate_and_file_open_save(app, tmp_path):
 
 
 def test_agent_edit_goes_through_diff_approval_apply(app, tmp_path):
-    edit = [[StreamEvent("tool_call", tool_call=ToolCall("1", "write_file", {"path": "a.py", "content": "def f():\n    return 2\n"})),
-             StreamEvent("done")], [StreamEvent("text", text="انجام شد"), StreamEvent("done")]]
+    edit = [
+        [
+            StreamEvent(
+                "tool_call",
+                tool_call=ToolCall("1", "write_file", {"path": "a.py", "content": "def f():\n    return 2\n"}),
+            ),
+            StreamEvent("done"),
+        ],
+        [StreamEvent("text", text="انجام شد"), StreamEvent("done")],
+    ]
     shown = []
     w, _ = make_window(tmp_path, edit, lambda r: shown.append(r) or True)
     w.open_file(str(tmp_path / "a.py"))
@@ -80,8 +87,13 @@ def test_agent_edit_goes_through_diff_approval_apply(app, tmp_path):
 
 
 def test_rejecting_the_diff_leaves_file_untouched(app, tmp_path):
-    edit = [[StreamEvent("tool_call", tool_call=ToolCall("1", "write_file", {"path": "a.py", "content": "boom\n"})),
-             StreamEvent("done")], [StreamEvent("text", text="باشه"), StreamEvent("done")]]
+    edit = [
+        [
+            StreamEvent("tool_call", tool_call=ToolCall("1", "write_file", {"path": "a.py", "content": "boom\n"})),
+            StreamEvent("done"),
+        ],
+        [StreamEvent("text", text="باشه"), StreamEvent("done")],
+    ]
     w, _ = make_window(tmp_path, edit, lambda r: False)
     w.start_task("edit", "CODING")
     wait_done(app, w)

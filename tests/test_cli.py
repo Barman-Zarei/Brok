@@ -48,8 +48,13 @@ def test_agent_end_to_end_with_scripted_provider(tmp_path, monkeypatch):
     from brok.ai.orchestrator import AIOrchestrator
 
     (tmp_path / "x.py").write_text("print(1)\n")
-    turns = [[StreamEvent("tool_call", tool_call=ToolCall("1", "write_file", {"path": "x.py", "content": "print(2)\n"})),
-              StreamEvent("done")], [StreamEvent("text", text="انجام شد"), StreamEvent("done")]]
+    turns = [
+        [
+            StreamEvent("tool_call", tool_call=ToolCall("1", "write_file", {"path": "x.py", "content": "print(2)\n"})),
+            StreamEvent("done"),
+        ],
+        [StreamEvent("text", text="انجام شد"), StreamEvent("done")],
+    ]
 
     class P:
         name, is_local, supports_tools = "s", True, True
@@ -58,9 +63,16 @@ def test_agent_end_to_end_with_scripted_provider(tmp_path, monkeypatch):
     monkeypatch.setattr("brok.cli.build_orchestrator", lambda cfg, tr=None: AIOrchestrator({"s": P()}, "s"))
     monkeypatch.setattr("brok.paths.config_dir", lambda: tmp_path / "cfg")
     asked = []
-    rc = cli._run_agent(BrokConfig(), "change", str(tmp_path), "CODING", approver=lambda r: asked.append(r.diff) or True)
+    rc = cli._run_agent(
+        BrokConfig(), "change", str(tmp_path), "CODING", approver=lambda r: asked.append(r.diff) or True
+    )
     assert rc == 0 and (tmp_path / "x.py").read_text() == "print(2)\n" and "-print(1)" in asked[0]
-    turns[:] = [[StreamEvent("tool_call", tool_call=ToolCall("1", "write_file", {"path": "x.py", "content": "print(3)\n"})),
-                 StreamEvent("done")], [StreamEvent("text", text="ok"), StreamEvent("done")]]
+    turns[:] = [
+        [
+            StreamEvent("tool_call", tool_call=ToolCall("1", "write_file", {"path": "x.py", "content": "print(3)\n"})),
+            StreamEvent("done"),
+        ],
+        [StreamEvent("text", text="ok"), StreamEvent("done")],
+    ]
     cli._run_agent(BrokConfig(), "change", str(tmp_path), "CODING", approver=lambda r: False)
     assert (tmp_path / "x.py").read_text() == "print(2)\n"  # rejected edit never applied

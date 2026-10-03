@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Callable, Dict, Iterator, List, Optional
+from typing import Callable, Iterator
 
 from ..messages import Message, StreamEvent, ToolCall, ToolSchema
 from ..transport import ProviderError
@@ -15,23 +15,29 @@ class OpenAIProvider(AIProvider):
     name = "openai"
     supports_vision = True
 
-    def __init__(self, model: str = "gpt-4o-mini", base_url: str = "https://api.openai.com/v1",
-                 key_resolver: Optional[Callable[[], str]] = None, key_env: str = "OPENAI_API_KEY", transport=None) -> None:
+    def __init__(
+        self,
+        model: str = "gpt-4o-mini",
+        base_url: str = "https://api.openai.com/v1",
+        key_resolver: Callable[[], str] | None = None,
+        key_env: str = "OPENAI_API_KEY",
+        transport=None,
+    ) -> None:
         super().__init__(model, transport)
         self.base_url = base_url.rstrip("/")
         self._resolver, self._key_env = key_resolver, key_env
 
-    def _headers(self) -> Dict[str, str]:
+    def _headers(self) -> dict[str, str]:
         key = os.environ.get(self._key_env, "") or (self._resolver() if self._resolver else "")
         if not key:
             raise ProviderError(f"API key missing: set {self._key_env}.", retryable=False)
         return {"Authorization": f"Bearer {key}"}
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         return [m["id"] for m in self.transport.get_json(f"{self.base_url}/models", self._headers()).get("data", [])]
 
     @staticmethod
-    def _convert(messages: List[Message], system: str) -> list:
+    def _convert(messages: list[Message], system: str) -> list:
         out: list = [{"role": "system", "content": system}] if system else []
         for m in messages:
             if m.role == "tool":
@@ -40,26 +46,36 @@ class OpenAIProvider(AIProvider):
                 item: dict = {"role": "assistant", "content": m.content or None}
                 if m.tool_calls:
                     item["tool_calls"] = [
-                        {"id": c.id, "type": "function", "function": {"name": c.name, "arguments": json.dumps(c.arguments)}}
+                        {
+                            "id": c.id,
+                            "type": "function",
+                            "function": {"name": c.name, "arguments": json.dumps(c.arguments)},
+                        }
                         for c in m.tool_calls
                     ]
                 out.append(item)
             elif m.images:
                 parts: list = [{"type": "text", "text": m.content}]
-                parts += [{"type": "image_url", "image_url": {"url": f"data:{i.media_type};base64,{i.data}"}} for i in m.images]
+                parts += [
+                    {"type": "image_url", "image_url": {"url": f"data:{i.media_type};base64,{i.data}"}}
+                    for i in m.images
+                ]
                 out.append({"role": "user", "content": parts})
             else:
                 out.append({"role": "user", "content": m.content})
         return out
 
-    def chat(self, messages, system="", tools: Optional[List[ToolSchema]] = None, cancel=None) -> Iterator[StreamEvent]:
+    def chat(self, messages, system="", tools: list[ToolSchema] | None = None, cancel=None) -> Iterator[StreamEvent]:
         body: dict = {"model": self.model, "messages": self._convert(messages, system), "stream": True}
         if tools:
             body["tools"] = [
-                {"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.parameters}}
+                {
+                    "type": "function",
+                    "function": {"name": t.name, "description": t.description, "parameters": t.parameters},
+                }
                 for t in tools
             ]
-        calls: Dict[int, dict] = {}
+        calls: dict[int, dict] = {}
         finish = "stop"
         for line in self.transport.stream_lines(f"{self.base_url}/chat/completions", self._headers(), body, cancel):
             if not line.startswith("data:"):

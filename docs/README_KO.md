@@ -1,3 +1,5 @@
+> ⚠ Translation of the README from before the Brok rewrite (cat-era text). The English [README](../README.md) is the up-to-date source.
+
 [EN](https://github.com/Barman-Zarei/Brok/blob/main/README.md) | [RU](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_RU.md) | [CN](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_CN.md) | [ID](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_ID.md) | KO
 
 ## 데스크탑 고양이: QT 오버레이 🐱

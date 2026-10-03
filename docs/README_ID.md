@@ -1,3 +1,5 @@
+> ⚠ Translation of the README from before the Brok rewrite (cat-era text). The English [README](../README.md) is the up-to-date source.
+
 [EN](https://github.com/Barman-Zarei/Brok/blob/main/README.md) | [RU](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_RU.md) | [中文](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_CN.md) | ID | [KO](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_KO.md)
 
 # Kucing Desktop: Aplikasi Mengambang QT 🐱

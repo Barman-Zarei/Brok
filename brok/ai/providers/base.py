@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 from abc import ABC, abstractmethod
-from typing import Iterator, List, Optional
+from typing import Iterator
 
 from ..messages import Message, StreamEvent, ToolSchema
 
@@ -29,15 +29,15 @@ class AIProvider(ABC):
     @abstractmethod
     def chat(
         self,
-        messages: List[Message],
+        messages: list[Message],
         system: str = "",
-        tools: Optional[List[ToolSchema]] = None,
-        cancel: Optional[threading.Event] = None,
+        tools: list[ToolSchema] | None = None,
+        cancel: threading.Event | None = None,
     ) -> Iterator[StreamEvent]:
         """Stream events; the last event is always ``done`` unless cancelled."""
 
     @abstractmethod
-    def list_models(self) -> List[str]: ...
+    def list_models(self) -> list[str]: ...
 
     def test_connection(self) -> str:
         """Return a short status string, raise ProviderError when unreachable."""

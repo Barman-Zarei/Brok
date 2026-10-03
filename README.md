@@ -1,165 +1,55 @@
-EN | [RU](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_RU.md) | [CN](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_CN.md) | [ID](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_ID.md) | [KO](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_KO.md)
+EN | [FA](docs/README_FA.md) | [RU](docs/README_RU.md) | [CN](docs/README_CN.md) | [ID](docs/README_ID.md) | [KO](docs/README_KO.md)
 
-## Brok AI Desktop Companion: QT Overlay 🐱
+## Brok 🤖 — Persian-first AI desktop companion & coding agent
 
-[<img src="https://raw.githubusercontent.com/Barman-Zarei/Brok/refs/heads/main/docs/cat.gif" width="164" alt="cat.gif"/>](https://github.com/yumiaura)
+<img src="docs/brok.gif" width="140" alt="Brok robot"/>
 
-<p class="badges">
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest"><img src="https://img.shields.io/github/v/release/Barman-Zarei/Brok?label=download&color=blue" alt="Latest release"></a>
-  <img src="https://img.shields.io/pypi/pyversions/brok?color=brightgreen" alt="Python Versions">
-  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pypi/v/brok?color=brightgreen" alt="PyPI Version"></a>
-  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pepy/dt/brok?label=pypi%20%7C%20downloads&color=brightgreen" alt="Pepy Total Downloads"/></a>
-</p>
+Brok is a small robot that lives on your desktop (frameless, always-on-top, draggable), chats with you in
+**Persian first** (English and other languages too), and can work as a **permission-controlled coding agent**
+on your projects. It is a derivative of [myCat](https://github.com/yumiaura/myCat) — see [NOTICE](NOTICE) and
+[LICENSE.txt](LICENSE.txt).
 
-I made a cute little animated cat 🐈 for your desktop, with an interface in English, 中文, 한국어 and Русский.<br>
-It's a lightweight Python + Qt app - no borders, and you can drag it around easily.<br>
-Shows static first frame for 5 seconds, then plays GIF animation once, then loops back to static.<br>
-Switch the interface language any time under **Settings → Language**.<br>
-If you like it, maybe I'll share an [AnimeGirl](https://github.com/Barman-Zarei/Brok/discussions/1) version next time~ 😉<br>
+<img src="docs/brok-states.png" alt="Brok avatar states"/>
 
-<img width="640" height="360" alt="image" src="https://github.com/user-attachments/assets/332494c9-8e39-4774-a85c-808839229106" />
+### What it can do
+- **Robot avatar** with 13 states (idle, listening, thinking, typing, coding, working, speaking, happy, confused,
+  error, success, sleeping, notification), state-driven; extra avatar packs via `pack.json`.
+- **Chat** with **Claude**, **Ollama (local)** or any OpenAI-compatible API; the UI shows **LOCAL AI / CLOUD AI**.
+- **Coding workspace** (right-click → *Coding Workspace…*): file explorer, editor, AI chat, diff viewer,
+  terminal, problems, git, project info. Select code → *Explain / Find bug / Optimize / Write tests / To Flutter*.
+- **Agent with safety rails**: every tool has a risk level; edits show a diff first; delete/commit/push and risky
+  commands always ask; dangerous commands are blocked; hard limits on steps, time, tokens and tool calls.
+  See [docs/security.md](docs/security.md).
+- **Persian + RTL** interface, Persian explanations with English code, learning mode, AI debugger, project health report.
+- **Memory you control** (view/edit/delete/clear), privacy report, local-only/offline mode, plugin API.
+- Everything from myCat: reminders, activity diary, focus timer, GitHub notifications, calendar, custom characters.
+- Terminal agent: `brok-agent ask|code|fix|debug|learn|health|doctor|privacy|memory`.
 
-### LLM Chat, Reminders, GitHub Integration & Tracking Activity
-<img width="280" height="200" alt="image" src="https://github.com/user-attachments/assets/9554bd7d-f06b-4acb-abb1-9c525103ac42" />
-<img width="280" height="200" alt="image" src="https://github.com/user-attachments/assets/022d5d14-fa75-4940-bbaa-ea6cd2a72a77" />
-<br />
-<img width="280" height="200" alt="image" src="https://github.com/user-attachments/assets/0a1d078e-77f4-4f16-a09f-a94c5deff086" />
-<img width="280" height="200" alt="image" src="https://github.com/user-attachments/assets/d9f4cce9-bf3c-4d64-a28e-1cac7d050a8c" />
+**Honest status:** the core (providers, tools, permissions, agent loop, memory, index, avatar, workspace UI) is
+covered by 400 automated tests that pass on Python 3.8 and 3.12 (Linux, headless). Not yet verified by the
+authors: real Claude/Ollama/GitHub calls with live keys, Windows/macOS builds, microphone speech-to-text
+(only the interface + text-to-speech via OS engines exist), global hotkey wiring into the tray, and screenshot
+capture for vision (images can be passed to providers, the capture UI is not built).
 
-### 🎨 Create your own cat with AI 
-
-Turn a few photos into your own cat. Right-click → **Chars → Create custom with AI…**,
-add 1–3 photos of the same person, **edit the prompt** (and a negative prompt for the
-self-hosted backends) to shape the character, pick **txt2img** (from the prompt) or
-**img2img** (from your photos), and generate with **OpenAI** or your own self-hosted
-**Stable Diffusion (AUTOMATIC1111)** or
-**ComfyUI** server — set its address in the dialog and pick the checkpoint from the live
-model list. It's saved as an ordinary local char you can reuse or delete anytime; reference
-photos are resized in memory and **never stored** by Brok. OpenAI needs your own API key
-(one request per generation) and returns a transparent cat; the self-hosted backends run on
-your own GPU.
-
-<img width="270" alt="Create custom cat with AI — dialog" src="https://github.com/user-attachments/assets/f94c141f-d339-4827-a476-a5725e27c9be" />
-<img width="220" alt="Generated cat" src="https://github.com/user-attachments/assets/1bec007a-eb5c-469a-a732-a1cd37c6cf27" />
-<br />
-<img width="270" alt="AI character — options" src="https://github.com/user-attachments/assets/6a67eb02-8ec0-4da9-a93c-0a16543f3679" />
-<img width="270" alt="Generated cat on the desktop" src="https://github.com/user-attachments/assets/848ff041-55b0-417c-aaf7-2759cc6a6c9a" />
-
-
-## 🚀 Quick start
-
-Pick whichever is easiest - the cat runs on **Windows, macOS and Linux**.
-
-### Option A - prebuilt binary (no Python needed)
-
-Grab the build for your OS - each button downloads the **latest release**:
-
-<p>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-windows-x64.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0wIDMuNDQ5IDkuNzUgMi4xdjkuNDUxSDB6TTEwLjk0OSAxLjk0OSAyNCAwdjExLjRIMTAuOTQ5ek0wIDEyLjZoOS43NXY5LjQ1MUwwIDIwLjY5OXpNMTAuOTQ5IDEyLjZIMjRWMjRsLTEyLjktMS44MDF6Ii8%2BPC9zdmc%2B" alt="Download for Windows"></a>
-  <br>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white" alt="Download for macOS (Apple Silicon)"></a>
-  <br>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-x64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Intel-555555?logo=apple&logoColor=white" alt="Download for macOS (Intel)"></a>
-  <br>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-amd64.deb"><img src="https://img.shields.io/badge/Download-Linux%20.deb-A81D33?logo=debian&logoColor=white" alt="Download Linux .deb"></a>
-  <br>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-x86_64.AppImage"><img src="https://img.shields.io/badge/Download-Linux%20AppImage-FCC624?logo=linux&logoColor=black" alt="Download Linux AppImage"></a>
-</p>
-
-Then run it:
-
-- **Windows** - double-click the `.exe`.
-- **macOS** - unzip and open `brok.app` (first launch: right-click → **Open** to get past Gatekeeper).
-- **Linux `.deb`** - `sudo apt install ./brok-linux-amd64.deb`.
-- **Linux AppImage** - `chmod +x brok-linux-x86_64.AppImage && ./brok-linux-x86_64.AppImage`.
-- **Linux snap** - `sudo snap install brok` (keeps its own settings in `~/snap/brok/`).
-
-> Builds for every release live on the **[Releases](https://github.com/Barman-Zarei/Brok/releases)** page.
-
-### Option B - pip (Windows / macOS / Linux, Python ≥ 3.10)
+## 🚀 Quick start (Python ≥ 3.8)
 
 ```bash
-pip install brok
-brok
+pip install .                 # or: pip install ".[secure,calendar]"
+brok                          # desktop companion
+export ANTHROPIC_API_KEY=...  # optional, for Claude  (or use Ollama: ollama pull llama3.1)
+brok-agent doctor             # check providers
+brok-agent --project . ask "این پروژه چه کاری انجام می‌دهد؟"
 ```
+Python 3.8 uses PySide6 6.6.3 / Pillow 10.4 (see [docs/PYTHON_COMPATIBILITY.md](docs/PYTHON_COMPATIBILITY.md));
+3.8 is end-of-life, prefer 3.10+ when you can. More: [configuration](docs/configuration.md),
+[architecture](docs/architecture.md), [AI](docs/ai.md), [coding agent](docs/coding-agent.md),
+[privacy](docs/privacy.md), [plugins](docs/plugins.md), [development](docs/development.md),
+[troubleshooting](docs/troubleshooting.md).
 
-On **Linux** also install the Qt platform plugin once:
-
-```bash
-sudo apt install -y libxcb-cursor0
-```
-
-The activity diary can **count** key presses and clicks (never *which* keys) -
-it works out of the box on Windows, macOS and Linux/X11. Where global input
-access isn't available (e.g. Wayland) it degrades to recording the cursor path.
-
-Upgrade or remove later with `pip install -U brok` / `pip uninstall brok`.
-
-### Option C - from source
-
-```bash
-git clone https://github.com/Barman-Zarei/Brok
-cd Brok
-pip install .
-brok                 # or, without installing:  python3 brok/main.py
-```
-
-## ✨ Features
-
-- **Animated overlay** 🐱 - a frameless, always-on-top, draggable cat. Right-click for the menu (switch char, quit).
-- **Reminder** 🛩️ - set a message and a time (one-shot or daily) and the cat flies a little banner plane across the top of your screen. Right-click → *Reminder…* to set the message, direction, plane and color.
-- **Chat (Ollama)** 💬 - talk to the cat through a **local [Ollama](https://ollama.com) model**, no account or API key needed (see below).
-- **Create with AI** 🎨 - turn 1–3 photos into a custom chibi cat character with your own OpenAI key (right-click → *Chars → Create custom with AI…*). Reference photos are never stored; the result is an ordinary local char you can reuse or delete.
-- **Multilingual interface** 🌐 — the whole UI is available in **English, 한국어 (Korean), Русский (Russian) and 简体中文 (Simplified Chinese)**. Right-click the cat (or the tray) → under **Settings…** → **Language** to switch at any time; the choice is remembered. Translations live in plain `brok/locale/*.json` files, so adding a language is just dropping in a file.
-
-## 💬 Chat with the cat (Ollama)
-
-The cat can chat using a model served locally by [Ollama](https://ollama.com) - everything stays on your machine, no API key required.
-
-1. Install [Ollama](https://ollama.com) and pull a model:
-   ```bash
-   ollama pull llama3.1
-   ```
-2. Launch **brok**, then right-click the cat → **Ollama…**
-3. Set the host/port (default `localhost:11434`), click **Load models**, pick one, hit **Test**, then **Save** and tick **LLM enabled**.
-4. Right-click → **Chat** to start talking. 🐾
-
-## 🎮 Usage & options
-
-Run `brok` (or `python3 brok/main.py` from source) and customise it with command-line options.
-
-**`--image, -i <path>`** 🖼️ - use a custom ZIP archive (containing one GIF) instead of the default cat:
-
-```bash
-brok --image ~/my-custom-cat.zip
-```
-
-A char **ZIP** must contain exactly one `.gif`: its first frame is the static pose, then the GIF plays once and returns to that frame. Images larger than 300×500 are scaled down automatically.
-
-**`--pos <x> <y>`** 📍 - start at a specific screen position (otherwise the cat appears bottom-right and remembers where you last dragged it):
-
-```bash
-brok --pos 960 540        # center of a 1920x1080 screen
-```
-
-**`--wait <seconds>`** ⏱️ - how long to hold the static first frame before the animation plays.
-
-**`--debug`** 🐞 - verbose per-frame logging.
-
-### Controls
-
-- **Left-drag** the cat to move it.
-- **Right-click** the cat for the menu (Chars, Reminder…, Ollama…, Chat, Quit).
-- **Quit** from the menu or with Ctrl+C in the terminal.
-
-The cat remembers its position and selected char between sessions in `~/.config/brok/config.ini`.
-
-## 🎬 Make your own cat
-
-A char is just an animated GIF in a `.zip` - from a quick doodle to a fully
-interactive cat with cursor-tracking eyes, blinking, sleeping and click
-reactions. Step-by-step guide (draw it, build the GIF, package, install & share):
-**[docs/CHARS.md](docs/CHARS.md)**.
+## 🎮 Usage
+`brok --image path/to/char.zip` (custom char), `--pos X Y`, `--wait SECONDS`, `--debug`.
+Left-drag to move, right-click for the menu. Settings live in `~/.config/brok/` (a legacy `~/.config/mycat` is
+copied once, never deleted).
 
 ## 🐳 Docker
 
@@ -207,7 +97,7 @@ docker compose -f docker-compose.mac.yml up
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup.
 - Open a new issue with your OS, desktop environment, Python version and any terminal errors.
 
-### License
+### License & attribution
 
 [MIT License](LICENSE.txt)
 
@@ -215,3 +105,5 @@ Thank you for reading to the end! 😸🐾
 
 <p class="badges">
 </p>
+
+Brok is based on myCat (© 2025 @yumicabrera, MIT CAT LICENSE / Meow-IT). Original Brok code © 2026 Barman. See NOTICE.

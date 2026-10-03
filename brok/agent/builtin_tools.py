@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable
 
 from .diff import unified_diff
 from .index import ProjectIndex
@@ -18,18 +18,22 @@ MAX_READ = 200_000
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-]{0,100}$")  # git ref/branch names: no leading '-' (option injection)
 
 
-def _obj(props: Dict[str, Any], required: Optional[List[str]] = None) -> Dict[str, Any]:
+def _obj(props: dict[str, Any], required: list[str] | None = None) -> dict[str, Any]:
     return {"type": "object", "properties": props, "required": required or list(props), "additionalProperties": False}
 
 
 _S = {"type": "string"}
 
 
-def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command_timeout: int = 120,
-                   on_file_read: Optional[Callable[[str, int], None]] = None) -> ToolRegistry:
+def build_registry(
+    root: str,
+    policy: PermissionPolicy | None = None,
+    command_timeout: int = 120,
+    on_file_read: Callable[[str, int], None] | None = None,
+) -> ToolRegistry:
     ws = Workspace(root)
     reg = ToolRegistry(policy)
-    state: Dict[str, Any] = {"index": None}
+    state: dict[str, Any] = {"index": None}
 
     def index() -> ProjectIndex:
         if state["index"] is None:
@@ -42,12 +46,14 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
         if not p.is_file():
             raise ToolError("not a file")
         if ws.is_sensitive(p):
-            raise ToolError("refusing to read a secrets file (.env / keys); ask the user for the specific value instead")
+            raise ToolError(
+                "refusing to read a secrets file (.env / keys); ask the user for the specific value instead"
+            )
         if p.stat().st_size > MAX_READ * 5:
             raise ToolError("file too large; use search_text or read a line range")
         lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-        chunk = lines[max(0, start_line - 1): max(0, start_line - 1) + max_lines]
-        text = "\n".join(f"{start_line + i}: {l}" for i, l in enumerate(chunk))
+        chunk = lines[max(0, start_line - 1) : max(0, start_line - 1) + max_lines]
+        text = "\n".join(f"{start_line + i}: {line}" for i, line in enumerate(chunk))
         if on_file_read:
             on_file_read(ws.rel(p), len(text))
         return text + (f"\n[… {len(lines)} lines total]" if len(lines) > start_line - 1 + max_lines else "")
@@ -57,7 +63,9 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
         if not p.is_dir():
             raise ToolError("not a directory")
         items = sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
-        return "\n".join(("[dir] " if i.is_dir() else "") + i.name for i in items if i.name not in SKIP_DIRS) or "(empty)"
+        return (
+            "\n".join(("[dir] " if i.is_dir() else "") + i.name for i in items if i.name not in SKIP_DIRS) or "(empty)"
+        )
 
     def search_text(pattern: str, path: str = ".", max_results: int = 50) -> str:
         base = ws.resolve(path, must_exist=True)
@@ -65,7 +73,7 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
             rx = re.compile(pattern)
         except re.error as exc:
             raise ToolError(f"bad regex: {exc}")
-        out: List[str] = []
+        out: list[str] = []
         for dp, dns, fns in os.walk(base):
             dns[:] = [d for d in dns if d not in SKIP_DIRS]
             for fn in fns:
@@ -92,12 +100,14 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
 
     def inspect_project() -> str:
         i = detect_project(str(ws.root))
-        return (f"languages={i.languages} frameworks={i.frameworks} package_managers={i.package_managers} "
-                f"entry_points={i.entry_points} tests={i.test_command} lint={i.lint_command} build={i.build_system} "
-                f"git={i.git_repo}\nindex: {index().summary()}")
+        return (
+            f"languages={i.languages} frameworks={i.frameworks} package_managers={i.package_managers} "
+            f"entry_points={i.entry_points} tests={i.test_command} lint={i.lint_command} build={i.build_system} "
+            f"git={i.git_repo}\nindex: {index().summary()}"
+        )
 
     # ---------------- edits ----------------
-    def _preview_write(a: Dict[str, Any]) -> Optional[str]:
+    def _preview_write(a: dict[str, Any]) -> str | None:
         try:
             p = ws.resolve(a["path"])
             before = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
@@ -151,8 +161,16 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
     # ---------------- git ----------------
     def git(*args: str) -> str:
         try:
-            p = subprocess.run(["git", *args], cwd=str(ws.root), env=scrubbed_env(), capture_output=True, text=True,
-                               errors="replace", timeout=command_timeout, stdin=subprocess.DEVNULL)
+            p = subprocess.run(
+                ["git", *args],
+                cwd=str(ws.root),
+                env=scrubbed_env(),
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=command_timeout,
+                stdin=subprocess.DEVNULL,
+            )
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise ToolError(f"git failed: {exc}")
         out = (p.stdout + p.stderr).strip()
@@ -176,8 +194,10 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
         if not message.strip():
             raise ToolError("empty commit message")
         # Never stage secrets by accident (.env, keys) when committing "everything".
-        excludes = [":(exclude,glob)**/" + n for n in (".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519", ".netrc",
-                                                  "credentials.json")]
+        excludes = [
+            ":(exclude,glob)**/" + n
+            for n in (".env", ".env.*", "*.pem", "*.key", "id_rsa", "id_ed25519", ".netrc", "credentials.json")
+        ]
         git("add", "-A", "--", ".", *excludes)
         return git("commit", "-m", message)
 
@@ -185,17 +205,20 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
         return git("push", ref(remote), *([ref(branch)] if branch else []))
 
     # ---------------- commands ----------------
-    def _cmd_dynamic(a: Dict[str, Any]):
+    def _cmd_dynamic(a: dict[str, Any]):
         v = classify_command(a.get("command", ""))
         if v.level == BLOCKED:
             return Risk.CRITICAL, Confirm.ALWAYS, "BLOCKED: " + "; ".join(v.reasons)
         if v.level == CONFIRM:
             crit = any("remote" in r or "elevated" in r or "system" in r for r in v.reasons)
-            return (Risk.CRITICAL if crit else Risk.HIGH), Confirm.ALWAYS if crit else Confirm.REQUIRED, \
-                f"Run `{a.get('command')}` ({'; '.join(v.reasons)})"
+            return (
+                (Risk.CRITICAL if crit else Risk.HIGH),
+                Confirm.ALWAYS if crit else Confirm.REQUIRED,
+                f"Run `{a.get('command')}` ({'; '.join(v.reasons)})",
+            )
         return Risk.LOW, Confirm.NEVER, "read-only command"
 
-    def _cmd_precheck(a: Dict[str, Any]) -> Optional[str]:
+    def _cmd_precheck(a: dict[str, Any]) -> str | None:
         v = classify_command(a.get("command", ""))
         return ("command blocked as dangerous: " + "; ".join(v.reasons)) if v.level == BLOCKED else None
 
@@ -218,30 +241,80 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
     L, M, H, C = Risk.LOW, Risk.MEDIUM, Risk.HIGH, Risk.CRITICAL
     N, CFG, REQ, ALW = Confirm.NEVER, Confirm.CONFIGURABLE, Confirm.REQUIRED, Confirm.ALWAYS
     specs = [
-        T("read_file", "Read a text file (with line numbers).", _obj({"path": _S, "start_line": {"type": "integer"},
-          "max_lines": {"type": "integer"}}, ["path"]), L, N, read_file),
+        T(
+            "read_file",
+            "Read a text file (with line numbers).",
+            _obj({"path": _S, "start_line": {"type": "integer"}, "max_lines": {"type": "integer"}}, ["path"]),
+            L,
+            N,
+            read_file,
+        ),
         T("list_directory", "List a directory.", _obj({"path": _S}, []), L, N, list_directory),
-        T("search_text", "Regex search across project files.", _obj({"pattern": _S, "path": _S}, ["pattern"]), L, N, search_text),
+        T(
+            "search_text",
+            "Regex search across project files.",
+            _obj({"pattern": _S, "path": _S}, ["pattern"]),
+            L,
+            N,
+            search_text,
+        ),
         T("search_code", "Find symbols and relevant code by name.", _obj({"query": _S}), L, N, search_code),
         T("inspect_project", "Detect language/framework/tests of the project.", _obj({}), L, N, inspect_project),
-        T("write_file", "Overwrite an existing file with new full content (shows a diff first).",
-          _obj({"path": _S, "content": _S}), M, CFG, write_file, preview=_preview_write),
-        T("create_file", "Create a new file.", _obj({"path": _S, "content": _S}), M, CFG, create_file, preview=_preview_write),
+        T(
+            "write_file",
+            "Overwrite an existing file with new full content (shows a diff first).",
+            _obj({"path": _S, "content": _S}),
+            M,
+            CFG,
+            write_file,
+            preview=_preview_write,
+        ),
+        T(
+            "create_file",
+            "Create a new file.",
+            _obj({"path": _S, "content": _S}),
+            M,
+            CFG,
+            create_file,
+            preview=_preview_write,
+        ),
         T("move_file", "Move/rename a file.", _obj({"src": _S, "dst": _S}), M, CFG, move_file),
         T("delete_file", "Delete a file or empty directory.", _obj({"path": _S}), H, REQ, delete_file),
         T("git_status", "git status.", _obj({}), L, N, git_status),
         T("git_diff", "git diff (optionally staged).", _obj({"staged": {"type": "boolean"}}, []), L, N, git_diff),
         T("git_log", "Recent commits.", _obj({"limit": {"type": "integer"}}, []), L, N, git_log),
         T("git_branch", "List branches.", _obj({}), L, N, git_branch),
-        T("git_checkout", "Switch/create a branch.", _obj({"branch": _S, "create": {"type": "boolean"}}, ["branch"]), M, CFG, git_checkout),
+        T(
+            "git_checkout",
+            "Switch/create a branch.",
+            _obj({"branch": _S, "create": {"type": "boolean"}}, ["branch"]),
+            M,
+            CFG,
+            git_checkout,
+        ),
         T("git_stash", "Stash push/pop/list.", _obj({"action": _S}, []), M, CFG, git_stash),
         T("git_commit", "Stage everything and commit.", _obj({"message": _S}), H, REQ, git_commit),
         T("git_push", "Push to a remote (always asks).", _obj({"remote": _S, "branch": _S}, []), C, ALW, git_push),
-        T("run_command", "Run a command (no shell). Risky commands need approval; dangerous ones are blocked.",
-          _obj({"command": _S}), H, REQ, run_cmd, dynamic=_cmd_dynamic, precheck=_cmd_precheck),
+        T(
+            "run_command",
+            "Run a command (no shell). Risky commands need approval; dangerous ones are blocked.",
+            _obj({"command": _S}),
+            H,
+            REQ,
+            run_cmd,
+            dynamic=_cmd_dynamic,
+            precheck=_cmd_precheck,
+        ),
         T("run_tests", "Run the project's test command.", _obj({}), M, CFG, lambda: _project_cmd("test")),
         T("run_linter", "Run the project's linter.", _obj({}), M, CFG, lambda: _project_cmd("lint")),
-        T("run_formatter", "Run the project's formatter (modifies files).", _obj({}), M, CFG, lambda: _project_cmd("format")),
+        T(
+            "run_formatter",
+            "Run the project's formatter (modifies files).",
+            _obj({}),
+            M,
+            CFG,
+            lambda: _project_cmd("format"),
+        ),
     ]
     for s in specs:
         reg.register(s)

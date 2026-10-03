@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Callable, Dict, Iterator, List, Optional
+from typing import Callable, Iterator
 
 from .messages import Message, StreamEvent, ToolSchema
 from .personality import MODES, Personality
@@ -13,8 +13,24 @@ from .transport import ProviderError
 
 logger = logging.getLogger(__name__)
 
-_CODE_HINTS = ("def ", "class ", "traceback", "error:", "exception", "import ", "```", "bug", "fix", "test",
-               "کد", "ارور", "باگ", "تابع", "تست", "خطا")
+_CODE_HINTS = (
+    "def ",
+    "class ",
+    "traceback",
+    "error:",
+    "exception",
+    "import ",
+    "```",
+    "bug",
+    "fix",
+    "test",
+    "کد",
+    "ارور",
+    "باگ",
+    "تابع",
+    "تست",
+    "خطا",
+)
 
 
 def infer_mode(text: str, has_images: bool = False) -> str:
@@ -33,9 +49,15 @@ def infer_mode(text: str, has_images: bool = False) -> str:
 class AIOrchestrator:
     """Holds an ordered provider chain. The UI/agent only ever calls :meth:`stream`."""
 
-    def __init__(self, providers: Dict[str, AIProvider], primary: str, fallbacks: Optional[List[str]] = None,
-                 local_only: bool = False, personality: Optional[Personality] = None,
-                 on_send: Optional[Callable[[str, bool, int], None]] = None) -> None:
+    def __init__(
+        self,
+        providers: dict[str, AIProvider],
+        primary: str,
+        fallbacks: list[str] | None = None,
+        local_only: bool = False,
+        personality: Personality | None = None,
+        on_send: Callable[[str, bool, int], None] | None = None,
+    ) -> None:
         self.providers = providers
         self.primary = primary
         self.fallbacks = list(fallbacks or [])
@@ -43,9 +65,9 @@ class AIOrchestrator:
         self.personality = personality or Personality()
         self.on_send = on_send  # privacy hook: (provider, is_local, chars_sent)
         self._cancel = threading.Event()
-        self.last_provider: Optional[AIProvider] = None
+        self.last_provider: AIProvider | None = None
 
-    def chain(self) -> List[AIProvider]:
+    def chain(self) -> list[AIProvider]:
         names = [self.primary] + [n for n in self.fallbacks if n != self.primary]
         out = [self.providers[n] for n in names if n in self.providers]
         if self.local_only:
@@ -55,8 +77,9 @@ class AIOrchestrator:
     def cancel(self) -> None:
         self._cancel.set()
 
-    def stream(self, messages: List[Message], mode: str = "CHAT", tools: Optional[List[ToolSchema]] = None,
-               language: str = "") -> Iterator[StreamEvent]:
+    def stream(
+        self, messages: list[Message], mode: str = "CHAT", tools: list[ToolSchema] | None = None, language: str = ""
+    ) -> Iterator[StreamEvent]:
         self._cancel.clear()
         mode = mode.upper() if mode.upper() in MODES else "CHAT"
         system = self.personality.system_prompt(mode, language)
@@ -64,7 +87,7 @@ class AIOrchestrator:
         if not chain:
             hint = " (local-only mode is on: only a local Ollama provider is allowed)" if self.local_only else ""
             raise ProviderError("No AI provider is available" + hint + ".", retryable=False)
-        last_exc: Optional[Exception] = None
+        last_exc: Exception | None = None
         for prov in chain:
             if tools and not prov.supports_tools:
                 continue

@@ -6,7 +6,7 @@ import platform
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
-from typing import Callable, List, Optional
+from typing import Callable
 
 
 class VoiceUnavailable(Exception):
@@ -38,14 +38,19 @@ class SystemTTS(TTSProvider):
 
     name = "system"
 
-    def _argv(self, text: str, language: str) -> Optional[List[str]]:
+    def _argv(self, text: str, language: str) -> list[str] | None:
         sysname = platform.system()
         if sysname == "Darwin" and shutil.which("say"):
             return ["say", "--", text]
         if sysname == "Windows" and shutil.which("powershell"):
             safe = text.replace("'", "''")
-            return ["powershell", "-NoProfile", "-Command",
-                    f"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{safe}')"]
+            return [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Add-Type -AssemblyName System.Speech; "
+                f"(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{safe}')",
+            ]
         for exe in ("espeak-ng", "espeak"):
             if shutil.which(exe):
                 return [exe, "-v", language, "--", text]
@@ -62,7 +67,9 @@ class SystemTTS(TTSProvider):
 
 
 class CommandSTT(STTProvider):
-    """Wrap any local transcriber CLI (e.g. whisper.cpp) that prints the transcript. ``{audio}``/``{lang}`` placeholders."""
+    """Wrap a local transcriber CLI (e.g. whisper.cpp) that prints the transcript.
+
+    ``{audio}`` and ``{lang}`` in the template are replaced."""
 
     name = "command"
 
@@ -87,12 +94,18 @@ class CommandSTT(STTProvider):
 class VoicePipeline:
     """mic → STT → Brok → TTS, with avatar events; any missing piece falls back to plain text."""
 
-    def __init__(self, stt: Optional[STTProvider], tts: Optional[TTSProvider], ask: Callable[[str], str],
-                 record: Optional[Callable[[], str]] = None, on_event: Optional[Callable[[str], None]] = None,
-                 language: str = "fa") -> None:
+    def __init__(
+        self,
+        stt: STTProvider | None,
+        tts: TTSProvider | None,
+        ask: Callable[[str], str],
+        record: Callable[[], str] | None = None,
+        on_event: Callable[[str], None] | None = None,
+        language: str = "fa",
+    ) -> None:
         self.stt, self.tts, self.ask, self.record = stt, tts, ask, record
         self.on_event, self.language = on_event or (lambda e: None), language
-        self.notes: List[str] = []
+        self.notes: list[str] = []
 
     def _ev(self, e: str) -> None:
         self.on_event(e)

@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
-from typing import List
 
 from ..logging_setup import redact
 from .index import ProjectIndex
@@ -25,10 +24,10 @@ class Finding:
 
 @dataclass
 class HealthReport:
-    findings: List[Finding] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
     disclaimer: str = DISCLAIMER
 
-    def by_category(self, c: str) -> List[Finding]:
+    def by_category(self, c: str) -> list[Finding]:
         return [f for f in self.findings if f.category == c]
 
 
@@ -59,11 +58,13 @@ def analyze(root: str) -> HealthReport:
                 rep.findings.append(Finding("security", "high", rel, "possible hard-coded secret"))
             if fn.endswith(".py"):
                 for m in re.finditer(r"^\s*except\s*:\s*$", text, re.M):
-                    rep.findings.append(Finding("quality", "low", f"{rel}:{text.count(chr(10), 0, m.start()) + 1}", "bare except"))
+                    rep.findings.append(
+                        Finding("quality", "low", f"{rel}:{text.count(chr(10), 0, m.start()) + 1}", "bare except")
+                    )
                 if re.search(r"\beval\(|\bexec\(|shell\s*=\s*True|pickle\.loads", text):
                     rep.findings.append(Finding("security", "medium", rel, "risky call (eval/exec/shell=True/pickle)"))
                 for i in range(0, len(text.splitlines()) - 8, 8):  # crude duplicate-block detector
-                    block = "\n".join(l.strip() for l in text.splitlines()[i:i + 8])
+                    block = "\n".join(ln.strip() for ln in text.splitlines()[i : i + 8])
                     if len(block) > 160:
                         seen.setdefault(block, []).append(f"{rel}:{i + 1}")
     for locs in seen.values():

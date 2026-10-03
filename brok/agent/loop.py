@@ -6,9 +6,9 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable
 
-from ..ai.messages import Message, ToolCall
+from ..ai.messages import Message
 from ..ai.orchestrator import AIOrchestrator
 from ..ai.transport import ProviderError
 from .tools import ToolRegistry
@@ -28,16 +28,22 @@ class Limits:
 class AgentResult:
     status: str  # "done" | "max_iterations" | "timeout" | "token_budget" | "tool_budget" | "cancelled" | "error"
     text: str = ""
-    messages: List[Message] = field(default_factory=list)
+    messages: list[Message] = field(default_factory=list)
     iterations: int = 0
     tool_calls: int = 0
     error: str = ""
 
 
 class AgentLoop:
-    def __init__(self, orchestrator: AIOrchestrator, registry: ToolRegistry, limits: Optional[Limits] = None,
-                 mode: str = "CODING", on_event: Optional[Callable[[str, str], None]] = None,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        orchestrator: AIOrchestrator,
+        registry: ToolRegistry,
+        limits: Limits | None = None,
+        mode: str = "CODING",
+        on_event: Callable[[str, str], None] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self.orch, self.registry = orchestrator, registry
         self.limits = limits or Limits()
         self.mode, self.on_event, self.clock = mode, on_event, clock
@@ -51,7 +57,7 @@ class AgentLoop:
         if self.on_event:
             self.on_event(kind, text)
 
-    def run(self, task: str, history: Optional[List[Message]] = None, language: str = "") -> AgentResult:
+    def run(self, task: str, history: list[Message] | None = None, language: str = "") -> AgentResult:
         self._cancel.clear()
         msgs = list(history or []) + [Message("user", task)]
         res = AgentResult("done", messages=msgs)

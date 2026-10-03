@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Dict
-
 STEPS = ("explain", "example", "exercise", "hint", "solution", "quiz")
 
-_TEMPLATES: Dict[str, str] = {
+_TEMPLATES: dict[str, str] = {
     "explain": "Explain '{topic}' to a beginner in simple terms, step by step. No code dump; use an analogy.",
     "example": "Give one small, runnable example of '{topic}' and walk through it line by line.",
     "exercise": "Create ONE short practice exercise about '{topic}'. Do NOT include the solution.",

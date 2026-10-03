@@ -6,10 +6,18 @@ from .engine import AvatarEngine
 from .states import AvatarState
 
 _EVENTS = {
-    "user_typing": AvatarState.TYPING, "listening": AvatarState.LISTENING, "ai_thinking": AvatarState.THINKING,
-    "speaking": AvatarState.SPEAKING, "coding": AvatarState.CODING, "working": AvatarState.WORKING,
-    "error": AvatarState.ERROR, "success": AvatarState.SUCCESS, "confused": AvatarState.CONFUSED,
-    "happy": AvatarState.HAPPY, "notification": AvatarState.NOTIFICATION, "sleep": AvatarState.SLEEPING,
+    "user_typing": AvatarState.TYPING,
+    "listening": AvatarState.LISTENING,
+    "ai_thinking": AvatarState.THINKING,
+    "speaking": AvatarState.SPEAKING,
+    "coding": AvatarState.CODING,
+    "working": AvatarState.WORKING,
+    "error": AvatarState.ERROR,
+    "success": AvatarState.SUCCESS,
+    "confused": AvatarState.CONFUSED,
+    "happy": AvatarState.HAPPY,
+    "notification": AvatarState.NOTIFICATION,
+    "sleep": AvatarState.SLEEPING,
 }
 
 

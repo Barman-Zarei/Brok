@@ -33,7 +33,7 @@ CFG_FILE = paths.config_file()
 DIRECTION_LTR = "ltr"  # plane flies left -> right, banner trailing on the left
 DIRECTION_RTL = "rtl"  # plane flies right -> left, banner trailing on the right
 
-DEFAULT_TEXT = "Do you feed brok?"
+DEFAULT_TEXT = "Do you charge Brok?"
 # How the flyby duration scales: 1.0 = the leisurely default in FlybyWindow.
 DEFAULT_SPEED = 1.0
 

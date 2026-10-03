@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 KIND_OLLAMA = "ollama"
 KIND_OPENAI = "openai"
+KIND_CLAUDE = "claude"
 
 SECTION_PREFIX = "vendor:"
 DEFAULT_VENDOR = "ollama"
@@ -44,7 +45,7 @@ class Vendor:
 
     @property
     def needs_key(self) -> bool:
-        return self.kind == KIND_OPENAI
+        return self.kind in (KIND_OPENAI, KIND_CLAUDE)
 
     def resolve_key(self) -> str:
         """The effective API key: the stored literal, else the env var."""
@@ -60,6 +61,8 @@ def builtin_vendors() -> dict:
     presets = [
         Vendor("ollama", KIND_OLLAMA, "http://localhost:11434",
                label="Ollama (local)", model="llama3.1", builtin=True),
+        Vendor("claude", KIND_CLAUDE, "https://api.anthropic.com",
+               label="Claude (Anthropic)", api_key_env="ANTHROPIC_API_KEY", model="claude-sonnet-5-5", builtin=True),
         Vendor("openai", KIND_OPENAI, "https://api.openai.com/v1",
                label="OpenAI", api_key_env="OPENAI_API_KEY", model="gpt-4o-mini", builtin=True),
         Vendor("grok", KIND_OPENAI, "https://api.x.ai/v1",

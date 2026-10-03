@@ -32,7 +32,7 @@ class ClaudeProvider(AIProvider):
         self.max_tokens = max_tokens
 
     def _key(self) -> str:
-        key = os.environ.get("ANTHROPIC_API_KEY", "") or (self._resolver() if self._resolver else "")
+        key = (self._resolver() if self._resolver else "") or os.environ.get("ANTHROPIC_API_KEY", "")
         if not key:
             raise ProviderError("Claude API key missing: set ANTHROPIC_API_KEY or store it in the keyring.", retryable=False)
         return key

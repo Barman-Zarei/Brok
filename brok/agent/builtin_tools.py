@@ -195,6 +195,10 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
                 f"Run `{a.get('command')}` ({'; '.join(v.reasons)})"
         return Risk.LOW, Confirm.NEVER, "read-only command"
 
+    def _cmd_precheck(a: Dict[str, Any]) -> Optional[str]:
+        v = classify_command(a.get("command", ""))
+        return ("command blocked as dangerous: " + "; ".join(v.reasons)) if v.level == BLOCKED else None
+
     def run_cmd(command: str) -> str:
         v = classify_command(command)
         if v.level == BLOCKED:  # blocked commands never run, even if somehow approved
@@ -234,7 +238,7 @@ def build_registry(root: str, policy: Optional[PermissionPolicy] = None, command
         T("git_commit", "Stage everything and commit.", _obj({"message": _S}), H, REQ, git_commit),
         T("git_push", "Push to a remote (always asks).", _obj({"remote": _S, "branch": _S}, []), C, ALW, git_push),
         T("run_command", "Run a command (no shell). Risky commands need approval; dangerous ones are blocked.",
-          _obj({"command": _S}), H, REQ, run_cmd, dynamic=_cmd_dynamic),
+          _obj({"command": _S}), H, REQ, run_cmd, dynamic=_cmd_dynamic, precheck=_cmd_precheck),
         T("run_tests", "Run the project's test command.", _obj({}), M, CFG, lambda: _project_cmd("test")),
         T("run_linter", "Run the project's linter.", _obj({}), M, CFG, lambda: _project_cmd("lint")),
         T("run_formatter", "Run the project's formatter (modifies files).", _obj({}), M, CFG, lambda: _project_cmd("format")),

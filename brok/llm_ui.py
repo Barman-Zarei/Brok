@@ -143,7 +143,7 @@ class ChatDialog(QtWidgets.QDialog):
             | QtCore.Qt.WindowType.WindowStaysOnTopHint
         )
         title_suffix = controller.context.backend_name.capitalize()
-        self.setWindowTitle(tr("Chat with a cat ({suffix})").format(suffix=title_suffix))
+        self.setWindowTitle(tr("Chat with Brok ({suffix})").format(suffix=title_suffix))
         self.resize(360, 420)
         self.setMinimumSize(320, 260)
         self.setSizeGripEnabled(True)

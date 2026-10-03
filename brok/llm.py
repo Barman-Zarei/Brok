@@ -118,6 +118,15 @@ def create_backend_for_vendor(vendor: llm_vendors.Vendor, timeout: float) -> LLM
             base_url=vendor.base_url, api_key=key, model=vendor.model, timeout=timeout
         )
 
+    if vendor.kind == llm_vendors.KIND_CLAUDE:
+        from .llm_claude import ClaudeBackend
+
+        key = vendor.resolve_key()
+        if not key:
+            hint = f"set ${vendor.api_key_env}" if vendor.api_key_env else "enter an API key"
+            raise LLMDependencyError(f"No API key for {vendor.name} — {hint} in LLM settings")
+        return ClaudeBackend(base_url=vendor.base_url, api_key=key, model=vendor.model, timeout=timeout)
+
     raise LLMDependencyError(f"Unsupported vendor kind: {vendor.kind}")
 
 

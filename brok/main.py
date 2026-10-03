@@ -99,6 +99,9 @@ logging.basicConfig(**LOGGING)
 logger = logging.getLogger(__name__)
 logger.debug("LLM integration module path: %s", getattr(llm, "__file__", "builtin"))
 
+# Bundled default character: the Brok robot (the legacy "cat" char stays available in the Chars menu).
+DEFAULT_CHAR = "robot"
+
 # Config paths — single source of truth in paths.py (stays ~/.config/brok).
 CFG_DIR = paths.config_dir()
 CFG_FILE = paths.config_file()
@@ -245,7 +248,7 @@ def load_packaged_images(
         if not char_path.exists():
             raise FileNotFoundError(f"Char not found: {char_path}")
     else:
-        base_name = default_image or "cat"
+        base_name = default_image or DEFAULT_CHAR
         resolved = char_catalog.find_char(base_name)
         if resolved is None:
             raise FileNotFoundError(f"Char '{base_name}' not found in bundled or user chars dir")
@@ -536,7 +539,7 @@ class PixelCatWindow(QtWidgets.QWidget):
         png_pixmap: QtGui.QPixmap,
         gif_movie: QtGui.QMovie,
         wait_time: float,
-        file_name: str = "cat",
+        file_name: str = DEFAULT_CHAR,
         available_images: list[str] = None,
         gif_data: bytes = b"",
         pack: char_pack.CharPack | None = None,
@@ -1161,6 +1164,7 @@ class PixelCatWindow(QtWidgets.QWidget):
         # GitHub, Activity. Each can be hidden from the Settings dialog.
         if visible["llm"]:
             menu.addAction(i18n.tr("LLM…")).triggered.connect(self.open_llm_settings)
+        menu.addAction(i18n.tr("Coding Workspace…")).triggered.connect(self.open_workspace)
         if visible["calendar"]:
             menu.addAction(i18n.tr("Calendar…")).triggered.connect(self.open_calendar_settings)
         if visible["reminder"]:
@@ -1322,9 +1326,18 @@ class PixelCatWindow(QtWidgets.QWidget):
             return
         self.available_images = char_catalog.scan_all()
         if was_active:
-            fallback = "cat" if char_catalog.find_char("cat") else next(iter(self.available_images), "")
+            fallback = DEFAULT_CHAR if char_catalog.find_char(DEFAULT_CHAR) else next(iter(self.available_images), "")
             if fallback:
                 self.load_image(fallback)
+
+    def open_workspace(self) -> None:
+        """Open the Brok coding workspace (explorer, editor, AI agent, diff, terminal, git)."""
+        try:
+            from .workspace_ui import open_workspace
+
+            self._workspace = open_workspace(self)
+        except Exception:
+            logger.exception("Failed to open the coding workspace")
 
     def open_llm_settings(self) -> None:
         """Open the LLM vendor settings dialog (vendor, model, test, save)."""
@@ -1520,7 +1533,7 @@ class PixelCatWindow(QtWidgets.QWidget):
             self.update_box(
                 "Brok",
                 versions,
-                "No update needed — you're on the latest version. 🐱",
+                "No update needed — you're on the latest version. 🤖",
                 kind,
                 can_update=False,
             )
@@ -1783,13 +1796,13 @@ class PixelCatWindow(QtWidgets.QWidget):
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Pixel cat overlay with GIF animation (first frame used as static image)."
+        description="Brok desktop robot overlay with GIF animation (first frame used as static image)."
     )
     parser.add_argument(
         "-i", "--image",
         type=str,
         default=None,
-        help="Path to ZIP file containing GIF (default: images/cat.zip). First frame used as static image.",
+        help="Path to ZIP file containing GIF (default: the bundled Brok robot). First frame used as static image.",
     )
     parser.add_argument(
         "--wait",
@@ -2234,6 +2247,7 @@ def setup_tray(app, window):
         # Same order as the context menu: LLM, Calendar, Reminder, GitHub, Activity.
         if visible["llm"]:
             menu.addAction(i18n.tr("LLM…"), window.open_llm_settings)
+        menu.addAction(i18n.tr("Coding Workspace…"), window.open_workspace)
         if visible["calendar"]:
             menu.addAction(i18n.tr("Calendar…"), window.open_calendar_settings)
         if visible["reminder"]:
@@ -2338,6 +2352,7 @@ def main() -> None:
         app.setWindowIcon(make_app_icon())  # 😽 — used for the taskbar entry and dialogs
         # Give the window a distinct WM_CLASS so the taskbar doesn't group it with
         # other python "main.py" apps. setDesktopFileName drives the X11 class.
+        i18n.apply_layout_direction(app)  # RTL for Persian/Arabic/Hebrew
         app.setApplicationName("brok")
         app.setDesktopFileName("brok")
         install_desktop_entry()  # so brok shows in the Linux applications menu
@@ -2391,8 +2406,8 @@ def main() -> None:
         if args.image:
             zip_path = Path(args.image)
         else:
-            zip_path = (char_catalog.find_char(default_image or "cat")
-                        or char_catalog.find_char("cat"))
+            zip_path = (char_catalog.find_char(default_image or DEFAULT_CHAR)
+                        or char_catalog.find_char(DEFAULT_CHAR) or char_catalog.find_char("cat"))
         if zip_path and char_pack.is_new_pack(zip_path):
             pack = char_pack.load_pack(zip_path)
             window = PixelCatWindow(pack.static, None, args.wait, Path(zip_path).stem,

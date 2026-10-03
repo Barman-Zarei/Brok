@@ -50,6 +50,8 @@ class ToolSpec:
     # Optional dynamic override, e.g. run_command depends on the command text.
     dynamic: Optional[Callable[[Dict[str, Any]], "tuple[Risk, Confirm, str]"]] = None
     preview: Optional[Callable[[Dict[str, Any]], Optional[str]]] = None
+    # Runs BEFORE any approval prompt; returns an error string to refuse outright (e.g. blocked commands).
+    precheck: Optional[Callable[[Dict[str, Any]], Optional[str]]] = None
 
 
 @dataclass
@@ -98,6 +100,10 @@ class ToolRegistry:
         if spec is None:
             return f"ERROR: unknown tool '{name}'"
         try:
+            if spec.precheck:
+                refusal = spec.precheck(arguments)
+                if refusal:
+                    return f"ERROR: {refusal}"
             risk, confirm, why = spec.risk, spec.confirm, spec.description
             if spec.dynamic:
                 risk, confirm, why = spec.dynamic(arguments)

@@ -74,6 +74,20 @@ def current_language() -> str:
     return active_code
 
 
+RTL_LANGUAGES = frozenset({"fa", "ar", "he", "ur"})
+
+
+def is_rtl(code: str | None = None) -> bool:
+    return (code or active_code) in RTL_LANGUAGES
+
+
+def apply_layout_direction(app) -> None:
+    """Mirror every widget for right-to-left languages (Persian, Arabic, Hebrew, Urdu)."""
+    from PySide6 import QtCore
+
+    app.setLayoutDirection(QtCore.Qt.RightToLeft if is_rtl() else QtCore.Qt.LeftToRight)
+
+
 def tr(text: str) -> str:
     """Translate ``text`` into the active language, or return it unchanged."""
     return CATALOGS.get(active_code, {}).get(text, text)
@@ -100,6 +114,9 @@ def set_language(code: str, config_path: Path | None = None) -> str:
     if code in LANGUAGES:
         active_code = code
         config_store.write_section(CONFIG_SECTION, {CONFIG_KEY: code}, config_path or config_file())
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            apply_layout_direction(app)
     return active_code
 
 

@@ -822,7 +822,7 @@ class ReminderDialog(QtWidgets.QDialog):
         form.setLabelAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
 
         self.text_edit = QtWidgets.QLineEdit(existing.text)
-        self.text_edit.setPlaceholderText(tr("What should the cat remind you about?"))
+        self.text_edit.setPlaceholderText(tr("What should Brok remind you about?"))
         self.text_edit.setMaxLength(120)
         form.addRow(tr("Message"), self.text_edit)
 
@@ -1023,7 +1023,7 @@ class ReminderDialog(QtWidgets.QDialog):
         self.countdown.stop()
         self.controller.clear()
         # Full reset: wipe the schedule AND restore the form to defaults,
-        # including the message text ("Do you feed brok?").
+        # including the message text ("Do you charge Brok?").
         defaults = Reminder()
         self.text_edit.setText(defaults.text)
         self.direction.setCurrentIndex(

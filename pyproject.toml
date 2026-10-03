@@ -57,6 +57,7 @@ testpaths = ["tests"]
 # Console script `brok` → calls brok.main:main
 [project.scripts]
 brok = "brok.main:main"
+brok-agent = "brok.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["brok*"]

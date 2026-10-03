@@ -44,6 +44,10 @@ class ModelsWorker(QtCore.QRunnable):
         try:
             if self.kind == llm_vendors.KIND_OLLAMA:
                 names = llm_ollama.fetch_models(self.base_url, self.timeout)
+            elif self.kind == llm_vendors.KIND_CLAUDE:
+                from . import llm_claude
+
+                names = llm_claude.fetch_models(self.base_url, self.api_key, self.timeout)
             else:
                 names = llm_openai_compat.fetch_models(self.base_url, self.api_key, self.timeout)
         except Exception as exc:  # noqa: BLE001 - surfaced verbatim
@@ -67,6 +71,12 @@ class TestWorker(QtCore.QRunnable):
     def run(self) -> None:
         if self.kind == llm_vendors.KIND_OLLAMA:
             backend = llm_ollama.OllamaBackend(url=self.base_url, model=self.model, timeout=self.timeout)
+        elif self.kind == llm_vendors.KIND_CLAUDE:
+            from . import llm_claude
+
+            backend = llm_claude.ClaudeBackend(
+                base_url=self.base_url, api_key=self.api_key, model=self.model, timeout=self.timeout
+            )
         else:
             backend = llm_openai_compat.OpenAICompatBackend(
                 base_url=self.base_url, api_key=self.api_key, model=self.model, timeout=self.timeout
@@ -105,6 +115,7 @@ class LLMSettingsDialog(QtWidgets.QDialog):
         self.kind_combo = QtWidgets.QComboBox()
         self.kind_combo.addItem(tr("Ollama (local)"), llm_vendors.KIND_OLLAMA)
         self.kind_combo.addItem(tr("OpenAI-compatible"), llm_vendors.KIND_OPENAI)
+        self.kind_combo.addItem(tr("Claude (Anthropic)"), llm_vendors.KIND_CLAUDE)
         self.base_url_edit = QtWidgets.QLineEdit()
         self.key_edit = QtWidgets.QLineEdit()
         self.key_edit.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
@@ -235,7 +246,7 @@ class LLMSettingsDialog(QtWidgets.QDialog):
             QtCore.QTimer.singleShot(0, self.on_load)
 
     def refresh_key_visibility(self, *args) -> None:
-        show_key = self.kind_value() == llm_vendors.KIND_OPENAI
+        show_key = self.kind_value() in (llm_vendors.KIND_OPENAI, llm_vendors.KIND_CLAUDE)
         self.key_label.setVisible(show_key)
         self.key_edit.setVisible(show_key)
 

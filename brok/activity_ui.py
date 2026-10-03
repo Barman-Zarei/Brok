@@ -272,7 +272,7 @@ class ActivityDialog(QtWidgets.QDialog):
         # Mouse and Keyboard are the diary count tracks. None greys out the others.
         self.enabled_box = QtWidgets.QCheckBox(tr("Tracking"))
         self.enabled_box.setToolTip(
-            tr("The cat's eyes follow your cursor; off, it looks at its own nose.\n"
+            tr("Brok's eyes follow your cursor; off, it looks straight ahead.\n"
                "Purely visual — it records nothing.")
         )
         self.enabled_box.setChecked(settings.enabled)
@@ -293,7 +293,7 @@ class ActivityDialog(QtWidgets.QDialog):
         # Independent of the tracking tracks: whether hovering the cat shows the
         # live stats tooltip (driven by the FocusController).
         self.tooltip_box = QtWidgets.QCheckBox(tr("Tooltip"))
-        self.tooltip_box.setToolTip(tr("Show the live focus/activity stats when you hover over the cat."))
+        self.tooltip_box.setToolTip(tr("Show the live focus/activity stats when you hover over Brok."))
         self.tooltip_box.setChecked(self.tooltip_enabled())
         # An "Enable:" label leads the four toggles; the destructive Delete-all
         # lives in the bottom bar (next to Export) so this row never runs out of

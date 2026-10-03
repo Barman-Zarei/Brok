@@ -155,4 +155,4 @@ class SettingsDialog(QtWidgets.QDialog):
         window = self.main_window
         announcer = getattr(window, "announcer", None) if window is not None else None
         if announcer is not None:
-            announcer.announce("Meow")
+            announcer.announce("Brok")

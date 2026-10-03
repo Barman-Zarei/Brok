@@ -17,3 +17,6 @@ Earlier audit note claiming 3.8 was impossible was wrong; it was corrected after
 
 ## Future features
 Planned AI features (Claude/Ollama over HTTP via stdlib or httpx) have no 3.8 blocker. Anything needing a newer-only dependency will be flagged and gated by a Python-version marker.
+
+## Verified
+Full test suite (425 tests) passes on CPython 3.8.20 and 3.12.3 (offscreen Qt). PySide6 6.6.3.1 / Pillow 10.4 are what pip resolves on 3.8.

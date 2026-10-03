@@ -65,8 +65,14 @@ workspace · `brok[hotkey]` extra with an install hint · CI mypy scope + docs u
 Verified here: 422 tests pass on Python 3.12, ruff clean, mypy --strict clean on 50+ new modules, offscreen GUI start OK,
 Python 3.8 *syntax* check of every file OK (a real 3.8 interpreter was not available this round).
 
+## Completed in round 4
+`BrokWindow` split into `DialogsMixin` / `UpdateMixin` / `GeometryMixin` (`main.py` 2471 → 1504 lines; behaviour unchanged,
+tested) · **real Python 3.8.20 run: 425 passed** (also 425 on 3.12) · wheel + sdist build and `twine check` pass ·
+GUI startup smoke test clean · CI gained a (non-blocking) Windows/macOS test job that has not been run yet.
+
 ## Still NOT done / not verified
-- `BrokWindow` is still ~1270 lines; `mypy --strict` on the upstream modules (~480 errors) was not attempted.
-- Chat bubble still has no tool use or image sending (by design: use the workspace). Persian/ru/zh/ko strings are AI-written.
-- Whisper/microphone never ran against real audio or a real model; Claude/OpenAI/Ollama/GitHub/Brave never ran with live keys.
-- Windows/macOS untested; no real display (only Qt offscreen). Wayland screenshot/hotkey limits remain. Nothing pushed to GitHub.
+- `mypy --strict` on the upstream modules (~480 errors; ~195 even in non-strict `--check-untyped-defs`) was not attempted.
+- Chat bubble: no tool use / image sending (by design: use the workspace; the legacy chat backend is text-only).
+- Whisper/microphone never ran with real audio; Claude/OpenAI/Ollama/GitHub/Brave never ran with live keys.
+- Windows/macOS untested (CI job added, not yet run); no real display, only Qt offscreen; Wayland hotkey/screenshot limits.
+- AI-written translations (fa/ru/zh/ko/id) need native review. Nothing pushed to GitHub.

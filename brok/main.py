@@ -14,15 +14,11 @@ from __future__ import annotations
 import argparse
 import configparser
 import getpass
-import hashlib
-import io
 import logging
 import math
 import os
 import random
-import shutil
 import signal
-import subprocess
 import sys
 import threading
 import warnings
@@ -77,7 +73,33 @@ else:
     update_check = importlib.import_module("brok.update_check")
     updater = importlib.import_module("brok.updater")
 
-from PySide6 import QtCore, QtGui, QtNetwork, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
+
+from .display import (  # noqa: E402,F401
+    ensure_virtual_monitor,
+    randr_monitor_count,
+    usable_screen_rect,
+    x11_compositor_active,
+    x11_screen_size,
+)
+from .gif_utils import (  # noqa: E402,F401
+    get_gif_duration,
+    harden_pixmap,
+    movie_from_gif_bytes,
+    parse_gif_frame_delays,
+    scale_pixmap_if_needed,
+)
+from .instance import activate_running_instance, install_macos_reopen, start_activation_server  # noqa: E402,F401
+from .tray import (  # noqa: E402,F401
+    assets_dir,
+    desktop_exec_command,
+    desktop_version,
+    ensure_emoji_font,
+    install_desktop_entry,
+    make_app_icon,
+    setup_tray,
+    tidy_separators,
+)
 
 # Make logs readable for non-ASCII text (Cyrillic, emoji): force UTF-8 on the
 # console streams when the locale left them as ASCII (otherwise the logger
@@ -125,114 +147,12 @@ def scan_chars() -> list[str]:
     return char_catalog.scan_all()
 
 
-def movie_from_gif_bytes(gif_data: bytes) -> QtGui.QMovie:
-    """A QMovie that reads the GIF from memory (a QBuffer), not a temp file.
-
-    The QBuffer is parented to the movie so it lives exactly as long as the
-    movie does — no dangling device, no /tmp file.
-    """
-    movie = QtGui.QMovie()
-    buffer = QtCore.QBuffer(movie)
-    buffer.setData(gif_data)
-    buffer.open(QtCore.QIODevice.OpenModeFlag.ReadOnly)
-    movie.setDevice(buffer)
-    movie.setFormat(b"GIF")
-    movie.setCacheMode(QtGui.QMovie.CacheMode.CacheAll)
-    return movie
 
 
-def parse_gif_frame_delays(gif_data: bytes) -> list[int]:
-    """
-    Parse GIF bytes using Pillow to extract frame delays.
-    Returns list of delays in milliseconds.
-    """
-    try:
-        try:
-            from PIL import Image
-        except ImportError:
-            logger.warning("Pillow not available, falling back to manual parsing")
-            return []
-
-        img = Image.open(io.BytesIO(gif_data))
-        if not hasattr(img, 'n_frames'):
-            return []
-
-        delays = []
-        for i in range(img.n_frames):
-            img.seek(i)
-            # Get duration in milliseconds, default to 100ms if not specified
-            duration_ms = img.info.get('duration', 100)
-            delays.append(duration_ms)
-
-        img.close()
-        logger.info(f"Calculated GIF duration: {sum(delays)/1000:.2f}s from {len(delays)} frames")
-        return delays
-
-    except Exception as e:
-        logger.debug(f"Could not parse GIF frame delays with Pillow: {e}")
-        return []
 
 
-def get_gif_duration(movie: QtGui.QMovie, gif_data: bytes) -> tuple[float, list[int]]:
-    """
-    Calculate total duration of GIF animation in seconds and get frame delays.
-    Returns: (total_duration_seconds, list_of_frame_delays_ms)
-    """
-    try:
-        # Parse actual delays from the in-memory GIF bytes
-        delays = parse_gif_frame_delays(gif_data)
-        if delays:
-            total_duration = sum(delays) / 1000.0
-            return total_duration, delays
-
-        # Fallback: estimate based on frame count
-        frame_count = movie.frameCount()
-        if frame_count > 0:
-            estimated_duration = frame_count * 0.1  # Default 100ms per frame
-            estimated_delays = [100] * frame_count
-            logger.debug(f"Using estimated duration: {frame_count} frames * 0.1s = {estimated_duration:.2f}s")
-            return estimated_duration, estimated_delays
-        
-        return 0.0, []
-    except Exception as e:
-        logger.debug(f"Could not calculate GIF duration: {e}")
-        return 0.0, []
 
 
-def scale_pixmap_if_needed(pixmap: QtGui.QPixmap, max_width: int, max_height: int) -> QtGui.QPixmap:
-    """
-    Scale pixmap down if needed, maintaining aspect ratio.
-    If image is larger than max_width or max_height, scale it down.
-    Does not scale up smaller images.
-    Returns the scaled pixmap.
-    """
-    original_width = pixmap.width()
-    original_height = pixmap.height()
-    
-    # Calculate scale factors for both dimensions
-    width_scale = 1.0
-    height_scale = 1.0
-    
-    if original_width > max_width:
-        width_scale = max_width / original_width
-    if original_height > max_height:
-        height_scale = max_height / original_height
-    
-    # Use the smaller scale factor to ensure both constraints are met
-    scale_factor = min(width_scale, height_scale)
-    
-    # Only scale if needed
-    if scale_factor < 1.0:
-        new_width = int(original_width * scale_factor)
-        new_height = int(original_height * scale_factor)
-        
-        return pixmap.scaled(
-            new_width, new_height,
-            QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-            QtCore.Qt.TransformationMode.SmoothTransformation
-        )
-    
-    return pixmap
 
 
 def load_packaged_images(
@@ -503,23 +423,6 @@ def read_battery_percent():
     return None
 
 
-def harden_pixmap(pixmap: QtGui.QPixmap, threshold: int = 128) -> QtGui.QPixmap:
-    """Snap alpha to 0/255 so a smooth-scaled silhouette has a crisp edge that
-    matches the 1-bit shape mask — otherwise the anti-aliased edge renders as a
-    muddy fringe on X11 without a compositor.
-
-    Uses Pillow's C-speed ``point`` on the alpha channel — a Python per-pixel
-    loop here froze loads of large multi-frame chars (e.g. girl*, 120
-    frames at 281×500)."""
-    from PIL import Image
-
-    image = pixmap.toImage().convertToFormat(QtGui.QImage.Format.Format_RGBA8888)
-    width, height = image.width(), image.height()
-    pil = Image.frombytes("RGBA", (width, height), image.constBits().tobytes())
-    pil.putalpha(pil.getchannel("A").point(lambda value: 255 if value >= threshold else 0))
-    hardened = QtGui.QImage(pil.tobytes("raw", "RGBA"), width, height,
-                            QtGui.QImage.Format.Format_RGBA8888)
-    return QtGui.QPixmap.fromImage(hardened.copy())
 
 
 class UpdateSignals(QtCore.QObject):
@@ -1836,476 +1739,36 @@ def parse_args() -> argparse.Namespace:
     llm.add_arguments(parser)
     return parser.parse_args()
 
-def x11_compositor_active() -> bool | None:
-    """Return True/False when an X11 compositing manager is running, None if undetermined.
-
-    Every EWMH-compliant compositor (picom, xfwm4, mutter, kwin, ...) owns the
-    `_NET_WM_CM_Sn` selection while active. We query that owner via libX11 so the
-    check works on any X11 desktop, not just XFCE. Returns None on non-X11
-    platforms or when libX11 / the display is unavailable.
-    """
-    if sys.platform.startswith("win") or sys.platform == "darwin":
-        return None
-    if not os.environ.get("DISPLAY"):
-        return None
-    try:
-        import ctypes
-
-        x11 = ctypes.CDLL("libX11.so.6")
-    except OSError:
-        return None
-
-    x11.XOpenDisplay.restype = ctypes.c_void_p
-    x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
-    x11.XDefaultScreen.restype = ctypes.c_int
-    x11.XDefaultScreen.argtypes = [ctypes.c_void_p]
-    x11.XInternAtom.restype = ctypes.c_ulong
-    x11.XInternAtom.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
-    x11.XGetSelectionOwner.restype = ctypes.c_ulong
-    x11.XGetSelectionOwner.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
-    x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
-
-    display = x11.XOpenDisplay(None)
-    if not display:
-        return None
-    try:
-        screen = x11.XDefaultScreen(display)
-        atom = x11.XInternAtom(display, f"_NET_WM_CM_S{screen}".encode(), False)
-        return x11.XGetSelectionOwner(display, atom) != 0
-    finally:
-        x11.XCloseDisplay(display)
 
 
-def x11_screen_size() -> tuple | None:
-    """Root window size straight from the X server, for when Qt reports a 0x0 screen.
-
-    Some X setups (nested or remote servers without RANDR) leave QScreen geometry
-    empty even though the display has a real size. libX11's XDisplayWidth/Height
-    still return the true dimensions. Returns None off X11 or when unavailable.
-    """
-    if sys.platform.startswith("win") or sys.platform == "darwin":
-        return None
-    if not os.environ.get("DISPLAY"):
-        return None
-    try:
-        import ctypes
-
-        x11 = ctypes.CDLL("libX11.so.6")
-    except OSError:
-        return None
-
-    x11.XOpenDisplay.restype = ctypes.c_void_p
-    x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
-    x11.XDefaultScreen.restype = ctypes.c_int
-    x11.XDefaultScreen.argtypes = [ctypes.c_void_p]
-    x11.XDisplayWidth.restype = ctypes.c_int
-    x11.XDisplayWidth.argtypes = [ctypes.c_void_p, ctypes.c_int]
-    x11.XDisplayHeight.restype = ctypes.c_int
-    x11.XDisplayHeight.argtypes = [ctypes.c_void_p, ctypes.c_int]
-    x11.XCloseDisplay.argtypes = [ctypes.c_void_p]
-
-    display = x11.XOpenDisplay(None)
-    if not display:
-        return None
-    try:
-        screen = x11.XDefaultScreen(display)
-        width = x11.XDisplayWidth(display, screen)
-        height = x11.XDisplayHeight(display, screen)
-        if width > 0 and height > 0:
-            return width, height
-        return None
-    finally:
-        x11.XCloseDisplay(display)
 
 
-def usable_screen_rect() -> QtCore.QRect:
-    """Best-effort usable screen rectangle, robust to Qt reporting a 0x0 screen.
-
-    Prefers Qt's panel-aware availableGeometry, then full geometry, then the X
-    server's root size (XDisplayWidth/Height). Returns an empty rect only when
-    nothing is determinable.
-    """
-    screen = QtWidgets.QApplication.primaryScreen()
-    if screen is not None:
-        for rect in (screen.availableGeometry(), screen.geometry()):
-            if rect.width() > 0 and rect.height() > 0:
-                return rect
-    size = x11_screen_size()
-    if size is not None:
-        return QtCore.QRect(0, 0, size[0], size[1])
-    return QtCore.QRect(0, 0, 0, 0)
 
 
-def randr_monitor_count() -> int | None:
-    """Number of active RANDR monitors via `xrandr --listmonitors`, or None if unknown."""
-    xrandr = shutil.which("xrandr")
-    if not xrandr:
-        return None
-    try:
-        result = subprocess.run(
-            [xrandr, "--listmonitors"], capture_output=True, text=True, timeout=5
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    for line in result.stdout.splitlines():
-        head, sep, rest = line.partition("Monitors:")
-        if sep:
-            try:
-                return int(rest.strip())
-            except ValueError:
-                return None
-    return None
 
 
-def ensure_virtual_monitor() -> None:
-    """Register a virtual RANDR monitor when a headless/VNC X server exposes none.
-
-    Such servers have a real framebuffer but zero active RANDR monitors, so Qt
-    reports a 0x0 screen and window positioning plus menu/dialog popups break.
-    Adding a monitor spanning the framebuffer makes Qt see the real screen size.
-    Must run before the QApplication is created. No-op when a monitor already
-    exists, on non-X11 platforms, or when xrandr is unavailable.
-    """
-    if sys.platform.startswith("win") or sys.platform == "darwin":
-        return
-    if not os.environ.get("DISPLAY") or os.environ.get("QT_QPA_PLATFORM") == "offscreen":
-        return
-    count = randr_monitor_count()
-    if count is None or count > 0:
-        return
-    size = x11_screen_size()
-    if size is None:
-        return
-    width, height = size
-    mm_width = round(width / 96 * 25.4)
-    mm_height = round(height / 96 * 25.4)
-    geometry = f"{width}/{mm_width}x{height}/{mm_height}+0+0"
-    xrandr = shutil.which("xrandr")
-    if not xrandr:
-        return
-    try:
-        subprocess.run(
-            [xrandr, "--setmonitor", "brok-virtual", geometry, "none"],
-            capture_output=True, text=True, timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return
-    logger.info("No active RANDR monitor — registered virtual monitor %s so Qt sees the screen.", geometry)
 
 
-def activate_running_instance(name: str) -> bool:
-    """Ask an already-running brok (via its local socket) to show its window.
-
-    Returns True if a running instance answered. This is the safety net for
-    hiding the avatar to a system tray that some Linux panels don't render: a second
-    launch just raises the existing cat instead of doing nothing.
-    """
-    socket = QtNetwork.QLocalSocket()
-    socket.connectToServer(name)
-    if not socket.waitForConnected(500):
-        return False
-    socket.write(b"show")
-    socket.flush()
-    socket.waitForBytesWritten(500)
-    socket.disconnectFromServer()
-    return True
 
 
-def start_activation_server(name: str, window):
-    """Listen for a second launch and raise ``window`` when one arrives."""
-    QtNetwork.QLocalServer.removeServer(name)  # clear a socket left by a crash
-    server = QtNetwork.QLocalServer(window)
-    if not server.listen(name):
-        logger.warning("Single-instance socket unavailable: %s", server.errorString())
-        return None
-
-    def on_connection() -> None:
-        connection = server.nextPendingConnection()
-        if connection is not None:
-            connection.disconnectFromServer()
-        window.show()
-        window.raise_()
-        window.activateWindow()
-        logger.info("Second launch — raising the existing cat")
-
-    server.newConnection.connect(on_connection)
-    return server
 
 
-def install_macos_reopen(app, window):
-    """Bring a tray-hidden cat back when the app is reactivated on macOS.
-
-    macOS re-launches don't start a second process — LaunchServices just
-    activates the already-running app — so the single-instance socket never
-    fires there and clicking the Dock icon otherwise does nothing. Show the
-    window again whenever the app becomes active while hidden.
-    """
-    def on_state(state) -> None:
-        if state == QtCore.Qt.ApplicationState.ApplicationActive and not window.isVisible():
-            window.show()
-            window.raise_()
-
-    app.applicationStateChanged.connect(on_state)
 
 
-def ensure_emoji_font(app) -> None:
-    """Give emoji glyphs a fallback so they don't render as tofu boxes on systems
-    with no emoji font (common on minimal Linux `pip install`s).
-
-    If the system already has any emoji font (Noto Color Emoji, Segoe UI Emoji,
-    Apple Color Emoji, …) this is a no-op, so colour emoji stay colour. Only when
-    none is present do we register the bundled monochrome NotoEmoji and add it as
-    a fallback on the application font — which flows to every widget and to the
-    banners' QFont().
-    """
-    families = QtGui.QFontDatabase.families()
-    if any("emoji" in family.lower() for family in families):
-        return
-    font_path = Path(__file__).resolve().parent / "assets" / "fonts" / "NotoEmoji-Regular.ttf"
-    if not font_path.is_file():
-        return
-    font_id = QtGui.QFontDatabase.addApplicationFont(str(font_path))
-    bundled = QtGui.QFontDatabase.applicationFontFamilies(font_id)
-    if not bundled:
-        return
-    base = app.font()
-    base.setFamilies([base.family(), bundled[0]])
-    app.setFont(base)
-    logger.info("No system emoji font — using the bundled %s fallback", bundled[0])
 
 
-def tidy_separators(menu: QtWidgets.QMenu) -> None:
-    """Drop leading, trailing and doubled separators left after hiding entries."""
-    prev_was_separator = True  # treat the top as a separator -> removes a leading one
-    for action in menu.actions():
-        if action.isSeparator():
-            if prev_was_separator:
-                menu.removeAction(action)
-            else:
-                prev_was_separator = True
-        else:
-            prev_was_separator = False
-    trailing = menu.actions()
-    if trailing and trailing[-1].isSeparator():
-        menu.removeAction(trailing[-1])
 
 
-def assets_dir() -> Path:
-    """The bundled ``brok/assets`` directory.
-
-    main.py is the frozen entry script, so in a PyInstaller onefile its own
-    ``__file__`` drops the ``brok/`` prefix (it points at ``<_MEIPASS>/main.py``)
-    and a ``__file__``-relative lookup misses the bundled assets — which is why
-    the app icon fell back to a drawn 😽 in the Windows exe while skins and plane
-    sprites, resolved from their own package modules, kept working. Resolve from
-    the PyInstaller extraction root when frozen; from this file's directory
-    otherwise.
-    """
-    if getattr(sys, "frozen", False):
-        return Path(sys._MEIPASS) / "brok" / "assets"
-    return Path(__file__).resolve().parent / "assets"
 
 
-def make_app_icon() -> QtGui.QIcon:
-    """The app icon (tray, window, splash): brok/assets/icon.png, falling back
-    to a drawn 😽 if the file is missing."""
-    icon_path = assets_dir() / "icon.png"
-    if icon_path.is_file():
-        icon = QtGui.QIcon(str(icon_path))
-        if not icon.isNull():
-            return icon
-    pixmap = QtGui.QPixmap(64, 64)
-    pixmap.fill(QtCore.Qt.GlobalColor.transparent)
-    painter = QtGui.QPainter(pixmap)
-    painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing, True)
-    font = QtGui.QFont()
-    font.setPointSize(40)
-    painter.setFont(font)
-    painter.drawText(pixmap.rect(), QtCore.Qt.AlignmentFlag.AlignCenter, "😽")
-    painter.end()
-    return QtGui.QIcon(pixmap)
 
 
-def desktop_exec_command() -> str:
-    """The command a menu launcher should run to start brok, for this install."""
-    if getattr(sys, "frozen", False):
-        target = os.environ.get("APPIMAGE") or sys.executable
-        return f'"{target}"'
-    console = shutil.which("brok")
-    if console:
-        return f'"{console}"'
-    # Running from source, not pip-installed: launch main.py by absolute path
-    # (its import shim works when run as a script from any working directory).
-    return f'"{sys.executable}" "{Path(__file__).resolve()}"'
 
 
-def desktop_version(path) -> str | None:
-    """The brok version recorded in a .desktop entry (``X-brok-version``), or None."""
-    try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if line.startswith("X-brok-version="):
-                return line.split("=", 1)[1].strip() or None
-    except OSError:
-        return None
-    return None
 
 
-def install_desktop_entry() -> None:
-    """Keep the Linux applications-menu entry pointing at the newest brok the user
-    has launched (git, pip or AppImage), so switching between installs fixes the
-    launcher's command and icon. The .deb ships its own system-wide entry.
-
-    The entry is only (re)written when this install is at least as new as whatever
-    the menu currently launches, so running an older build never downgrades it.
-
-    A snap ships its own menu entry, and its home directory is the snap's private
-    one, so an entry written from inside it would never reach the real menu."""
-    if sys.platform != "linux" or updater.install_kind() in ("deb", "snap"):
-        return
-    share = Path.home() / ".local" / "share"
-    user_desktop = share / "applications" / "brok.desktop"
-    system_desktop = Path("/usr/share/applications/brok.desktop")
-    current = update_check.current_version()
-    # A user entry shadows the .deb's system one, so the menu runs whichever the
-    # user entry points at; fall back to the .deb's recorded version otherwise.
-    best = desktop_version(user_desktop) or desktop_version(system_desktop)
-    if best is not None and update_check.parse_version(current) < update_check.parse_version(best):
-        return
-    source_icon = assets_dir() / "icon.png"
-    if not source_icon.is_file():
-        return
-    # Copy the icon and reference it ABSOLUTELY in Icon= — the themed `Icon=brok`
-    # form needs the user icon dir to be a full hicolor theme (index.theme + right
-    # size folder) and a refreshed cache, which often isn't there; an absolute
-    # path just works.
-    #
-    # Name the copy after its content hash (icon-<hash>.png). A single stable path
-    # overwritten in place is invisible to desktop icon caches (GNOME/KDE keep
-    # serving the old bitmap for that path), so an updated app kept showing the
-    # old launcher icon. A fresh filename whenever the image changes sidesteps the
-    # cache entirely.
-    icon_dir = share / "brok"
-    try:
-        digest = hashlib.sha256(source_icon.read_bytes()).hexdigest()[:12]
-        icon_target = icon_dir / f"icon-{digest}.png"
-        icon_dir.mkdir(parents=True, exist_ok=True)
-        if not icon_target.is_file():
-            shutil.copyfile(source_icon, icon_target)
-        # Drop older copies (previous hashes and the legacy stable-path icon.png)
-        # so the folder does not accumulate stale icons.
-        for stale in icon_dir.glob("icon-*.png"):
-            if stale != icon_target:
-                stale.unlink(missing_ok=True)
-        (icon_dir / "icon.png").unlink(missing_ok=True)
-        user_desktop.parent.mkdir(parents=True, exist_ok=True)
-        user_desktop.write_text(
-            "[Desktop Entry]\n"
-            "Type=Application\n"
-            "Name=Brok\n"
-            "GenericName=Desktop pet\n"
-            "Comment=A tiny animated desktop pet cat\n"
-            f"Exec={desktop_exec_command()}\n"
-            f"Icon={icon_target}\n"
-            "Terminal=false\n"
-            "Categories=Utility;Amusement;\n"
-            "Keywords=cat;pet;desktop;\n"
-            f"X-brok-version={current}\n",
-            encoding="utf-8",
-        )
-        logger.info("Application-menu entry now points at brok %s (%s)", current, user_desktop)
-        if shutil.which("update-desktop-database"):
-            subprocess.run(  # noqa: S603
-                ["update-desktop-database", str(user_desktop.parent)], check=False, capture_output=True
-            )
-    except OSError as exc:
-        logger.debug("Could not install the application-menu entry: %s", exc)
 
 
-def setup_tray(app, window):
-    """A persistent Brok icon in the system tray with a quick-action menu.
-
-    Returns the tray icon (kept alive by the caller), or None when no system
-    tray is available.
-    """
-    if not QtWidgets.QSystemTrayIcon.isSystemTrayAvailable():
-        logger.warning("System tray not available — the cat can't be sent to a tray")
-        return None
-    # The full-colour app icon, same as the window and taskbar.
-    tray = QtWidgets.QSystemTrayIcon(make_app_icon(), app)
-    tray.setToolTip("Brok")
-
-    def show_window():
-        window.show()
-        window.raise_()
-
-    def toggle_window():
-        if window.isVisible():
-            window.hide()
-        else:
-            show_window()
-
-    menu = QtWidgets.QMenu(window)
-
-    def populate_tray_menu():
-        """Rebuild the tray menu each time it opens, honouring the hidden-entry
-        settings and showing the correct Open/Close label."""
-        menu.clear()
-        visible = menu_config.load_menu_visibility()
-        toggle_chat = getattr(window, "toggle_llm_chat", None)
-        if callable(toggle_chat) and visible["chat"]:
-            menu.addAction(i18n.tr("Chat"), toggle_chat)
-        # Same order as the context menu: LLM, Calendar, Reminder, GitHub, Activity.
-        if visible["llm"]:
-            menu.addAction(i18n.tr("LLM…"), window.open_llm_settings)
-        menu.addAction(i18n.tr("Coding Workspace…"), window.open_workspace)
-        menu.addAction(i18n.tr("Privacy…"), window.open_privacy)
-        if visible["calendar"]:
-            menu.addAction(i18n.tr("Calendar…"), window.open_calendar_settings)
-        if visible["reminder"]:
-            menu.addAction(i18n.tr("Reminder…"), window.open_reminder)
-        if visible["github"]:
-            menu.addAction(i18n.tr("GitHub…"), window.open_github_settings)
-        if visible["activity"]:
-            menu.addAction(i18n.tr("Activity…"), window.open_activity_dialog)
-
-        # Settings and Language share one block. Settings is always shown — it's
-        # how hidden entries are brought back.
-        menu.addSeparator()
-        menu.addAction(i18n.tr("Settings…"), window.open_settings)
-        # Language picker sits right under Settings.
-        menu.addMenu(i18n.build_language_menu(CFG_FILE))
-        menu.addSeparator()
-        menu.addAction(i18n.tr("Reset"), window.reset_position)
-        menu.addAction(i18n.tr("Update…"), window.open_update)
-        if autostart.is_supported():
-            menu.addSeparator()
-            login_action = menu.addAction(i18n.tr("Autostart"))
-            login_action.setCheckable(True)
-            login_action.setChecked(autostart.is_enabled())
-            login_action.toggled.connect(autostart.set_enabled)
-        menu.addSeparator()
-        # Dynamic label: "Open" when the avatar is hidden, "Close" when on screen.
-        toggle_action = menu.addAction(i18n.tr("Close") if window.isVisible() else i18n.tr("Open"))
-        toggle_action.triggered.connect(toggle_window)
-        menu.addAction(i18n.tr("Quit"), QtWidgets.QApplication.quit)
-        tidy_separators(menu)
-
-    populate_tray_menu()
-    menu.aboutToShow.connect(populate_tray_menu)
-    tray.setContextMenu(menu)
-
-    def on_activated(reason):
-        if reason == QtWidgets.QSystemTrayIcon.ActivationReason.DoubleClick:
-            show_window()
-
-    tray.activated.connect(on_activated)
-    tray.show()
-    # Some X11 panels (e.g. XFCE) aren't ready for the tray when we first show it
-    # (before the event loop runs), so the icon silently fails to embed. Re-assert
-    # it a moment after the loop starts — show() is idempotent.
-    QtCore.QTimer.singleShot(1500, tray.show)
-    logger.info("Tray icon shown (visible=%s)", tray.isVisible())
-    return tray
 
 
 def main() -> None:

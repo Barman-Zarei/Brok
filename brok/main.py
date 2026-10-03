@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pixel Cat with GIF animation from ZIP archives, PySide6 transparent overlay
+Brok desktop overlay with GIF animation from ZIP archives, PySide6 transparent overlay
 - Shows first frame of GIF from ZIP for 5 seconds, then plays GIF once, then back to first frame
 - Shows a frameless, draggable, always-on-top transparent window.
 - Right click → Quit.
@@ -107,7 +107,7 @@ CFG_DIR = paths.config_dir()
 CFG_FILE = paths.config_file()
 
 # Per-user local-socket name: a second `brok` launch uses it to raise the
-# running cat's window (so hiding it to a flaky tray is always recoverable).
+# running Brok window (so hiding it to a flaky tray is always recoverable).
 SINGLE_INSTANCE_NAME = f"brok-{getpass.getuser()}"
 
 # Image scaling settings
@@ -349,7 +349,7 @@ def save_config(config: dict) -> None:
 def load_image_from_ini() -> str | None:
     """Load default image setting from INI file."""
     if not CFG_FILE.exists():
-        logger.info("INI config not found, using default: cat")
+        logger.info("INI config not found, using default image")
         return None
     
     try:
@@ -361,10 +361,10 @@ def load_image_from_ini() -> str | None:
             logger.info(f"Loaded image from INI: {image_name}")
             return image_name
         else:
-            logger.info("INI config exists but no default_image setting found, using default: cat")
+            logger.info("INI config exists but no default_image setting found, using default image")
             return None
     except Exception as e:
-        logger.error(f"Error reading INI file: {e}, using default: cat")
+        logger.error(f"Error reading INI file: {e}, using default image")
         return None
 
 
@@ -447,7 +447,7 @@ def should_offer_autostart() -> bool:
 def offer_autostart_on_first_run(window: QtWidgets.QWidget) -> None:
     """Ask once, on first run, whether to keep brok on screen every login.
 
-    The whole point of autostart is to make the cat persistent — but the toggle
+    The whole point of autostart is to make Brok persistent — but the toggle
     is buried in the right-click menu, so most users never find it. A single
     gentle first-run prompt is the biggest lever for "always running".
     """
@@ -531,8 +531,8 @@ class UpdateSignals(QtCore.QObject):
     failed = QtCore.Signal(str)           # error message
 
 
-class PixelCatWindow(QtWidgets.QWidget):
-    """Main cat window widget with PNG/GIF animation and dragging."""
+class BrokWindow(QtWidgets.QWidget):
+    """Main Brok avatar window widget with PNG/GIF animation and dragging."""
     
     def __init__(
         self,
@@ -550,7 +550,7 @@ class PixelCatWindow(QtWidgets.QWidget):
             platform_name = (app_instance.platformName() or "").lower()
         
         # Window flags for transparent, frameless, always-on-top window
-        # Qt.Window (not Qt.Tool) so the cat gets an entry in the taskbar /
+        # Qt.Window (not Qt.Tool) so Brok gets an entry in the taskbar /
         # program list at startup — Tool windows are hidden from it.
         flags = (
             QtCore.Qt.WindowType.FramelessWindowHint |
@@ -570,7 +570,7 @@ class PixelCatWindow(QtWidgets.QWidget):
         # Fall back to clipping the window to the image silhouette (setMask) so
         # transparency works without a compositor — important for remote desktops
         # where enabling compositing adds noticeable latency. Edges are hard
-        # (1-bit), which suits the pixel-art cat. BROK_SHAPE_MASK=1/0 forces it.
+        # (1-bit), which suits the pixel-art avatar. BROK_SHAPE_MASK=1/0 forces it.
         self.shape_mask_key = None
         force_mask = os.environ.get("BROK_SHAPE_MASK")
         if force_mask in ("0", "1"):
@@ -617,7 +617,7 @@ class PixelCatWindow(QtWidgets.QWidget):
         # Save current image to INI on startup
         save_image_to_ini(self.file_name)
 
-        # Reminder scheduler (cat-on-a-plane flyby). Loads any saved reminder
+        # Reminder scheduler (avatar-on-a-plane flyby). Loads any saved reminder
         # and re-arms it; the flyby UI is imported lazily on first use.
         self.reminder_controller = reminder.ReminderController(self)
 
@@ -626,7 +626,7 @@ class PixelCatWindow(QtWidgets.QWidget):
         # so flybys never overlap and focus time stays quiet.
         self.announcer = announcer.Announcer(self)
 
-        # Pomodoro-style focus sessions: the cat settles down while you work,
+        # Pomodoro-style focus sessions: Brok settles down while you work,
         # a thin bar under it shows the remaining time, banners mark breaks.
         self.focus_controller = focus.FocusController(self, announcer=self.announcer)
 
@@ -646,7 +646,7 @@ class PixelCatWindow(QtWidgets.QWidget):
         self.focus_controller.attach_collector(self.activity_collector)
 
         # The morning newspaper: yesterday's stats once per day, first thing
-        # after 05:00 — another small reason the cat is running at dawn.
+        # after 05:00 — another small reason the avatar is running at dawn.
         self.morning_digest = digest.MorningDigest(self.focus_controller.store, announcer=self.announcer)
 
     def setup_gif_content(self, png_pixmap, gif_movie, gif_data) -> None:
@@ -730,7 +730,7 @@ class PixelCatWindow(QtWidgets.QWidget):
         self.active_clip = None               # (anim, start_t, next_state) one-shot
         self.squint_until = -10.0
         self.yawned = False
-        self.last_interaction = now           # mouse over the cat / click / drag
+        self.last_interaction = now           # mouse over the avatar / click / drag
         self.last_cursor_move = now           # global cursor movement
         self.next_blink = now + random.uniform(*pack.blink_every) if pack.blink_enabled else float("inf")
         self.next_idle = now + random.uniform(*pack.idle_random_every)
@@ -920,8 +920,8 @@ class PixelCatWindow(QtWidgets.QWidget):
 
     def gaze_target(self, x: int, y: int) -> QtCore.QPoint:
         """Where the pupils look: the cursor while "Enable Tracking" is on AND the
-        cursor is on the cat's screen; otherwise the cat's own nose — a point
-        between and just below the eyes so the pupils converge downward. So the cat
+        cursor is on the avatar's screen; otherwise the avatar's own nose — a point
+        between and just below the eyes so the pupils converge downward. So the avatar
         looks at its nose when Tracking is off, or when the cursor has left for
         another monitor. (Independent of the Mouse/Keyboard diary toggles.)"""
         collector = getattr(self, "activity_collector", None)
@@ -1002,10 +1002,10 @@ class PixelCatWindow(QtWidgets.QWidget):
         save_config(config)
 
     def reset_position(self) -> None:
-        """Snap the cat to the bottom-right corner, an equal inset from each edge.
+        """Snap the avatar to the bottom-right corner, an equal inset from each edge.
 
         Measured from the true screen corner (full geometry, not the
-        panel-aware area) so the cat sits right by the edge. A rescue for when
+        panel-aware area) so the avatar sits right by the edge. A rescue for when
         it wanders off-screen or gets lost across multiple monitors.
         """
         margin = 18
@@ -1230,7 +1230,7 @@ class PixelCatWindow(QtWidgets.QWidget):
             login_action.setChecked(autostart.is_enabled())
             login_action.toggled.connect(autostart.set_enabled)
 
-        # With a system tray, "Close" from the cat menu only hides it to the tray
+        # With a system tray, "Close" from the avatar menu only hides it to the tray
         # (reopen from the tray's Open, or a tray double-click); the real Quit
         # lives only in the tray menu. Without a tray there's nowhere to hide, so
         # keep a real Quit here.
@@ -1267,13 +1267,13 @@ class PixelCatWindow(QtWidgets.QWidget):
         return QtCore.QRect(origin.x(), origin.y(), right - left + 1, bottom - top + 1)
 
     def place_beside_cat(self, dialog) -> None:
-        """Open a pop-up beside the cat, on the side facing the screen centre, so it
-        never covers the cat (or the speech bubble above it).
+        """Open a pop-up beside the avatar, on the side facing the screen centre, so it
+        never covers the avatar (or the speech bubble above it).
 
         Cat on the right half of the screen → the dialog opens to its left; on the
         left half → to its right, flipping over / clamping when a side is tight. It
         opens 5px from the visible cat and stays ≥25px clear of the screen's top and
-        bottom, centred vertically on the cat.
+        bottom, centred vertically on the avatar.
         """
         dialog.adjustSize()
         dw, dh = dialog.width(), dialog.height()
@@ -1997,7 +1997,7 @@ def activate_running_instance(name: str) -> bool:
     """Ask an already-running brok (via its local socket) to show its window.
 
     Returns True if a running instance answered. This is the safety net for
-    hiding the cat to a system tray that some Linux panels don't render: a second
+    hiding the avatar to a system tray that some Linux panels don't render: a second
     launch just raises the existing cat instead of doing nothing.
     """
     socket = QtNetwork.QLocalSocket()
@@ -2222,7 +2222,7 @@ def install_desktop_entry() -> None:
 
 
 def setup_tray(app, window):
-    """A persistent cat icon in the system tray with a quick-action menu.
+    """A persistent Brok icon in the system tray with a quick-action menu.
 
     Returns the tray icon (kept alive by the caller), or None when no system
     tray is available.
@@ -2284,7 +2284,7 @@ def setup_tray(app, window):
             login_action.setChecked(autostart.is_enabled())
             login_action.toggled.connect(autostart.set_enabled)
         menu.addSeparator()
-        # Dynamic label: "Open" when the cat is hidden, "Close" when on screen.
+        # Dynamic label: "Open" when the avatar is hidden, "Close" when on screen.
         toggle_action = menu.addAction(i18n.tr("Close") if window.isVisible() else i18n.tr("Open"))
         toggle_action.triggered.connect(toggle_window)
         menu.addAction(i18n.tr("Quit"), QtWidgets.QApplication.quit)
@@ -2408,7 +2408,7 @@ def main() -> None:
     if not args.image:
         default_image = load_image_from_ini()
         if default_image and default_image not in available_images:
-            logger.warning(f"Image '{default_image}' from INI not found in available images, using default: cat")
+            logger.warning(f"Image '{default_image}' from INI not found in available images, using default image")
             default_image = None
     
     # Resolve the chosen char's ZIP, then branch on format: a new interactive
@@ -2421,7 +2421,7 @@ def main() -> None:
                         or char_catalog.find_char(DEFAULT_CHAR) or char_catalog.find_char("cat"))
         if zip_path and char_pack.is_new_pack(zip_path):
             pack = char_pack.load_pack(zip_path)
-            window = PixelCatWindow(pack.static, None, args.wait, Path(zip_path).stem,
+            window = BrokWindow(pack.static, None, args.wait, Path(zip_path).stem,
                                     available_images, b"", pack=pack)
         else:
             png_pixmap, gif_movie, file_name, gif_data = load_packaged_images(args.image, default_image)
@@ -2429,7 +2429,7 @@ def main() -> None:
                 f"Playing {file_name}.zip (first frame) "
                 f"{png_pixmap.width()}x{png_pixmap.height()} for {args.wait:.1f}s"
             )
-            window = PixelCatWindow(png_pixmap, gif_movie, args.wait, file_name, available_images, gif_data)
+            window = BrokWindow(png_pixmap, gif_movie, args.wait, file_name, available_images, gif_data)
     except Exception as e:
         logger.error(f"Error loading char: {e}")
         sys.exit(2)
@@ -2463,7 +2463,7 @@ def main() -> None:
         app.setQuitOnLastWindowClosed(window.tray_icon is None)
         # Flush the in-progress activity minute on a clean Quit.
         app.aboutToQuit.connect(lambda: flush_activity_on_quit(window))
-        # First-run nudge to start on login, 15 s after the cat is up: the cat
+        # First-run nudge to start on login, 15 s after the avatar is up: the avatar
         # is the first thing a new user sees, not a dialog in front of it.
         QtCore.QTimer.singleShot(15000, lambda: offer_autostart_on_first_run(window))
 
@@ -2480,3 +2480,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("\nShutdown requested by user")
         sys.exit(0)
+
+
+# Backwards-compatible alias (old tests/plugins imported the upstream class name).
+PixelCatWindow = BrokWindow

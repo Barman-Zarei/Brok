@@ -42,7 +42,7 @@ def make_window(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(m, "CFG_DIR", tmp_path)
     monkeypatch.setattr(m, "CFG_FILE", tmp_path / "config.ini")
     pack = char_pack.load_pack(build_pack(tmp_path))
-    window = m.PixelCatWindow(pack.static, None, 0.0, "t", [], b"", pack=pack)
+    window = m.BrokWindow(pack.static, None, 0.0, "t", [], b"", pack=pack)
     window.last_interaction = 0.0
     window.last_cursor_move = 0.0
     window.next_idle = 1e9

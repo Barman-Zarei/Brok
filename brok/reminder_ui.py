@@ -203,7 +203,7 @@ class FlybyWindow(QtWidgets.QWidget):
         # Without an X11 compositor a translucent window renders its transparent
         # pixels black, so a bounding-box mask would put the plane in a black box.
         # In that case clip the window to the actual drawn silhouette instead.
-        # BROK_SHAPE_MASK=1/0 forces or disables it (mirrors PixelCatWindow).
+        # BROK_SHAPE_MASK=1/0 forces or disables it (mirrors BrokWindow).
         force_mask = os.environ.get("BROK_SHAPE_MASK")
         if force_mask in ("0", "1"):
             self.silhouette_mask = force_mask == "1"

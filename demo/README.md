@@ -7,8 +7,8 @@ the cat lively by **animating the existing sprite with code** — no new art, an
 Run it directly (not wired into the app, not pushed):
 
 ```bash
-python demo/live_cat_demo.py
-python demo/live_cat_demo.py --mood stress   # force one mood, for screenshots
+python demo/live_brok_demo.py
+python demo/live_brok_demo.py --mood stress   # force one mood, for screenshots
 ```
 
 ## Moods (all procedural transforms of one sprite)
@@ -28,7 +28,7 @@ axis — it is **never shown as a number**. Mood changes are logged to the conso
 ## How it renders
 Each frame is drawn onto a fixed-size padded canvas with a **foot-anchored**
 transform (squash/stretch grows from the feet) and fed to the real
-`PixelCatWindow` via `current_pixmap`, so transparency, dragging and the
+`BrokWindow` via `current_pixmap`, so transparency, dragging and the
 no-compositor shape-mask all keep working. The padding gives headroom so
 stretch/jitter never gets clipped.
 

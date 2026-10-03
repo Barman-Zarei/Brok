@@ -14,8 +14,8 @@ Moods (all procedural transforms of the one sprite):
   stress  constant jitter + puffed-up scale + red tint — when the box is busy
 
 Throwaway prototype, run it directly (not wired into the app, not pushed):
-    python demo/live_cat_demo.py
-    python demo/live_cat_demo.py --mood stress   # force one mood (for testing)
+    python demo/live_brok_demo.py
+    python demo/live_brok_demo.py --mood stress   # force one mood (for testing)
 
 Phase-2 (separate): real per-mood sprites (sleep curl, fur-on-end, presenting
 its back to be petted) generated via the ComfyUI pipeline — those need actual
@@ -236,7 +236,7 @@ def main():
     holder.drawPixmap(pad_w, pad_h, base)
     holder.end()
 
-    window = cat.PixelCatWindow(canvas, movie, 9999.0, name, available, data)
+    window = cat.BrokWindow(canvas, movie, 9999.0, name, available, data)
     # We drive the pixmap ourselves — neutralise the window's own GIF auto-play.
     window._start_animation = lambda: None
     window.show()

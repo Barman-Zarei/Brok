@@ -93,7 +93,7 @@ def initialize(args) -> LLMContext | None:
 
 
 def attach(window: QtWidgets.QWidget, context: LLMContext) -> None:
-    """Attach the chat UI to the PixelCat window."""
+    """Attach the chat UI to the Brok window."""
     if not context:
         return
     logger.debug("Attaching LLM UI to window %s", window)

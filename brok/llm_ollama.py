@@ -1,4 +1,4 @@
-"""Ollama backend for PixelCat LLM chat."""
+"""Ollama backend for the Brok desktop chat."""
 
 from __future__ import annotations
 

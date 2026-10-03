@@ -50,6 +50,8 @@ secure = ["keyring>=24"]
 # Global hotkey (Ctrl+Space by default). On Linux pynput pulls evdev (needs a compiler), so it is opt-in there:
 #   pip install "brok[hotkey]"
 hotkey = ["pynput>=1.7"]
+# Offline speech-to-text (Whisper) and microphone capture for the voice pipeline.
+voice = ["faster-whisper>=1.0", "sounddevice>=0.4"]
 # ICS calendar reminders: RRULE expansion (the daily standup) is a swamp not
 # worth hand-rolling, so the calendar feature needs these two small libs.
 calendar = ["icalendar>=6", "recurring-ical-events>=3"]

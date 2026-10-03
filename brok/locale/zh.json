@@ -335,6 +335,9 @@
     "Solution": "解答",
     "Quiz": "测验",
     "Privacy…": "隐私…",
-    "Privacy dashboard": "隐私仪表板"
+    "Privacy dashboard": "隐私仪表板",
+    "Speak": "语音输入",
+    "Listening…": "正在聆听…",
+    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "未安装语音输入：pip install \"brok[voice]\" — 请先输入文字。"
   }
 }

@@ -6,7 +6,7 @@ import platform
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
-from typing import Callable
+from typing import Any, Callable
 
 
 class VoiceUnavailable(Exception):
@@ -89,6 +89,79 @@ class CommandSTT(STTProvider):
         if r.returncode:
             raise VoiceUnavailable(r.stderr.strip()[:200] or "transcriber failed")
         return r.stdout.strip()
+
+
+class WhisperSTT(STTProvider):
+    """Offline speech-to-text via the optional ``faster-whisper`` package (``pip install "brok[voice]"``).
+
+    Persian is supported by Whisper; quality depends on the model size (``small``+ recommended).
+    """
+
+    name = "whisper"
+
+    def __init__(self, model: str = "small") -> None:
+        self.model_name = model
+        self._model: Any = None  # loaded lazily once: loading is slow and must not be repeated per request
+
+    def available(self) -> bool:
+        import importlib.util
+
+        return importlib.util.find_spec("faster_whisper") is not None
+
+    def transcribe(self, audio_path: str, language: str = "fa") -> str:
+        if not self.available():
+            raise VoiceUnavailable('speech-to-text needs faster-whisper: pip install "brok[voice]"')
+        if self._model is None:
+            from faster_whisper import WhisperModel
+
+            self._model = WhisperModel(self.model_name, compute_type="int8")
+        segments, _info = self._model.transcribe(audio_path, language=language or None)
+        return " ".join(seg.text.strip() for seg in segments).strip()
+
+
+class MicRecorder:
+    """Record a fixed-length clip from the default microphone to a temp WAV (needs ``sounddevice``)."""
+
+    def __init__(self, seconds: float = 6.0, samplerate: int = 16000) -> None:
+        self.seconds, self.samplerate = seconds, samplerate
+
+    def available(self) -> bool:
+        import importlib.util
+
+        return importlib.util.find_spec("sounddevice") is not None
+
+    def __call__(self) -> str:
+        if not self.available():
+            raise VoiceUnavailable('microphone capture needs sounddevice: pip install "brok[voice]"')
+        import tempfile
+        import wave
+
+        import sounddevice as sd
+
+        try:
+            data = sd.rec(int(self.seconds * self.samplerate), samplerate=self.samplerate, channels=1, dtype="int16")
+            sd.wait()
+        except Exception as exc:  # noqa: BLE001 - no mic / permission denied
+            raise VoiceUnavailable(f"no usable microphone ({exc})") from exc
+        fd, path = tempfile.mkstemp(suffix=".wav", prefix="brok-")
+        import os
+
+        os.close(fd)
+        with wave.open(path, "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(self.samplerate)
+            w.writeframes(data.tobytes())
+        return path
+
+
+def build_stt(kind: str, command: str = "") -> STTProvider | None:
+    """Config value ``voice.stt`` → provider: ``whisper`` | ``command`` | anything else = no STT."""
+    if kind == "whisper":
+        return WhisperSTT()
+    if kind == "command":
+        return CommandSTT(command)
+    return None
 
 
 class VoicePipeline:

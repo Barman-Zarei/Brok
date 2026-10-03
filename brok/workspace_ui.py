@@ -170,12 +170,15 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self.attach_btn.clicked.connect(self.attach_image_dialog)
         self.shot_btn = QtWidgets.QPushButton(tr("Screenshot"))
         self.shot_btn.clicked.connect(self.attach_screenshot)
+        self.mic_btn = QtWidgets.QPushButton(tr("Speak"))
+        self.mic_btn.clicked.connect(self.record_voice)
         self.images_label = QtWidgets.QLabel("")
         self.pending_images: list[ImageInput] = []
         row.addWidget(self.send_btn)
         row.addWidget(self.stop_btn)
         row.addWidget(self.attach_btn)
         row.addWidget(self.shot_btn)
+        row.addWidget(self.mic_btn)
         for w in (self.badge, self.transcript, self.images_label, self.input):
             chl.addWidget(w)
         chl.addLayout(row)
@@ -360,6 +363,45 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         return True
 
     # ---------------- assistants: debugger / learning / health ----------------
+    def record_voice(self) -> None:
+        """Record from the microphone, transcribe off the UI thread, and put the text in the input box."""
+        from .config import BrokConfig
+        from .voice.providers import MicRecorder, VoiceUnavailable, build_stt
+
+        cfg = BrokConfig.load()
+        stt = build_stt("whisper" if cfg.voice.stt in ("none", "") else cfg.voice.stt)
+        rec = MicRecorder()
+        if stt is None or not stt.available() or not rec.available():
+            self.transcript.append(
+                tr('Voice input is not installed: pip install "brok[voice]" — type your message instead.')
+            )
+            return
+        engine = stt
+        self.mic_btn.setEnabled(False)
+        self.mic_btn.setText(tr("Listening…"))
+
+        class _Job(QtCore.QThread):
+            done = QtCore.Signal(str, str)
+
+            def run(self) -> None:
+                try:
+                    self.done.emit(engine.transcribe(rec(), cfg.voice.language), "")
+                except (VoiceUnavailable, OSError, RuntimeError) as exc:
+                    self.done.emit("", str(exc))
+
+        self._voice_job = _Job(self)
+        self._voice_job.done.connect(self._on_voice_done)
+        self._voice_job.start()
+
+    def _on_voice_done(self, text: str, error: str) -> None:
+        self.mic_btn.setEnabled(True)
+        self.mic_btn.setText(tr("Speak"))
+        if error:
+            self.transcript.append(error)
+        elif text:
+            self.input.setText(text)
+            self.input.setFocus()
+
     def _build_assistants(self) -> QtWidgets.QWidget:
         w = QtWidgets.QWidget()
         lay = QtWidgets.QVBoxLayout(w)

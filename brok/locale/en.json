@@ -329,6 +329,9 @@
     "Solution": "Solution",
     "Quiz": "Quiz",
     "Privacy…": "Privacy…",
-    "Privacy dashboard": "Privacy dashboard"
+    "Privacy dashboard": "Privacy dashboard",
+    "Speak": "Speak",
+    "Listening…": "Listening…",
+    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "Voice input is not installed: pip install \"brok[voice]\" — type your message instead."
   }
 }

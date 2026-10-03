@@ -329,6 +329,9 @@
     "Solution": "راه‌حل",
     "Quiz": "آزمون",
     "Privacy…": "حریم خصوصی…",
-    "Privacy dashboard": "داشبورد حریم خصوصی"
+    "Privacy dashboard": "داشبورد حریم خصوصی",
+    "Speak": "صحبت کن",
+    "Listening…": "در حال گوش دادن…",
+    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "ورودی صوتی نصب نیست: pip install \"brok[voice]\" — فعلاً پیامت را تایپ کن."
   }
 }

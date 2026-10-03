@@ -335,6 +335,9 @@
     "Solution": "정답",
     "Quiz": "퀴즈",
     "Privacy…": "개인정보…",
-    "Privacy dashboard": "개인정보 대시보드"
+    "Privacy dashboard": "개인정보 대시보드",
+    "Speak": "음성 입력",
+    "Listening…": "듣는 중…",
+    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "음성 입력이 설치되지 않았습니다: pip install \"brok[voice]\" — 대신 텍스트로 입력하세요."
   }
 }

@@ -6,11 +6,13 @@ import json
 import zipfile
 from pathlib import Path
 
+from PIL import Image
+
 from .renderer import render_state
 from .states import AvatarState
 
 
-def _save_gif(frames, path: Path, ms: int = 140) -> None:
+def _save_gif(frames: list[Image.Image], path: Path, ms: int = 140) -> None:
     frames[0].save(path, save_all=True, append_images=frames[1:], duration=ms, loop=0, disposal=2, transparency=0)
 
 

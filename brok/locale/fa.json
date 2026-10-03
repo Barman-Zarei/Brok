@@ -307,6 +307,26 @@
     "CLOUD AI": "هوش مصنوعی ابری",
     "Saved {name}": "{name} ذخیره شد",
     "Stop": "توقف",
-    "No AI provider available (local-only mode or no provider configured)": "هیچ ارائه‌دهنده‌ی هوش مصنوعی در دسترس نیست (حالت فقط‌محلی یا پیکربندی نشده)"
+    "No AI provider available (local-only mode or no provider configured)": "هیچ ارائه‌دهنده‌ی هوش مصنوعی در دسترس نیست (حالت فقط‌محلی یا پیکربندی نشده)",
+    "Attach image…": "پیوست تصویر…",
+    "Screenshot": "اسکرین‌شات",
+    "{n} image(s) attached": "{n} تصویر پیوست شد",
+    "Unsupported or too large image": "تصویر پشتیبانی نمی‌شود یا بیش از حد بزرگ است",
+    "Screenshot is not available on this system": "اسکرین‌شات در این سیستم در دسترس نیست",
+    "Assistants": "دستیارها",
+    "AI Debugger": "دیباگر هوشمند",
+    "Paste an error / stack trace…": "ارور یا stack trace را بچسبانید…",
+    "Analyze and fix": "تحلیل و رفع",
+    "Learning mode": "حالت آموزش",
+    "Topic, e.g. for loop": "موضوع، مثلاً حلقه‌ی for",
+    "Teach me": "یادم بده",
+    "Project health": "سلامت پروژه",
+    "Run health report": "اجرای گزارش سلامت",
+    "No findings": "موردی یافت نشد",
+    "Example": "مثال",
+    "Exercise": "تمرین",
+    "Hint": "راهنمایی",
+    "Solution": "راه‌حل",
+    "Quiz": "آزمون"
   }
 }

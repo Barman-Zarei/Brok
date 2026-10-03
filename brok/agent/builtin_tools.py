@@ -38,7 +38,8 @@ def build_registry(
     def index() -> ProjectIndex:
         if state["index"] is None:
             state["index"] = ProjectIndex(str(ws.root)).build()
-        return state["index"]
+        idx: ProjectIndex = state["index"]
+        return idx
 
     # ---------------- read-only ----------------
     def read_file(path: str, start_line: int = 1, max_lines: int = 400) -> str:
@@ -205,7 +206,7 @@ def build_registry(
         return git("push", ref(remote), *([ref(branch)] if branch else []))
 
     # ---------------- commands ----------------
-    def _cmd_dynamic(a: dict[str, Any]):
+    def _cmd_dynamic(a: dict[str, Any]) -> tuple[Risk, Confirm, str]:
         v = classify_command(a.get("command", ""))
         if v.level == BLOCKED:
             return Risk.CRITICAL, Confirm.ALWAYS, "BLOCKED: " + "; ".join(v.reasons)

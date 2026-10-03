@@ -37,8 +37,14 @@ def _read(p: Path) -> str:
 def detect_project(root: str) -> ProjectInfo:
     r = Path(root)
     info = ProjectInfo(root=str(r))
-    add = lambda lst, v: (v not in lst) and lst.append(v)  # noqa: E731
-    has = lambda n: (r / n).exists()  # noqa: E731
+
+    def add(lst: list[str], v: str) -> None:
+        if v not in lst:
+            lst.append(v)
+
+    def has(n: str) -> bool:
+        return (r / n).exists()
+
     info.git_repo = has(".git")
 
     py_markers = [n for n in ("pyproject.toml", "setup.py", "requirements.txt", "Pipfile", "poetry.lock") if has(n)]
@@ -119,7 +125,7 @@ def detect_project(root: str) -> ProjectInfo:
         add(info.languages, "Rust")
         info.test_command = info.test_command or "cargo test"
 
-    exts = {}
+    exts: dict[str, int] = {}
     for dp, dns, fns in os.walk(root):
         dns[:] = [d for d in dns if d not in SKIP_DIRS]
         if dp[len(root) :].count(os.sep) > 4:

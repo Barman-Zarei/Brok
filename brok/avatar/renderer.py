@@ -17,7 +17,10 @@ def render_frame(state: AvatarState, step: int = 0, theme: str = "cyan") -> Imag
     c = get_theme(theme)
     img = Image.new("RGBA", (W * SS, H * SS), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    s = lambda v: int(v * SS)  # noqa: E731
+
+    def s(v: float) -> int:
+        return int(v * SS)
+
     ph = 2 * math.pi * (step % FRAMES) / FRAMES
     bob = (
         math.sin(ph) * 3
@@ -28,15 +31,15 @@ def render_frame(state: AvatarState, step: int = 0, theme: str = "cyan") -> Imag
         bob = math.sin(ph) * 1.5
     oy = bob
 
-    def rr(box, r, fill, outline=None, w=0):
+    def rr(box: tuple[float, ...], r: float, fill: str, outline: str | None = None, w: float = 0) -> None:
         d.rounded_rectangle(
             [s(box[0]), s(box[1] + oy), s(box[2]), s(box[3] + oy)], radius=s(r), fill=fill, outline=outline, width=s(w)
         )
 
-    def ell(box, fill):
+    def ell(box: tuple[float, ...], fill: str) -> None:
         d.ellipse([s(box[0]), s(box[1] + oy), s(box[2]), s(box[3] + oy)], fill=fill)
 
-    def ln(pts, fill, w=3):
+    def ln(pts: list[tuple[float, float]], fill: str, w: float = 3) -> None:
         d.line([(s(x), s(y + oy)) for x, y in pts], fill=fill, width=s(w), joint="curve")
 
     # body, legs, arms
@@ -119,7 +122,7 @@ def render_frame(state: AvatarState, step: int = 0, theme: str = "cyan") -> Imag
     if state is AvatarState.NOTIFICATION:
         ell((160, 8, 196, 44), c["warn"])
         d.text((s(174), s(18)), "!", fill=c["line"])
-    return img.resize((W, H), Image.LANCZOS)
+    return img.resize((W, H), Image.Resampling.LANCZOS)
 
 
 def render_state(state: AvatarState, theme: str = "cyan") -> list[Image.Image]:

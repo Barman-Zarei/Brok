@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 
 from .agent.debugger import debug_prompt
 from .agent.health import analyze
@@ -29,7 +30,9 @@ def terminal_approver(req: ApprovalRequest) -> bool:
     return input("   Apply? [y/N] ").strip().lower() in ("y", "yes", "ب", "بله")
 
 
-def _run_agent(cfg: BrokConfig, task: str, project: str, mode: str, approver=terminal_approver) -> int:
+def _run_agent(
+    cfg: BrokConfig, task: str, project: str, mode: str, approver: Callable[[ApprovalRequest], bool] = terminal_approver
+) -> int:
     tracker = PrivacyTracker()
     orch = build_orchestrator(cfg, tracker)
     reg = build_tools(cfg, project, approver, tracker)
@@ -80,8 +83,11 @@ def main(argv: list[str] | None = None) -> int:
     cfg = BrokConfig.load()
     if a.cmd in ("ask", "code", "fix"):
         pc = parse_command(" ".join(a.text))
+        if pc is None:
+            print("Nothing to do: empty request.")
+            return 1
         mode = {"ask": pc.mode, "code": "CODING", "fix": "DEBUG"}[a.cmd]
-        return _run_agent(cfg, pc.args if pc.name else pc.args, a.project, mode)
+        return _run_agent(cfg, pc.args, a.project, mode)
     if a.cmd == "debug":
         import os
 

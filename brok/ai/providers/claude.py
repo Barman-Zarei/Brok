@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Callable, Iterator
+import threading
+from typing import Any, Callable, Iterator
 
 from ..messages import Message, StreamEvent, ToolCall, ToolSchema
-from ..transport import ProviderError
+from ..transport import ProviderError, Transport
 from .base import AIProvider
 
 API_URL = "https://api.anthropic.com"
@@ -30,7 +31,7 @@ class ClaudeProvider(AIProvider):
         key_resolver: Callable[[], str] | None = None,
         base_url: str = API_URL,
         max_tokens: int = 4096,
-        transport=None,
+        transport: Transport | None = None,
     ) -> None:
         super().__init__(model, transport)
         self._resolver = key_resolver
@@ -53,10 +54,10 @@ class ClaudeProvider(AIProvider):
         return [m["id"] for m in data.get("data", [])]
 
     @staticmethod
-    def _convert(messages: list[Message]) -> list:
-        out: list = []
+    def _convert(messages: list[Message]) -> list[Any]:
+        out: list[Any] = []
 
-        def push(role: str, blocks: list) -> None:
+        def push(role: str, blocks: list[Any]) -> None:
             if out and out[-1]["role"] == role:
                 out[-1]["content"].extend(blocks)
             else:
@@ -66,7 +67,7 @@ class ClaudeProvider(AIProvider):
             if m.role == "tool":
                 push("user", [{"type": "tool_result", "tool_use_id": m.tool_call_id, "content": m.content}])
             elif m.role == "assistant":
-                blocks: list = [{"type": "text", "text": m.content}] if m.content else []
+                blocks: list[Any] = [{"type": "text", "text": m.content}] if m.content else []
                 blocks += [{"type": "tool_use", "id": c.id, "name": c.name, "input": c.arguments} for c in m.tool_calls]
                 if blocks:
                     push("assistant", blocks)
@@ -79,8 +80,14 @@ class ClaudeProvider(AIProvider):
                 push("user", blocks)
         return out
 
-    def chat(self, messages, system="", tools: list[ToolSchema] | None = None, cancel=None) -> Iterator[StreamEvent]:
-        body: dict = {
+    def chat(
+        self,
+        messages: list[Message],
+        system: str = "",
+        tools: list[ToolSchema] | None = None,
+        cancel: threading.Event | None = None,
+    ) -> Iterator[StreamEvent]:
+        body: dict[str, Any] = {
             "model": self.model,
             "max_tokens": self.max_tokens,
             "stream": True,
@@ -92,7 +99,7 @@ class ClaudeProvider(AIProvider):
             body["tools"] = [
                 {"name": t.name, "description": t.description, "input_schema": t.parameters} for t in tools
             ]
-        blocks: dict[int, dict] = {}
+        blocks: dict[int, dict[str, Any]] = {}
         stop = "stop"
         for line in self.transport.stream_lines(f"{self.base_url}/v1/messages", self._headers(), body, cancel):
             if not line.startswith("data:"):

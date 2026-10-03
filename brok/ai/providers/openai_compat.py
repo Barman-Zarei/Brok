@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Callable, Iterator
+import threading
+from typing import Any, Callable, Iterator
 
 from ..messages import Message, StreamEvent, ToolCall, ToolSchema
-from ..transport import ProviderError
+from ..transport import ProviderError, Transport
 from .base import AIProvider
 
 
@@ -21,7 +22,7 @@ class OpenAIProvider(AIProvider):
         base_url: str = "https://api.openai.com/v1",
         key_resolver: Callable[[], str] | None = None,
         key_env: str = "OPENAI_API_KEY",
-        transport=None,
+        transport: Transport | None = None,
     ) -> None:
         super().__init__(model, transport)
         self.base_url = base_url.rstrip("/")
@@ -37,13 +38,13 @@ class OpenAIProvider(AIProvider):
         return [m["id"] for m in self.transport.get_json(f"{self.base_url}/models", self._headers()).get("data", [])]
 
     @staticmethod
-    def _convert(messages: list[Message], system: str) -> list:
-        out: list = [{"role": "system", "content": system}] if system else []
+    def _convert(messages: list[Message], system: str) -> list[Any]:
+        out: list[Any] = [{"role": "system", "content": system}] if system else []
         for m in messages:
             if m.role == "tool":
                 out.append({"role": "tool", "tool_call_id": m.tool_call_id, "content": m.content})
             elif m.role == "assistant":
-                item: dict = {"role": "assistant", "content": m.content or None}
+                item: dict[str, Any] = {"role": "assistant", "content": m.content or None}
                 if m.tool_calls:
                     item["tool_calls"] = [
                         {
@@ -55,7 +56,7 @@ class OpenAIProvider(AIProvider):
                     ]
                 out.append(item)
             elif m.images:
-                parts: list = [{"type": "text", "text": m.content}]
+                parts: list[Any] = [{"type": "text", "text": m.content}]
                 parts += [
                     {"type": "image_url", "image_url": {"url": f"data:{i.media_type};base64,{i.data}"}}
                     for i in m.images
@@ -65,8 +66,14 @@ class OpenAIProvider(AIProvider):
                 out.append({"role": "user", "content": m.content})
         return out
 
-    def chat(self, messages, system="", tools: list[ToolSchema] | None = None, cancel=None) -> Iterator[StreamEvent]:
-        body: dict = {"model": self.model, "messages": self._convert(messages, system), "stream": True}
+    def chat(
+        self,
+        messages: list[Message],
+        system: str = "",
+        tools: list[ToolSchema] | None = None,
+        cancel: threading.Event | None = None,
+    ) -> Iterator[StreamEvent]:
+        body: dict[str, Any] = {"model": self.model, "messages": self._convert(messages, system), "stream": True}
         if tools:
             body["tools"] = [
                 {
@@ -75,7 +82,7 @@ class OpenAIProvider(AIProvider):
                 }
                 for t in tools
             ]
-        calls: dict[int, dict] = {}
+        calls: dict[int, dict[str, Any]] = {}
         finish = "stop"
         for line in self.transport.stream_lines(f"{self.base_url}/chat/completions", self._headers(), body, cancel):
             if not line.startswith("data:"):

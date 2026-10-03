@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any, Callable
 
 from . import secret_store
 from .agent.builtin_tools import build_registry
@@ -37,7 +37,7 @@ def build_orchestrator(cfg: BrokConfig, tracker: PrivacyTracker | None = None) -
 
 
 def build_tools(
-    cfg: BrokConfig, root: str, approver: Callable | None = None, tracker: PrivacyTracker | None = None
+    cfg: BrokConfig, root: str, approver: Callable[..., Any] | None = None, tracker: PrivacyTracker | None = None
 ) -> ToolRegistry:
     from .paths import config_dir
 

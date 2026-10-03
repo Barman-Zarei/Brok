@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable
+from typing import Any, Callable
 
 from .agent.tools import Confirm, Risk, ToolRegistry, ToolSpec
 
@@ -61,7 +61,7 @@ class PluginManager:
         try:
             from importlib import metadata
 
-            eps = metadata.entry_points()
+            eps: Any = metadata.entry_points()
             group = eps.select(group=ENTRY_POINT_GROUP) if hasattr(eps, "select") else eps.get(ENTRY_POINT_GROUP, [])
             for ep in group:
                 try:

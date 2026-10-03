@@ -28,4 +28,4 @@ Not yet verified: GUI launch (needs display; offscreen only), Windows/macOS beha
 
 ---
 ## Status after the Brok migration
-Test suite: 400 passed on Python 3.8.20 and 3.12.3 (was 313 passed + 3 env-only failures upstream); ruff clean.
+Test suite: 408 passed on Python 3.8.20 and 3.12.3 (was 313 passed + 3 env-only failures upstream); ruff clean.

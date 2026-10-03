@@ -6,9 +6,9 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Any, Callable
 
-from ..ai.messages import Message
+from ..ai.messages import Message, ToolCall
 from ..ai.orchestrator import AIOrchestrator
 from ..ai.transport import ProviderError
 from .tools import ToolRegistry
@@ -57,9 +57,11 @@ class AgentLoop:
         if self.on_event:
             self.on_event(kind, text)
 
-    def run(self, task: str, history: list[Message] | None = None, language: str = "") -> AgentResult:
+    def run(
+        self, task: str, history: list[Message] | None = None, language: str = "", images: list[Any] | None = None
+    ) -> AgentResult:
         self._cancel.clear()
-        msgs = list(history or []) + [Message("user", task)]
+        msgs = list(history or []) + [Message("user", task, images=list(images or []))]
         res = AgentResult("done", messages=msgs)
         start, tokens = self.clock(), sum(len(m.content) for m in msgs) // 4
         schemas = self.registry.schemas()
@@ -77,7 +79,8 @@ class AgentLoop:
                 res.status = "token_budget"
                 break
             res.iterations += 1
-            text, calls = "", []  # type: str, List[ToolCall]
+            text = ""
+            calls: list[ToolCall] = []
             try:
                 for ev in self.orch.stream(msgs, self.mode, schemas, language):
                     if ev.kind == "text":

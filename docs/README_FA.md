@@ -1,4 +1,4 @@
-[EN](../README.md) | FA
+[EN](../README.md) | FA | [RU](README_RU.md) | [CN](README_CN.md) | [ID](README_ID.md) | [KO](README_KO.md)
 
 ## بروک 🤖 — همراه دسکتاپ هوشمند و ایجنت کدنویسی با اولویت فارسی
 

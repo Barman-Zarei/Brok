@@ -25,11 +25,10 @@ on your projects. It is a derivative of [myCat](https://github.com/yumiaura/myCa
 - Everything from myCat: reminders, activity diary, focus timer, GitHub notifications, calendar, custom characters.
 - Terminal agent: `brok-agent ask|code|fix|debug|learn|health|doctor|privacy|memory`.
 
-**Honest status:** the core (providers, tools, permissions, agent loop, memory, index, avatar, workspace UI) is
-covered by 400 automated tests that pass on Python 3.8 and 3.12 (Linux, headless). Not yet verified by the
-authors: real Claude/Ollama/GitHub calls with live keys, Windows/macOS builds, microphone speech-to-text
-(only the interface + text-to-speech via OS engines exist), global hotkey wiring into the tray, and screenshot
-capture for vision (images can be passed to providers, the capture UI is not built).
+**Honest status:** the core (providers, tools, permissions, agent loop, memory, index, avatar, workspace UI, hotkey,
+vision attach, assistants) is covered by automated tests that pass on Python 3.8 and 3.12 (Linux, headless), and the new
+modules pass `mypy --strict`. Not verified by the authors: real Claude/OpenAI/Ollama/GitHub calls with live keys,
+Windows/macOS builds, a physical display, microphone speech-to-text (only the interface + OS text-to-speech exist).
 
 ## 🚀 Quick start (Python ≥ 3.8)
 

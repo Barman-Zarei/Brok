@@ -307,6 +307,26 @@
     "CLOUD AI": "CLOUD AI",
     "Saved {name}": "Saved {name}",
     "Stop": "Stop",
-    "No AI provider available (local-only mode or no provider configured)": "No AI provider available (local-only mode or no provider configured)"
+    "No AI provider available (local-only mode or no provider configured)": "No AI provider available (local-only mode or no provider configured)",
+    "Attach image…": "Attach image…",
+    "Screenshot": "Screenshot",
+    "{n} image(s) attached": "{n} image(s) attached",
+    "Unsupported or too large image": "Unsupported or too large image",
+    "Screenshot is not available on this system": "Screenshot is not available on this system",
+    "Assistants": "Assistants",
+    "AI Debugger": "AI Debugger",
+    "Paste an error / stack trace…": "Paste an error / stack trace…",
+    "Analyze and fix": "Analyze and fix",
+    "Learning mode": "Learning mode",
+    "Topic, e.g. for loop": "Topic, e.g. for loop",
+    "Teach me": "Teach me",
+    "Project health": "Project health",
+    "Run health report": "Run health report",
+    "No findings": "No findings",
+    "Example": "Example",
+    "Exercise": "Exercise",
+    "Hint": "Hint",
+    "Solution": "Solution",
+    "Quiz": "Quiz"
   }
 }

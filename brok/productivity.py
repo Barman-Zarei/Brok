@@ -5,12 +5,13 @@ from __future__ import annotations
 import ast
 import math
 import operator as op
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from .agent.tools import Confirm, Risk, ToolError, ToolRegistry, ToolSpec
 
-_OPS = {
+_OPS: dict[type, Callable[..., Any]] = {
     ast.Add: op.add,
     ast.Sub: op.sub,
     ast.Mult: op.mul,
@@ -37,7 +38,7 @@ _NAMES: dict[str, Any] = {
 def calculate(expression: str) -> str:
     """Evaluate arithmetic only (no names/attributes/imports): safe against code injection."""
 
-    def ev(n):
+    def ev(n: ast.AST) -> Any:
         if isinstance(n, ast.Expression):
             return ev(n.body)
         if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):

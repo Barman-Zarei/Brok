@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import i18n, llm_prompt
+from .chat_commands import handle_chat_command
 
 if TYPE_CHECKING:
     from .llm import LLMContext
@@ -138,10 +139,7 @@ class ChatDialog(QtWidgets.QDialog):
         self.suspend_anchor = False
         self.messages: list[tuple[str, str, str]] = []
 
-        self.setWindowFlags(
-            QtCore.Qt.WindowType.Window
-            | QtCore.Qt.WindowType.WindowStaysOnTopHint
-        )
+        self.setWindowFlags(QtCore.Qt.WindowType.Window | QtCore.Qt.WindowType.WindowStaysOnTopHint)
         title_suffix = controller.context.backend_name.capitalize()
         self.setWindowTitle(tr("Chat with Brok ({suffix})").format(suffix=title_suffix))
         self.resize(360, 420)
@@ -161,9 +159,7 @@ class ChatDialog(QtWidgets.QDialog):
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.scroll_area.setAlignment(
-            QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignBottom
-        )
+        self.scroll_area.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignBottom)
         main_layout.addWidget(self.scroll_area, 1)
 
         self.messages_widget = QtWidgets.QWidget()
@@ -272,6 +268,11 @@ class ChatDialog(QtWidgets.QDialog):
         self.append_message("user", text)
         QtCore.QTimer.singleShot(0, self.scroll_to_bottom)
         self.input_field.clear()
+        local_reply = handle_chat_command(text)  # /remember, /memory, /forget: handled locally, never sent to the AI
+        if local_reply is not None:
+            self.append_message("cat", local_reply)
+            self.schedule_scroll()
+            return
         self.set_input_enabled(False)
         self.waiting_for_response = True
         self.request_ai_response(text)
@@ -399,6 +400,7 @@ class ChatDialog(QtWidgets.QDialog):
 
 class LLMWorkerSignals(QtCore.QObject):
     """Qt signals emitted by the background worker."""
+
     result = QtCore.Signal(str)
     error = QtCore.Signal(str)
     finished = QtCore.Signal()
@@ -406,6 +408,7 @@ class LLMWorkerSignals(QtCore.QObject):
 
 class LLMWorker(QtCore.QRunnable):
     """Runs LLM requests off the UI thread and streams results via signals."""
+
     def __init__(self, backend, user_text: str, system_prompt: str) -> None:
         super().__init__()
         self.backend = backend

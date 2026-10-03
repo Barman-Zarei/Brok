@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any
@@ -103,7 +104,7 @@ class BrokConfig:
         return paths.config_dir() / "brok.json"
 
     @classmethod
-    def load(cls, path: Path | None = None, env: dict | None = None) -> BrokConfig:
+    def load(cls, path: Path | None = None, env: dict[str, Any] | None = None) -> BrokConfig:
         cfg = cls()
         p = Path(path) if path else cls.default_path()
         try:
@@ -126,7 +127,7 @@ class BrokConfig:
         return p
 
 
-def _merge(obj: Any, data: dict) -> None:
+def _merge(obj: Any, data: dict[str, Any]) -> None:
     for f in fields(obj):
         if f.name not in data:
             continue
@@ -148,7 +149,7 @@ _ENV = {
 }
 
 
-def apply_env(cfg: BrokConfig, env) -> None:
+def apply_env(cfg: BrokConfig, env: Mapping[str, str]) -> None:
     for var, (section, key, typ) in _ENV.items():
         if var in env:
             raw = env[var]

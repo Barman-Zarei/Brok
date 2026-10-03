@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 _SPECIAL = {"ctrl", "alt", "shift", "cmd", "space", "enter", "tab", "esc"}
@@ -22,7 +22,7 @@ def to_pynput(combo: str) -> str:
 class HotkeyManager:
     def __init__(self, combo: str, callback: Callable[[], None]) -> None:
         self.combo, self.callback = combo, callback
-        self._listener: object | None = None
+        self._listener: Any = None
         self.status = "stopped"
 
     def start(self) -> bool:
@@ -32,10 +32,11 @@ class HotkeyManager:
             self.status = f"invalid hotkey: {exc}"
             return False
         try:
-            from pynput import keyboard  # type: ignore
+            from pynput import keyboard
 
-            self._listener = keyboard.GlobalHotKeys({spec: self.callback})
-            self._listener.start()  # type: ignore[attr-defined]
+            listener = keyboard.GlobalHotKeys({spec: self.callback})
+            listener.start()
+            self._listener = listener
         except Exception as exc:  # noqa: BLE001 - optional feature must never crash the app
             self.status = f"unavailable on this system ({type(exc).__name__}); use the tray icon instead"
             logger.warning("global hotkey unavailable: %s", exc)
@@ -46,7 +47,7 @@ class HotkeyManager:
     def stop(self) -> None:
         if self._listener is not None:
             try:
-                self._listener.stop()  # type: ignore[attr-defined]
+                self._listener.stop()
             except Exception:  # noqa: BLE001
                 pass
         self._listener, self.status = None, "stopped"

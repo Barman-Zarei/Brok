@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Iterator
 
 from ..messages import Message, StreamEvent, ToolSchema
+from ..transport import Transport
 
 
 class AIProvider(ABC):
@@ -16,7 +17,7 @@ class AIProvider(ABC):
     supports_tools = True
     supports_vision = False
 
-    def __init__(self, model: str, transport=None) -> None:
+    def __init__(self, model: str, transport: Transport | None = None) -> None:
         from ..transport import UrllibTransport
 
         self.model = model

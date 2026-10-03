@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-from typing import Iterator
+import threading
+from typing import Any, Iterator
 from urllib.parse import urlparse
 
 from ..messages import Message, StreamEvent, ToolCall, ToolSchema
-from ..transport import ProviderError
+from ..transport import ProviderError, Transport
 from .base import AIProvider
 
 
@@ -13,7 +14,9 @@ class OllamaProvider(AIProvider):
     name = "ollama"
     supports_vision = True
 
-    def __init__(self, model: str = "llama3.1", host: str = "http://127.0.0.1:11434", transport=None) -> None:
+    def __init__(
+        self, model: str = "llama3.1", host: str = "http://127.0.0.1:11434", transport: Transport | None = None
+    ) -> None:
         super().__init__(model, transport)
         self.host = host.rstrip("/")
 
@@ -27,10 +30,10 @@ class OllamaProvider(AIProvider):
         return [m["name"] for m in data.get("models", [])]
 
     @staticmethod
-    def _convert(messages: list[Message], system: str) -> list:
-        out: list = [{"role": "system", "content": system}] if system else []
+    def _convert(messages: list[Message], system: str) -> list[Any]:
+        out: list[Any] = [{"role": "system", "content": system}] if system else []
         for m in messages:
-            item: dict = {"role": m.role, "content": m.content}
+            item: dict[str, Any] = {"role": m.role, "content": m.content}
             if m.images:
                 item["images"] = [i.data for i in m.images]
             if m.tool_calls:
@@ -38,8 +41,14 @@ class OllamaProvider(AIProvider):
             out.append(item)
         return out
 
-    def chat(self, messages, system="", tools: list[ToolSchema] | None = None, cancel=None) -> Iterator[StreamEvent]:
-        body: dict = {"model": self.model, "messages": self._convert(messages, system), "stream": True}
+    def chat(
+        self,
+        messages: list[Message],
+        system: str = "",
+        tools: list[ToolSchema] | None = None,
+        cancel: threading.Event | None = None,
+    ) -> Iterator[StreamEvent]:
+        body: dict[str, Any] = {"model": self.model, "messages": self._convert(messages, system), "stream": True}
         if tools:
             body["tools"] = [
                 {

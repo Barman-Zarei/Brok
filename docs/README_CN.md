@@ -1,183 +1,25 @@
-> ⚠ Translation of the README from before the Brok rewrite (cat-era text). The English [README](../README.md) is the up-to-date source.
+[EN](../README.md) | [FA](README_FA.md) | [RU](README_RU.md) | [CN](README_CN.md) | [ID](README_ID.md) | [KO](README_KO.md)
 
-[EN](https://github.com/Barman-Zarei/Brok/blob/main/README.md) | [RU](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_RU.md) | CN | [ID](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_ID.md) | [KO](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_KO.md)
+## Brok 🤖 — 桌面 AI 伙伴与编程智能体（波斯语优先）
 
-# 桌面猫咪：QT 悬浮应用 🐱
+<img src="brok.gif" width="140" alt="Brok"/>
 
-[<img src="https://raw.githubusercontent.com/Barman-Zarei/Brok/refs/heads/main/docs/cat.gif" width="164" alt="cat.gif"/>](https://github.com/yumiaura)
+Brok 是住在你桌面上的小机器人（无边框、始终置顶、可拖动）。它以**波斯语**为首选语言（也支持其他语言），并可作为**带权限控制的编程智能体**处理你的项目。本项目基于 [myCat](https://github.com/yumiaura/myCat)，请参见 NOTICE 与 LICENSE.txt。
 
-<p class="badges">
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest"><img src="https://img.shields.io/github/v/release/Barman-Zarei/Brok?label=download&color=blue" alt="Latest release"></a>
-  <img src="https://img.shields.io/pypi/pyversions/brok?color=brightgreen" alt="Python Versions">
-  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pypi/v/brok?color=brightgreen" alt="PyPI Version"></a>
-  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pepy/dt/brok?label=pypi%20%7C%20downloads&color=brightgreen" alt="Pepy Total Downloads"/></a>
-</p>
+- 机器人形象，共 13 种状态（待机、聆听、思考、输入、编码、说话、开心、困惑、错误、成功、睡眠、通知…）
+- 可与 **Claude**、**Ollama（本地）** 或任何兼容 OpenAI 的 API 对话；界面始终显示 LOCAL AI / CLOUD AI 标签
+- **编码工作区**（右键 → Coding Workspace…）：文件、编辑器、聊天、diff 查看、终端、问题、git。选中代码后可：解释 / 找 bug / 优化 / 写测试 / 转换为 Flutter
+- **安全：** 每个工具都有风险等级；修改文件前先显示 diff；删除、commit、push 和高风险命令始终需要确认；危险命令会被直接拦截；步数、时间、token 和工具调用次数均有上限
+- 波斯语界面与 RTL、学习模式、AI 调试器、项目健康报告、可控的记忆（`/remember`、`/memory`、`/forget`）、仅本地模式、全局热键（默认 Ctrl+Space）、图片与截图附件
 
-我为您制作了一只可爱的小动画猫咪 🐈，陪伴您的桌面。<br>
-这是一个轻量级的 Python + Qt 应用 —— 无边框，可轻松拖动。<br>
-启动时先静态显示第一帧 5 秒，然后播放一次 GIF 动画，再回到静态第一帧。<br>
-如果您喜欢，下次也许我会分享 [AnimeGirl](https://github.com/Barman-Zarei/Brok/discussions/1) 版本~ 😉
-
-## 🚀 快速开始
-
-选择最方便的方式 —— 猫咪支持 **Windows、macOS 和 Linux**。
-
-### 方式 A —— 预编译二进制（无需 Python）
-
-选择适合你系统的版本 —— 每个按钮都会下载**最新发布**：
-
-<p>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-windows-x64.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0wIDMuNDQ5IDkuNzUgMi4xdjkuNDUxSDB6TTEwLjk0OSAxLjk0OSAyNCAwdjExLjRIMTAuOTQ5ek0wIDEyLjZoOS43NXY5LjQ1MUwwIDIwLjY5OXpNMTAuOTQ5IDEyLjZIMjRWMjRsLTEyLjktMS44MDF6Ii8%2BPC9zdmc%2B" alt="Windows"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white" alt="macOS Apple Silicon"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-x64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Intel-555555?logo=apple&logoColor=white" alt="macOS Intel"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-amd64.deb"><img src="https://img.shields.io/badge/Download-Linux%20.deb-A81D33?logo=debian&logoColor=white" alt="Linux .deb"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-x86_64.AppImage"><img src="https://img.shields.io/badge/Download-Linux%20AppImage-FCC624?logo=linux&logoColor=black" alt="Linux AppImage"></a>
-</p>
-
-然后运行：
-
-- **Windows** —— 双击 `.exe`。
-- **macOS** —— 解压并打开 `brok.app`（首次启动：右键 → **打开** 以绕过 Gatekeeper）。
-- **Linux `.deb`** —— `sudo apt install ./brok-linux-amd64.deb`。
-- **Linux AppImage** —— `chmod +x brok-linux-x86_64.AppImage && ./brok-linux-x86_64.AppImage`（需要 FUSE：`sudo apt install libfuse2`）。
-
-> 所有版本的构建都在 **[Releases](https://github.com/Barman-Zarei/Brok/releases)** 页面。
-
-### 方式 B —— pip（Windows / macOS / Linux，Python ≥ 3.10）
-
+### 安装（Python ≥ 3.8）
 ```bash
-pip install brok
-brok
-```
-
-在 **Linux** 上还需安装一次 Qt 平台插件：
-
-```bash
-sudo apt install -y libxcb-cursor0
-```
-
-升级或卸载：`pip install -U brok` / `pip uninstall brok`。
-
-### 方式 C —— 从源码运行
-
-```bash
-git clone https://github.com/Barman-Zarei/Brok
-cd Brok
 pip install .
-brok                 # 或者不安装直接运行：python3 brok/main.py
+brok                              # desktop
+export ANTHROPIC_API_KEY=...      # Claude (optional) / Ollama: ollama pull llama3.1
+brok-agent doctor
+brok-agent --project . ask "..."
 ```
+详情：docs/configuration.md · docs/security.md · docs/coding-agent.md
 
-## ✨ 功能
-
-- **动画悬浮窗** 🐱 —— 无边框、置顶、可拖动的猫咪。右键打开菜单（切换角色、退出）。
-- **提醒** 🛩️ —— 设置一条消息和时间（一次或每天），猫咪会驾驶小飞机拖着横幅从屏幕顶部飞过。右键 → *Reminder…* 设置消息、方向、飞机和颜色。
-- **聊天（Ollama）** 💬 —— 通过 **本地 [Ollama](https://ollama.com) 模型** 与猫咪聊天，无需账号或 API 密钥（见下文）。
-
-## 💬 与猫咪聊天（Ollama）
-
-猫咪可以使用 [Ollama](https://ollama.com) 在本地运行的模型聊天 —— 一切都在您的机器上，无需 API 密钥。
-
-1. 安装 [Ollama](https://ollama.com) 并拉取模型：
-   ```bash
-   ollama pull llama3.1
-   ```
-2. 启动 **brok**，右键猫咪 → **Ollama…**
-3. 设置主机/端口（默认 `localhost:11434`），点击 **Load models**，选择一个模型，点 **Test**，然后 **Save** 并勾选 **LLM enabled**。
-4. 右键 → **Chat** 开始聊天。🐾
-
-## 🎮 用法与选项
-
-运行 `brok`（或从源码 `python3 brok/main.py`），用命令行选项自定义。
-
-**`--image, -i <路径>`** 🖼️ —— 使用自定义 ZIP（含一个 GIF）代替默认猫咪：
-
-```bash
-brok --image ~/my-custom-cat.zip
-```
-
-角色 **ZIP** 必须只含一个 `.gif`：第一帧为静态姿势，GIF 播放一次后回到该帧。超过 300×500 的图片会自动缩小。
-
-**`--pos <x> <y>`** 📍 —— 指定起始位置（否则猫咪出现在右下角并记住上次拖动的位置）：
-
-```bash
-brok --pos 960 540        # 1920x1080 屏幕中心
-```
-
-**`--wait <秒>`** ⏱️ —— 播放动画前保持静态第一帧的时长。
-
-**`--debug`** 🐞 —— 详细的每帧日志。
-
-### 操作
-
-- **左键拖动** 移动猫咪。
-- **右键** 打开菜单（角色、Reminder…、Ollama…、Chat、Quit）。
-- 从菜单 **退出**，或在终端按 Ctrl+C。
-
-猫咪会把位置和所选角色保存在 `~/.config/brok/config.ini`。
-
-## 🎬 制作自己的猫咪 GIF
-
-```bash
-# 安装 ImageMagick
-sudo apt install imagemagick
-
-# 从精灵图生成动画 GIF
-convert cat.png -crop 50%x100% +repage -set delay '200,100' -loop 0 cat.gif
-
-# 打包为角色 ZIP
-zip cat.zip cat.gif
-```
-
-把生成的 ZIP 放到其它角色旁边，从右键 **角色** 菜单选择它。
-
-## 🐳 Docker
-
-在容器中运行猫咪，并将 GUI 转发到宿主机的 X 服务器。
-
-**前置条件：** Docker，以及宿主机上的 X 服务器（Linux 用 Xorg，Windows 用 VcXsrv，macOS 用 XQuartz）。
-
-```bash
-# Linux
-xhost +local:docker
-docker compose up --build
-
-# Windows（VcXsrv 运行中，允许网络客户端）
-docker compose -f docker-compose.windows.yml up
-
-# macOS（XQuartz 运行中，允许网络客户端）
-docker compose -f docker-compose.mac.yml up
-```
-
-## 🔧 故障排查
-
-**猫咪显示在黑框里 / 透明无效** 🫥
-- X11 的透明需要合成器。无合成器时 brok 会沿猫咪轮廓裁剪窗口，所以很少出现；若仍有黑框，请启用显示合成（XFCE：*Window Manager Tweaks → Compositor*）或运行 `picom` 之类的合成器。
-
-**窗口不置顶 / 不显示在任务栏** 📌
-- 某些窗口管理器会覆盖“置顶”设置 —— 重启桌面会话或检查 WM 设置。
-
-**自定义角色无法加载** ❌
-- ZIP 必须只含一个有效的 `.gif`。检查路径与文件是否损坏。
-
-**位置不保存** 💾
-- 确保 `~/.config/brok/` 存在且可写；配置文件为 `~/.config/brok/config.ini`。
-
-**Windows / 启动问题** 🪟
-- pip 安装需要 Python ≥ 3.10（`python --version`），或直接用预编译的 `.exe`。
-- 在仓库里也可用 `run.bat`（Windows）或 `run.sh`（Linux/macOS）启动。
-- 验证 PySide6：`python -c "import PySide6; print('PySide6 OK')"`。
-
-**权限错误** 🔒
-- 在 Linux 上优先用户安装而非 `sudo`（`pip install --user brok`）。
-
-### 🤝 获取帮助
-
-- 在 [GitHub Issues](https://github.com/Barman-Zarei/Brok/issues) 搜索类似问题。
-- 阅读 [CONTRIBUTING.md](../CONTRIBUTING.md) 了解开发环境。
-- 新建 issue，附上系统、桌面环境、Python 版本和终端错误信息。
-
-### 许可证
-
-[MIT License](../LICENSE.txt)
-
-感谢您读到最后！😸🐾
+> 实际状态：核心功能有自动化测试（Python 3.8 与 3.12，Linux，无显示环境）。作者尚未验证：使用真实密钥调用 Claude/OpenAI/GitHub、Windows/macOS 构建、麦克风语音识别。

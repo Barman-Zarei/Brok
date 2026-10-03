@@ -2,20 +2,24 @@
 
 from __future__ import annotations
 
+import base64
 import html
 import os
 import threading
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import i18n
 from .agent.builtin_tools import build_registry  # noqa: F401  (re-exported for tests)
+from .agent.debugger import debug_prompt
 from .agent.health import analyze
+from .agent.learning import STEPS, learning_prompt
 from .agent.loop import AgentLoop, Limits
 from .agent.project import detect_project
 from .agent.tools import ApprovalRequest, ToolRegistry
+from .ai.messages import ImageInput
 from .ai.orchestrator import AIOrchestrator, infer_mode
 from .avatar.engine import AvatarEngine
 from .avatar.manager import AvatarManager
@@ -41,7 +45,7 @@ class _ApprovalHolder:
 class ApprovalDialog(QtWidgets.QDialog):
     """Shows what Brok wants to do (with BEFORE/AFTER diff) and asks Apply / Reject."""
 
-    def __init__(self, req: ApprovalRequest, parent=None) -> None:
+    def __init__(self, req: ApprovalRequest, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(tr("Approval required"))
         lay = QtWidgets.QVBoxLayout(self)
@@ -53,8 +57,8 @@ class ApprovalDialog(QtWidgets.QDialog):
             box.setMinimumSize(560, 260)
             lay.addWidget(box)
         btns = QtWidgets.QDialogButtonBox()
-        apply_b = btns.addButton(tr("Apply"), QtWidgets.QDialogButtonBox.AcceptRole)
-        reject_b = btns.addButton(tr("Reject"), QtWidgets.QDialogButtonBox.RejectRole)
+        apply_b = btns.addButton(tr("Apply"), QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
+        reject_b = btns.addButton(tr("Reject"), QtWidgets.QDialogButtonBox.ButtonRole.RejectRole)
         reject_b.setDefault(True)  # the safe choice is the default
         apply_b.clicked.connect(self.accept)
         reject_b.clicked.connect(self.reject)
@@ -67,14 +71,14 @@ class AgentWorker(QtCore.QThread):
     approval = QtCore.Signal(object)
     done = QtCore.Signal(str, str)  # status, error
 
-    def __init__(self, loop: AgentLoop, task: str, language: str) -> None:
+    def __init__(self, loop: AgentLoop, task: str, language: str, images: list[ImageInput] | None = None) -> None:
         super().__init__()
-        self.loop, self.task, self.language = loop, task, language
+        self.loop, self.task, self.language, self.images = loop, task, language, images or []
 
     def run(self) -> None:
         self.loop.on_event = lambda k, t: (self.text if k == "text" else self.tool).emit(t)
         try:
-            res = self.loop.run(self.task, language=self.language)
+            res = self.loop.run(self.task, language=self.language, images=self.images)
             self.done.emit(res.status, res.error)
         except Exception as exc:  # noqa: BLE001 - never let a worker crash the app
             self.done.emit("error", str(exc))
@@ -85,10 +89,10 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self,
         project: str,
         orchestrator: AIOrchestrator,
-        registry_factory: Callable[[str, Callable], ToolRegistry],
+        registry_factory: Callable[[str, Callable[[ApprovalRequest], bool]], ToolRegistry],
         limits: Limits | None = None,
         language: str = "fa",
-        parent=None,
+        parent: QtWidgets.QWidget | None = None,
         avatar: AvatarManager | None = None,
     ) -> None:
         super().__init__(parent)
@@ -104,7 +108,7 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self.open_project(project)
 
     # ---------------- UI ----------------
-    def _dock(self, title: str, widget: QtWidgets.QWidget, area) -> QtWidgets.QDockWidget:
+    def _dock(self, title: str, widget: QtWidgets.QWidget, area: QtCore.Qt.DockWidgetArea) -> QtWidgets.QDockWidget:
         d = QtWidgets.QDockWidget(tr(title), self)
         d.setWidget(widget)
         d.setObjectName(title)
@@ -112,7 +116,11 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         return d
 
     def _build_ui(self) -> None:
-        L, R, B = QtCore.Qt.LeftDockWidgetArea, QtCore.Qt.RightDockWidgetArea, QtCore.Qt.BottomDockWidgetArea
+        L, R, B = (
+            QtCore.Qt.DockWidgetArea.LeftDockWidgetArea,
+            QtCore.Qt.DockWidgetArea.RightDockWidgetArea,
+            QtCore.Qt.DockWidgetArea.BottomDockWidgetArea,
+        )
         self.model = QtWidgets.QFileSystemModel(self)
         self.tree = QtWidgets.QTreeView()
         self.tree.setModel(self.model)
@@ -122,8 +130,10 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self._dock("Files", self.tree, L)
 
         self.editor = QtWidgets.QPlainTextEdit()
-        self.editor.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
-        self.editor.setLayoutDirection(QtCore.Qt.LeftToRight)  # code is always LTR, even in a Persian UI
+        self.editor.setLineWrapMode(QtWidgets.QPlainTextEdit.LineWrapMode.NoWrap)
+        self.editor.setLayoutDirection(
+            QtCore.Qt.LayoutDirection.LeftToRight
+        )  # code is always LTR, even in a Persian UI
         self.file_label = QtWidgets.QLabel("—")
         center = QtWidgets.QWidget()
         cl = QtWidgets.QVBoxLayout(center)
@@ -156,9 +166,17 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self.stop_btn = QtWidgets.QPushButton(tr("Stop"))
         self.stop_btn.clicked.connect(self.stop)
         self.stop_btn.setEnabled(False)
+        self.attach_btn = QtWidgets.QPushButton(tr("Attach image…"))
+        self.attach_btn.clicked.connect(self.attach_image_dialog)
+        self.shot_btn = QtWidgets.QPushButton(tr("Screenshot"))
+        self.shot_btn.clicked.connect(self.attach_screenshot)
+        self.images_label = QtWidgets.QLabel("")
+        self.pending_images: list[ImageInput] = []
         row.addWidget(self.send_btn)
         row.addWidget(self.stop_btn)
-        for w in (self.badge, self.transcript, self.input):
+        row.addWidget(self.attach_btn)
+        row.addWidget(self.shot_btn)
+        for w in (self.badge, self.transcript, self.images_label, self.input):
             chl.addWidget(w)
         chl.addLayout(row)
         self._dock("Chat", chat, R)
@@ -180,14 +198,16 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self.info_view = QtWidgets.QPlainTextEdit()
         self.info_view.setReadOnly(True)
         tabs = QtWidgets.QTabWidget()
-        for name, w in (
+        tab_pages: tuple[tuple[str, QtWidgets.QWidget], ...] = (
             ("Diff", self.diff_view),
             ("Output", term),
             ("Problems", self.problems),
             ("Git", self.git_view),
             ("Project", self.info_view),
-        ):
-            tabs.addTab(w, tr(name))
+            ("Assistants", self._build_assistants()),
+        )
+        for name, page in tab_pages:
+            tabs.addTab(page, tr(name))
         self.tabs = tabs
         self._dock("Output", tabs, B)
         refresh = self.menuBar().addAction(tr("Refresh"))
@@ -277,7 +297,9 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self.transcript.append(f"<p><b>{tr('Request')}:</b> {html.escape(task[:400])}</p>")
         self.avatar.on_event("ai_thinking")
         loop = AgentLoop(self.orch, self.registry, self.limits, mode)
-        self.worker = AgentWorker(loop, task, self.language)
+        images, self.pending_images = self.pending_images, []
+        self._update_images_label()
+        self.worker = AgentWorker(loop, task, self.language, images)
         self.worker.text.connect(self._on_text)
         self.worker.tool.connect(self._on_tool)
         self.worker.approval.connect(self._on_approval)
@@ -286,13 +308,116 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         self.stop_btn.setEnabled(True)
         self.worker.start()
 
+    # ---------------- vision ----------------
+    def _update_images_label(self) -> None:
+        n = len(self.pending_images)
+        self.images_label.setText(tr("{n} image(s) attached").format(n=n) if n else "")
+
+    def add_image_bytes(self, data: bytes, media_type: str) -> None:
+        self.pending_images.append(ImageInput(base64.b64encode(data).decode("ascii"), media_type))
+        self._update_images_label()
+
+    def attach_image_dialog(self) -> None:
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, tr("Attach image…"), self.project, "Images (*.png *.jpg *.jpeg *.webp *.gif)"
+        )
+        if path:
+            self.attach_image_file(path)
+
+    def attach_image_file(self, path: str) -> bool:
+        media = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".webp": "image/webp",
+            ".gif": "image/gif",
+        }
+        ext = os.path.splitext(path)[1].lower()
+        try:
+            if ext not in media or os.path.getsize(path) > 8_000_000:
+                self.output.appendPlainText(tr("Unsupported or too large image"))
+                return False
+            with open(path, "rb") as fh:
+                self.add_image_bytes(fh.read(), media[ext])
+        except OSError as exc:
+            self.output.appendPlainText(str(exc))
+            return False
+        return True
+
+    def attach_screenshot(self) -> bool:
+        """Grab the primary screen (downscaled to ≤1600px) and attach it to the next message."""
+        screen = QtGui.QGuiApplication.primaryScreen()
+        pix = screen.grabWindow(0) if screen else QtGui.QPixmap()
+        if pix.isNull():
+            self.output.appendPlainText(tr("Screenshot is not available on this system"))
+            return False
+        if pix.width() > 1600:
+            pix = pix.scaledToWidth(1600, QtCore.Qt.TransformationMode.SmoothTransformation)
+        buf = QtCore.QBuffer()
+        buf.open(QtCore.QIODevice.OpenModeFlag.WriteOnly)
+        pix.save(buf, "PNG")
+        self.add_image_bytes(bytes(buf.data().data()), "image/png")
+        return True
+
+    # ---------------- assistants: debugger / learning / health ----------------
+    def _build_assistants(self) -> QtWidgets.QWidget:
+        w = QtWidgets.QWidget()
+        lay = QtWidgets.QVBoxLayout(w)
+        lay.addWidget(QtWidgets.QLabel("<b>" + tr("AI Debugger") + "</b>"))
+        self.debug_input = QtWidgets.QPlainTextEdit()
+        self.debug_input.setPlaceholderText(tr("Paste an error / stack trace…"))
+        self.debug_input.setLayoutDirection(QtCore.Qt.LayoutDirection.LeftToRight)
+        self.debug_btn = QtWidgets.QPushButton(tr("Analyze and fix"))
+        self.debug_btn.clicked.connect(self.run_debugger)
+        lay.addWidget(self.debug_input)
+        lay.addWidget(self.debug_btn)
+        lay.addWidget(QtWidgets.QLabel("<b>" + tr("Learning mode") + "</b>"))
+        row = QtWidgets.QHBoxLayout()
+        self.learn_topic = QtWidgets.QLineEdit()
+        self.learn_topic.setPlaceholderText(tr("Topic, e.g. for loop"))
+        self.learn_step = QtWidgets.QComboBox()
+        for s in STEPS:
+            self.learn_step.addItem(tr(s.capitalize()), s)
+        self.learn_btn = QtWidgets.QPushButton(tr("Teach me"))
+        self.learn_btn.clicked.connect(self.run_learning)
+        for x in (self.learn_topic, self.learn_step, self.learn_btn):
+            row.addWidget(x)
+        lay.addLayout(row)
+        lay.addWidget(QtWidgets.QLabel("<b>" + tr("Project health") + "</b>"))
+        self.health_btn = QtWidgets.QPushButton(tr("Run health report"))
+        self.health_btn.clicked.connect(self.run_health)
+        self.health_label = QtWidgets.QLabel("")
+        lay.addWidget(self.health_btn)
+        lay.addWidget(self.health_label)
+        lay.addStretch(1)
+        return w
+
+    def run_debugger(self) -> None:
+        text = self.debug_input.toPlainText().strip()
+        if text:
+            self.start_task(debug_prompt(text, self.project, language=self.language), "DEBUG")
+
+    def run_learning(self) -> None:
+        topic = self.learn_topic.text().strip()
+        if topic:
+            self.start_task(learning_prompt(self.learn_step.currentData(), topic, self.language), "LEARNING")
+
+    def run_health(self) -> None:
+        self.refresh_panels()
+        rep = analyze(self.project)
+        counts: dict[str, int] = {}
+        for f in rep.findings:
+            counts[f.category] = counts.get(f.category, 0) + 1
+        self.health_label.setText(", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or tr("No findings"))
+        self.tabs.setCurrentWidget(self.problems)
+
     def stop(self) -> None:
         if self.worker:
             self.worker.loop.cancel()
 
     def _on_text(self, t: str) -> None:
         self.avatar.on_event("speaking")
-        self.transcript.moveCursor(QtGui.QTextCursor.End)
+        self.transcript.moveCursor(QtGui.QTextCursor.MoveOperation.End)
         self.transcript.insertPlainText(t)
 
     def _on_tool(self, t: str) -> None:
@@ -323,7 +448,7 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         return holder.result
 
     def _show_approval(self, req: ApprovalRequest) -> bool:
-        return ApprovalDialog(req, self).exec() == QtWidgets.QDialog.Accepted
+        return ApprovalDialog(req, self).exec() == QtWidgets.QDialog.DialogCode.Accepted
 
     def _on_approval(self, holder: _ApprovalHolder) -> None:
         if holder.req.diff:
@@ -341,14 +466,14 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
             # same sandbox + approval path as the agent: risky commands ask, dangerous ones are blocked
             self.output.appendPlainText(self.registry.execute("run_command", {"command": cmd}))
 
-    def closeEvent(self, event) -> None:  # noqa: N802
+    def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
         if self.worker:
             self.worker.loop.cancel()
             self.worker.wait(3000)
         super().closeEvent(event)
 
 
-def open_workspace(parent=None, project: str = "") -> WorkspaceWindow | None:
+def open_workspace(parent: QtWidgets.QWidget | None = None, project: str = "") -> WorkspaceWindow | None:
     """Entry point used by the tray/context menu."""
     from .config import BrokConfig
     from .core import build_orchestrator, build_tools

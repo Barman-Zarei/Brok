@@ -295,7 +295,13 @@ def get_history_tail(history_path: Path, limit: int) -> list[str]:
     return out
 
 
-PLACEHOLDER_RE = re.compile(r"\{\{\s*(date|history|history_count)\s*\}\}")
+PLACEHOLDER_RE = re.compile(r"\{\{\s*(date|history|history_count|memory)\s*\}\}")
+
+
+def _memory_text() -> str:
+    from .chat_commands import memory_block
+
+    return memory_block() or "(nothing saved)"
 
 
 def render_prompt(history_lines: list[str], history_limit: int) -> str:
@@ -311,6 +317,7 @@ def render_prompt(history_lines: list[str], history_limit: int) -> str:
         "date": now,
         "history": history_text,
         "history_count": str(history_limit),
+        "memory": _memory_text(),
     }
     return PLACEHOLDER_RE.sub(lambda m: values[m.group(1)], template)
 

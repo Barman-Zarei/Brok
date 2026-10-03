@@ -1,183 +1,25 @@
-> ⚠ Translation of the README from before the Brok rewrite (cat-era text). The English [README](../README.md) is the up-to-date source.
+[EN](../README.md) | [FA](README_FA.md) | [RU](README_RU.md) | [CN](README_CN.md) | [ID](README_ID.md) | [KO](README_KO.md)
 
-[EN](https://github.com/Barman-Zarei/Brok/blob/main/README.md) | [RU](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_RU.md) | [中文](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_CN.md) | ID | [KO](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_KO.md)
+## Brok 🤖 — Pendamping AI desktop & agen pemrograman (mengutamakan bahasa Persia)
 
-# Kucing Desktop: Aplikasi Mengambang QT 🐱
+<img src="brok.gif" width="140" alt="Brok"/>
 
-[<img src="https://raw.githubusercontent.com/Barman-Zarei/Brok/refs/heads/main/docs/cat.gif" width="164" alt="cat.gif"/>](https://github.com/yumiaura)
+Brok adalah robot kecil yang tinggal di desktop Anda (tanpa bingkai, selalu di atas, bisa diseret). Ia berbicara terutama dalam **bahasa Persia** (dan bahasa lain) serta dapat bekerja sebagai **agen pemrograman dengan kontrol izin** di proyek Anda. Berbasis [myCat](https://github.com/yumiaura/myCat) — lihat NOTICE dan LICENSE.txt.
 
-<p class="badges">
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest"><img src="https://img.shields.io/github/v/release/Barman-Zarei/Brok?label=download&color=blue" alt="Latest release"></a>
-  <img src="https://img.shields.io/pypi/pyversions/brok?color=brightgreen" alt="Python Versions">
-  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pypi/v/brok?color=brightgreen" alt="PyPI Version"></a>
-  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pepy/dt/brok?label=pypi%20%7C%20downloads&color=brightgreen" alt="Pepy Total Downloads"/></a>
-</p>
+- Avatar robot dengan 13 status (diam, mendengarkan, berpikir, mengetik, coding, berbicara, senang, bingung, error, sukses, tidur, notifikasi…)
+- Chat dengan **Claude**, **Ollama (lokal)**, atau API kompatibel OpenAI; label LOCAL AI / CLOUD AI selalu terlihat
+- **Ruang kerja coding** (klik kanan → Coding Workspace…): file, editor, chat, penampil diff, terminal, masalah, git. Pilih kode lalu: jelaskan / cari bug / optimalkan / tulis tes / konversi ke Flutter
+- **Keamanan:** setiap alat punya tingkat risiko; perubahan file menampilkan diff dulu; hapus, commit, push, dan perintah berisiko selalu meminta konfirmasi; perintah berbahaya diblokir; ada batas langkah, waktu, token, dan panggilan alat
+- Antarmuka Persia dan RTL, mode belajar, debugger AI, laporan kesehatan proyek, memori yang Anda kendalikan (`/remember`, `/memory`, `/forget`), mode lokal-saja, hotkey global (default Ctrl+Space), lampiran gambar/tangkapan layar
 
-Saya membuat animasi kucing kecil yang lucu 🐈 untuk menemani desktop Anda.<br>
-Aplikasi Python + Qt yang ringan - tanpa bingkai, dan mudah diseret.<br>
-Menampilkan bingkai pertama statis selama 5 detik, lalu memutar animasi GIF sekali, kemudian kembali ke bingkai statis.<br>
-Jika Anda menyukainya, mungkin lain kali saya akan membagikan versi [AnimeGirl](https://github.com/Barman-Zarei/Brok/discussions/1)~ 😉
-
-## 🚀 Mulai cepat
-
-Pilih cara yang paling mudah - kucing berjalan di **Windows, macOS, dan Linux**.
-
-### Opsi A - biner siap pakai (tanpa Python)
-
-Ambil build untuk OS Anda - setiap tombol mengunduh **rilis terbaru**:
-
-<p>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-windows-x64.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0wIDMuNDQ5IDkuNzUgMi4xdjkuNDUxSDB6TTEwLjk0OSAxLjk0OSAyNCAwdjExLjRIMTAuOTQ5ek0wIDEyLjZoOS43NXY5LjQ1MUwwIDIwLjY5OXpNMTAuOTQ5IDEyLjZIMjRWMjRsLTEyLjktMS44MDF6Ii8%2BPC9zdmc%2B" alt="Windows"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white" alt="macOS Apple Silicon"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-x64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Intel-555555?logo=apple&logoColor=white" alt="macOS Intel"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-amd64.deb"><img src="https://img.shields.io/badge/Download-Linux%20.deb-A81D33?logo=debian&logoColor=white" alt="Linux .deb"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-x86_64.AppImage"><img src="https://img.shields.io/badge/Download-Linux%20AppImage-FCC624?logo=linux&logoColor=black" alt="Linux AppImage"></a>
-</p>
-
-Lalu jalankan:
-
-- **Windows** - klik dua kali `.exe`.
-- **macOS** - ekstrak dan buka `brok.app` (peluncuran pertama: klik kanan → **Open** untuk melewati Gatekeeper).
-- **Linux `.deb`** - `sudo apt install ./brok-linux-amd64.deb`.
-- **Linux AppImage** - `chmod +x brok-linux-x86_64.AppImage && ./brok-linux-x86_64.AppImage` (perlu FUSE: `sudo apt install libfuse2`).
-
-> Build untuk setiap rilis ada di halaman **[Releases](https://github.com/Barman-Zarei/Brok/releases)**.
-
-### Opsi B - pip (Windows / macOS / Linux, Python ≥ 3.10)
-
+### Instalasi (Python ≥ 3.8)
 ```bash
-pip install brok
-brok
-```
-
-Di **Linux** instal juga plugin platform Qt sekali:
-
-```bash
-sudo apt install -y libxcb-cursor0
-```
-
-Perbarui atau hapus nanti dengan `pip install -U brok` / `pip uninstall brok`.
-
-### Opsi C - dari sumber
-
-```bash
-git clone https://github.com/Barman-Zarei/Brok
-cd Brok
 pip install .
-brok                 # atau tanpa instal: python3 brok/main.py
+brok                              # desktop
+export ANTHROPIC_API_KEY=...      # Claude (optional) / Ollama: ollama pull llama3.1
+brok-agent doctor
+brok-agent --project . ask "..."
 ```
+Detail: docs/configuration.md · docs/security.md · docs/coding-agent.md
 
-## ✨ Fitur
-
-- **Overlay animasi** 🐱 - kucing tanpa bingkai, selalu di atas, bisa diseret. Klik kanan untuk menu (ganti char, keluar).
-- **Pengingat** 🛩️ - atur pesan dan waktu (sekali atau harian), dan kucing terbang dengan pesawat berspanduk melintasi atas layar. Klik kanan → *Reminder…* untuk pesan, arah, pesawat, dan warna.
-- **Obrolan (Ollama)** 💬 - mengobrol dengan kucing lewat **model [Ollama](https://ollama.com) lokal**, tanpa akun atau kunci API (lihat di bawah).
-
-## 💬 Mengobrol dengan kucing (Ollama)
-
-Kucing bisa mengobrol memakai model yang dijalankan secara lokal oleh [Ollama](https://ollama.com) - semuanya tetap di mesin Anda, tanpa kunci API.
-
-1. Instal [Ollama](https://ollama.com) dan tarik sebuah model:
-   ```bash
-   ollama pull llama3.1
-   ```
-2. Jalankan **brok**, lalu klik kanan kucing → **Ollama…**
-3. Atur host/port (default `localhost:11434`), klik **Load models**, pilih satu, tekan **Test**, lalu **Save** dan centang **LLM enabled**.
-4. Klik kanan → **Chat** untuk mulai mengobrol. 🐾
-
-## 🎮 Penggunaan & opsi
-
-Jalankan `brok` (atau `python3 brok/main.py` dari sumber) dan sesuaikan dengan opsi baris perintah.
-
-**`--image, -i <path>`** 🖼️ - gunakan ZIP kustom (berisi satu GIF) sebagai pengganti kucing default:
-
-```bash
-brok --image ~/my-custom-cat.zip
-```
-
-ZIP **char** harus berisi tepat satu `.gif`: bingkai pertamanya menjadi pose statis, lalu GIF diputar sekali dan kembali ke bingkai itu. Gambar lebih besar dari 300×500 diperkecil otomatis.
-
-**`--pos <x> <y>`** 📍 - mulai di posisi layar tertentu (jika tidak, kucing muncul di kanan-bawah dan mengingat posisi terakhir):
-
-```bash
-brok --pos 960 540        # tengah layar 1920x1080
-```
-
-**`--wait <detik>`** ⏱️ - berapa lama menahan bingkai pertama statis sebelum animasi.
-
-**`--debug`** 🐞 - log per-bingkai yang rinci.
-
-### Kontrol
-
-- **Seret kiri** untuk memindahkan kucing.
-- **Klik kanan** untuk menu (Chars, Reminder…, Ollama…, Chat, Quit).
-- **Keluar** dari menu atau dengan Ctrl+C di terminal.
-
-Kucing mengingat posisi dan char di `~/.config/brok/config.ini`.
-
-## 🎬 Buat GIF kucing sendiri
-
-```bash
-# Instal ImageMagick
-sudo apt install imagemagick
-
-# Bangun GIF animasi dari sprite sheet
-convert cat.png -crop 50%x100% +repage -set delay '200,100' -loop 0 cat.gif
-
-# Kemas sebagai ZIP char
-zip cat.zip cat.gif
-```
-
-Letakkan ZIP hasilnya di samping yang lain dan pilih dari menu **Chars** klik-kanan.
-
-## 🐳 Docker
-
-Jalankan kucing dalam kontainer dengan penerusan GUI ke server X host Anda.
-
-**Prasyarat:** Docker, dan server X di host (Xorg di Linux, VcXsrv di Windows, XQuartz di macOS).
-
-```bash
-# Linux
-xhost +local:docker
-docker compose up --build
-
-# Windows (VcXsrv berjalan, klien jaringan diizinkan)
-docker compose -f docker-compose.windows.yml up
-
-# macOS (XQuartz berjalan, klien jaringan diizinkan)
-docker compose -f docker-compose.mac.yml up
-```
-
-## 🔧 Pemecahan masalah
-
-**Kucing muncul dalam kotak hitam / transparansi tidak bekerja** 🫥
-- Transparansi X11 membutuhkan compositor. Tanpa compositor, brok memotong jendela mengikuti garis kucing, jadi ini jarang terjadi; jika masih ada kotak, aktifkan display compositing (XFCE: *Window Manager Tweaks → Compositor*) atau jalankan compositor seperti `picom`.
-
-**Jendela tidak di atas / tidak muncul di taskbar** 📌
-- Beberapa window manager menimpa "selalu di atas" - mulai ulang sesi desktop atau periksa pengaturan WM.
-
-**Char kustom tidak dimuat** ❌
-- ZIP harus berisi tepat satu `.gif` yang valid. Periksa path dan pastikan file tidak rusak.
-
-**Posisi tidak tersimpan** 💾
-- Pastikan `~/.config/brok/` ada dan dapat ditulis; file konfigurasi `~/.config/brok/config.ini`.
-
-**Masalah Windows / peluncuran** 🪟
-- Instalasi pip membutuhkan Python ≥ 3.10 (`python --version`), atau gunakan `.exe` siap pakai.
-- Dari repo Anda juga bisa memakai `run.bat` (Windows) atau `run.sh` (Linux/macOS).
-- Verifikasi PySide6: `python -c "import PySide6; print('PySide6 OK')"`.
-
-**Galat izin** 🔒
-- Di Linux utamakan instalasi pengguna daripada `sudo` (`pip install --user brok`).
-
-### 🤝 Mendapatkan bantuan
-
-- Cari masalah serupa di [GitHub Issues](https://github.com/Barman-Zarei/Brok/issues).
-- Baca [CONTRIBUTING.md](../CONTRIBUTING.md) untuk setup pengembangan.
-- Buat issue baru dengan OS, lingkungan desktop, versi Python, dan pesan galat dari terminal.
-
-### Lisensi
-
-[MIT License](../LICENSE.txt)
-
-Terima kasih sudah membaca sampai akhir! 😸🐾
+> Status jujur: inti aplikasi diuji otomatis (Python 3.8 dan 3.12, Linux, tanpa layar). Belum diverifikasi penulis: panggilan nyata ke Claude/OpenAI/GitHub dengan kunci asli, build Windows/macOS, pengenalan suara dari mikrofon.

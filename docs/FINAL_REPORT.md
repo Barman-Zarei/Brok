@@ -18,22 +18,29 @@ voice interfaces + OS TTS + text fallback · image input for providers · Persia
 coding workspace window · `brok-agent` CLI · Claude vendor in the desktop chat · Brok system prompt (was a sarcastic cat).
 
 ## Tests
-Upstream baseline: 313 passed / 3 env failures. Now: **400 passed on Python 3.8.20 and 3.12.3**, ruff clean,
+Upstream baseline: 313 passed / 3 env failures. Now: **408 passed on Python 3.8.20 and 3.12.3**, ruff clean,
 wheel/sdist build OK on 3.8, GUI starts offscreen without errors.
 
+## Completed in round 2
+Global hotkey wired into startup (default Ctrl+Space, signal-bridged to the GUI thread, degrades gracefully) ·
+memory in the desktop chat (`/remember`, `/memory`, `/forget`, `/forget-all`; injected into the system prompt; refuses secrets) ·
+vision in the workspace (attach image, screenshot; orchestrator never silently drops an image) ·
+Assistants tab (AI debugger, learning mode, project health) · `mypy --strict` clean on all 48 new modules (also in CI) ·
+README in RU/CN/KO/ID/FA rewritten for Brok · one real bug found by mypy and fixed (stale type-comment in the agent loop).
+
 ## NOT verified / not built (be aware)
-- Real network calls: Claude, OpenAI, Ollama, GitHub, Brave were tested only against fake transports (request/stream
-  formats follow each public API but have not been exercised with live keys).
-- Windows and macOS: not run. Real display GUI: only the offscreen Qt platform was used; visuals checked via rendered images.
+- Real network calls: Claude, OpenAI, Ollama, GitHub, Brave were tested only against fake transports (formats follow each
+  public API, but were never exercised with live keys). First thing to try: `brok-agent doctor`.
+- Windows and macOS: not run. Real display GUI: only Qt's offscreen platform was used (visuals checked via rendered images).
+  Screenshot capture may not work on Wayland.
+- Global hotkey needs pynput (installed by default only on Windows/macOS in pyproject) and desktop permissions; on Linux it
+  may report "unavailable" and the tray icon remains the way in.
 - Speech-to-text: interface + command wrapper only (no bundled engine). Text-to-speech uses OS engines (espeak-ng/say/SAPI), untested here.
-- Global hotkey: manager exists and degrades gracefully; it is not yet wired into main.py's tray/startup.
-- Vision: providers accept images; there is no screenshot-capture or image-attach button in the UI yet.
-- Memory: the store, CLI and agent-prompt injection exist; the desktop chat window does not read/write it yet.
-- Agent features (tools/diff/memory) live in the workspace and CLI; the simple desktop chat bubble is still plain chat.
-- mypy strict (configured upstream) was not run/clean; the learning/debug/health tools are driven through the agent (CLI) rather than dedicated GUI panels.
-- Command sandbox is pattern-based, not an OS container. Health report is heuristic.
-- Persian translation is machine-quality, written by an AI; have a native speaker review it.
-- README translations (RU/CN/KO/ID) are pre-Brok cat-era text with a warning banner.
+- The simple desktop chat bubble is plain chat (+ memory commands); tools/diff/agent features live in the coding workspace and `brok-agent`.
+  Images are not sent from the chat bubble (only from the workspace).
+- Command sandbox is pattern-based, not an OS container. Health report is heuristic, not a security audit.
+- Persian translation (278 + ~45 UI strings) and the RU/CN/KO/ID READMEs were written by an AI; have native speakers review them.
+- mypy strict covers the new modules only; the upstream myCat modules were not made strict-clean.
 
 ## How to run
 `pip install .` → `brok` (GUI) · `brok-agent --project . ask "..."` · `brok-agent doctor`.

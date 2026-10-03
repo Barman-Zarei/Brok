@@ -9,10 +9,11 @@ import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Callable
+from typing import Any, Callable
 from urllib.parse import quote, urlparse
 
 from ..agent.tools import Confirm, Risk, ToolError, ToolRegistry, ToolSpec
+from ..ai.transport import Transport
 
 
 @dataclass
@@ -32,7 +33,7 @@ class SearchProvider(ABC):
 class BraveSearchProvider(SearchProvider):
     name = "brave"
 
-    def __init__(self, key_resolver: Callable[[], str], transport=None) -> None:
+    def __init__(self, key_resolver: Callable[[], str], transport: Transport | None = None) -> None:
         from ..ai.transport import UrllibTransport
 
         self._key, self.t = key_resolver, transport or UrllibTransport(20)
@@ -75,13 +76,13 @@ class _Text(HTMLParser):
         self.parts: list[str] = []
         self._skip = 0
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: Any) -> None:
         self._skip += tag in ("script", "style", "noscript")
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         self._skip -= (tag in ("script", "style", "noscript")) and self._skip > 0
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         if not self._skip and data.strip():
             self.parts.append(data.strip())
 
@@ -92,7 +93,7 @@ def html_to_text(html: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", "\n".join(p.parts))
 
 
-def fetch_page(url: str, max_chars: int = 8000, opener: Callable | None = None) -> str:
+def fetch_page(url: str, max_chars: int = 8000, opener: Callable[..., Any] | None = None) -> str:
     if not is_public_url(url):
         raise ToolError("refusing to fetch non-public or non-http(s) URL")
     req = urllib.request.Request(url, headers={"User-Agent": "Brok"})

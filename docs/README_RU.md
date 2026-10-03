@@ -1,183 +1,25 @@
-> ⚠ Translation of the README from before the Brok rewrite (cat-era text). The English [README](../README.md) is the up-to-date source.
+[EN](../README.md) | [FA](README_FA.md) | [RU](README_RU.md) | [CN](README_CN.md) | [ID](README_ID.md) | [KO](README_KO.md)
 
-[EN](https://github.com/Barman-Zarei/Brok/blob/main/README.md) | RU | [CN](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_CN.md) | [ID](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_ID.md) | [KO](https://github.com/Barman-Zarei/Brok/blob/main/docs/README_KO.md)
+## Brok 🤖 — настольный ИИ-компаньон и агент для программирования (с приоритетом персидского языка)
 
-# Десктопный котик: оверлей на QT 🐱
+<img src="brok.gif" width="140" alt="Brok"/>
 
-[<img src="https://raw.githubusercontent.com/Barman-Zarei/Brok/refs/heads/main/docs/cat.gif" width="164" alt="cat.gif"/>](https://github.com/yumiaura)
+Brok — маленький робот на вашем рабочем столе (без рамки, поверх окон, перетаскивается). Он общается в первую очередь на **персидском** (и на других языках) и может работать как **кодинг-агент с контролем прав** над вашими проектами. Проект основан на [myCat](https://github.com/yumiaura/myCat) — см. NOTICE и LICENSE.txt.
 
-<p class="badges">
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest"><img src="https://img.shields.io/github/v/release/Barman-Zarei/Brok?label=download&color=blue" alt="Latest release"></a>
-  <img src="https://img.shields.io/pypi/pyversions/brok?color=brightgreen" alt="Python Versions">
-  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pypi/v/brok?color=brightgreen" alt="PyPI Version"></a>
-  <a href="https://pypi.org/project/brok/"><img src="https://img.shields.io/pepy/dt/brok?label=pypi%20%7C%20downloads&color=brightgreen" alt="Pepy Total Downloads"/></a>
-</p>
+- Робот-аватар с 13 состояниями (ожидание, слушает, думает, печатает, кодит, говорит, радуется, ошибка, успех, сон, уведомление…)
+- Чат с **Claude**, **Ollama (локально)** или любым OpenAI-совместимым API; всегда видно метку LOCAL AI / CLOUD AI
+- **Рабочее пространство для кода** (правый клик → Coding Workspace…): файлы, редактор, чат, просмотр diff, терминал, проблемы, git. Выделите код и выберите: объяснить / найти баг / оптимизировать / написать тесты / перевести на Flutter
+- **Безопасность:** у каждого инструмента есть уровень риска; правки сначала показываются как diff; удаление, commit, push и рискованные команды всегда требуют подтверждения; опасные команды блокируются; лимиты на шаги, время, токены и вызовы инструментов
+- Персидский интерфейс и RTL, режим обучения, ИИ-отладчик, отчёт о здоровье проекта, память под вашим контролем (`/remember`, `/memory`, `/forget`), режим «только локально», глобальная горячая клавиша (по умолчанию Ctrl+Space), вложение изображений и скриншотов
 
-Я сделала милого анимированного котика 🐈 для рабочего стола.<br>
-Это лёгкое приложение на Python + Qt - без рамок, легко перетаскивается.<br>
-Показывает статичный первый кадр 5 секунд, потом один раз проигрывает GIF и возвращается к статике.<br>
-Если понравится - может, в следующий раз поделюсь версией [AnimeGirl](https://github.com/Barman-Zarei/Brok/discussions/1)~ 😉
-
-## 🚀 Быстрый старт
-
-Выбери, что удобнее - котик работает на **Windows, macOS и Linux**.
-
-### Вариант A - готовый бинарник (без Python)
-
-Возьми сборку под свою ОС - каждая кнопка скачивает **последний релиз**:
-
-<p>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-windows-x64.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?logo=data:image/svg%2Bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0wIDMuNDQ5IDkuNzUgMi4xdjkuNDUxSDB6TTEwLjk0OSAxLjk0OSAyNCAwdjExLjRIMTAuOTQ5ek0wIDEyLjZoOS43NXY5LjQ1MUwwIDIwLjY5OXpNMTAuOTQ5IDEyLjZIMjRWMjRsLTEyLjktMS44MDF6Ii8%2BPC9zdmc%2B" alt="Windows"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-arm64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-000000?logo=apple&logoColor=white" alt="macOS Apple Silicon"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-macos-x64.zip"><img src="https://img.shields.io/badge/Download-macOS%20Intel-555555?logo=apple&logoColor=white" alt="macOS Intel"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-amd64.deb"><img src="https://img.shields.io/badge/Download-Linux%20.deb-A81D33?logo=debian&logoColor=white" alt="Linux .deb"></a>
-  <a href="https://github.com/Barman-Zarei/Brok/releases/latest/download/brok-linux-x86_64.AppImage"><img src="https://img.shields.io/badge/Download-Linux%20AppImage-FCC624?logo=linux&logoColor=black" alt="Linux AppImage"></a>
-</p>
-
-Затем запусти:
-
-- **Windows** - двойной клик по `.exe`.
-- **macOS** - распакуй и открой `brok.app` (при первом запуске: правый клик → **Открыть**, чтобы обойти Gatekeeper).
-- **Linux `.deb`** - `sudo apt install ./brok-linux-amd64.deb`.
-- **Linux AppImage** - `chmod +x brok-linux-x86_64.AppImage && ./brok-linux-x86_64.AppImage` (нужен FUSE: `sudo apt install libfuse2`).
-
-> Сборки для каждого релиза - на странице **[Releases](https://github.com/Barman-Zarei/Brok/releases)**.
-
-### Вариант B - pip (Windows / macOS / Linux, Python ≥ 3.10)
-
+### Установка (Python ≥ 3.8)
 ```bash
-pip install brok
-brok
-```
-
-На **Linux** также один раз поставь Qt-плагин платформы:
-
-```bash
-sudo apt install -y libxcb-cursor0
-```
-
-Обновить или удалить позже: `pip install -U brok` / `pip uninstall brok`.
-
-### Вариант C - из исходников
-
-```bash
-git clone https://github.com/Barman-Zarei/Brok
-cd Brok
 pip install .
-brok                 # или без установки: python3 brok/main.py
+brok                              # desktop
+export ANTHROPIC_API_KEY=...      # Claude (optional) / Ollama: ollama pull llama3.1
+brok-agent doctor
+brok-agent --project . ask "..."
 ```
+Подробности: docs/configuration.md · docs/security.md · docs/coding-agent.md
 
-## ✨ Возможности
-
-- **Анимированный оверлей** 🐱 - котик без рамки, поверх окон, перетаскивается. Правый клик - меню (сменить персонаж, выход).
-- **Напоминание** 🛩️ - задай сообщение и время (разово или ежедневно), и котик пролетит на самолётике с баннером по верху экрана. Правый клик → *Reminder…* (сообщение, направление, самолёт, цвет).
-- **Чат (Ollama)** 💬 - общайся с котиком через **локальную модель [Ollama](https://ollama.com)**, без аккаунта и API-ключа (см. ниже).
-
-## 💬 Чат с котиком (Ollama)
-
-Котик умеет болтать через модель, запущенную локально в [Ollama](https://ollama.com) - всё остаётся на твоей машине, без API-ключа.
-
-1. Установи [Ollama](https://ollama.com) и скачай модель:
-   ```bash
-   ollama pull llama3.1
-   ```
-2. Запусти **brok**, правый клик по котику → **Ollama…**
-3. Укажи host/port (по умолчанию `localhost:11434`), нажми **Load models**, выбери модель, нажми **Test**, затем **Save** и поставь галочку **LLM enabled**.
-4. Правый клик → **Chat** - и общайся. 🐾
-
-## 🎮 Запуск и опции
-
-Запусти `brok` (или из исходников `python3 brok/main.py`) и настрой опциями командной строки.
-
-**`--image, -i <путь>`** 🖼️ - свой ZIP (с одним GIF) вместо котика по умолчанию:
-
-```bash
-brok --image ~/my-custom-cat.zip
-```
-
-ZIP-**персонаж** должен содержать ровно один `.gif`: первый кадр - статичная поза, потом GIF проигрывается один раз и возвращается к нему. Картинки больше 300×500 уменьшаются автоматически.
-
-**`--pos <x> <y>`** 📍 - стартовая позиция (иначе котик появляется снизу-справа и запоминает последнее положение):
-
-```bash
-brok --pos 960 540        # центр экрана 1920x1080
-```
-
-**`--wait <секунды>`** ⏱️ - сколько держать статичный первый кадр до анимации.
-
-**`--debug`** 🐞 - подробный лог по кадрам.
-
-### Управление
-
-- **Левая кнопка** - перетаскивать котика.
-- **Правая кнопка** - меню (персонажи, Reminder…, Ollama…, Chat, Quit).
-- **Выход** - из меню или Ctrl+C в терминале.
-
-Котик запоминает позицию и выбранный персонаж в `~/.config/brok/config.ini`.
-
-## 🎬 Свой GIF котика
-
-```bash
-# Установить ImageMagick
-sudo apt install imagemagick
-
-# Собрать анимированный GIF из спрайт-листа
-convert cat.png -crop 50%x100% +repage -set delay '200,100' -loop 0 cat.gif
-
-# Упаковать как ZIP-персонаж
-zip cat.zip cat.gif
-```
-
-Положи получившийся ZIP рядом с остальными и выбери его в меню **персонажей** по правому клику.
-
-## 🐳 Docker
-
-Запуск котика в контейнере с пробросом GUI на X-сервер хоста.
-
-**Требования:** Docker и X-сервер на хосте (Xorg на Linux, VcXsrv на Windows, XQuartz на macOS).
-
-```bash
-# Linux
-xhost +local:docker
-docker compose up --build
-
-# Windows (VcXsrv запущен, разрешены сетевые клиенты)
-docker compose -f docker-compose.windows.yml up
-
-# macOS (XQuartz запущен, разрешены сетевые клиенты)
-docker compose -f docker-compose.mac.yml up
-```
-
-## 🔧 Решение проблем
-
-**Котик в чёрном квадрате / прозрачность не работает** 🫥
-- Прозрачность на X11 требует композитора. Без него brok обрезает окно по контуру котика, так что это редкость; если квадрат всё же есть - включи композитинг (XFCE: *Window Manager Tweaks → Compositor*) или запусти композитор вроде `picom`.
-
-**Окно не поверх всех / нет в таскбаре** 📌
-- Некоторые оконные менеджеры перекрывают «поверх всех» - перезапусти сессию рабочего стола или проверь настройки WM.
-
-**Свой персонаж не загружается** ❌
-- В ZIP должен быть ровно один корректный `.gif`. Проверь путь и что файл не повреждён.
-
-**Позиция не сохраняется** 💾
-- Убедись, что `~/.config/brok/` существует и доступен на запись; файл конфига - `~/.config/brok/config.ini`.
-
-**Проблемы запуска / Windows** 🪟
-- Для установки через pip нужен Python ≥ 3.10 (`python --version`), либо просто используй готовый `.exe`.
-- Из репозитория можно запускать через `run.bat` (Windows) или `run.sh` (Linux/macOS).
-- Проверь PySide6: `python -c "import PySide6; print('PySide6 OK')"`.
-
-**Ошибки прав** 🔒
-- На Linux лучше пользовательская установка, а не `sudo` (`pip install --user brok`).
-
-### 🤝 Помощь
-
-- Поищи похожие проблемы в [GitHub Issues](https://github.com/Barman-Zarei/Brok/issues).
-- Прочитай [CONTRIBUTING.md](../CONTRIBUTING.md) про окружение разработки.
-- Открой issue с указанием ОС, окружения рабочего стола, версии Python и ошибок из терминала.
-
-### Лицензия
-
-[MIT License](../LICENSE.txt)
-
-Спасибо, что дочитали до конца! 😸🐾
+> Честный статус: ядро покрыто автоматическими тестами (Python 3.8 и 3.12, Linux, без дисплея). Не проверено авторами: реальные вызовы Claude/OpenAI/GitHub с живыми ключами, сборки для Windows/macOS, распознавание речи с микрофона.

@@ -6,13 +6,15 @@ import os
 from typing import Any, Callable
 
 from .agent.tools import Confirm, Risk, ToolError, ToolRegistry, ToolSpec
-from .ai.transport import ProviderError, UrllibTransport
+from .ai.transport import ProviderError, Transport, UrllibTransport
 
 API = "https://api.github.com"
 
 
 class GitHubClient:
-    def __init__(self, token_resolver: Callable[[], str] | None = None, transport=None, base: str = API) -> None:
+    def __init__(
+        self, token_resolver: Callable[[], str] | None = None, transport: Transport | None = None, base: str = API
+    ) -> None:
         self._resolver, self.t, self.base = token_resolver, transport or UrllibTransport(30), base
 
     def _headers(self) -> dict[str, str]:
@@ -36,7 +38,7 @@ class GitHubClient:
         except ProviderError as exc:
             raise ToolError(str(exc))
 
-    def post(self, path: str, body: dict) -> Any:
+    def post(self, path: str, body: dict[str, Any]) -> Any:
         self._need_auth()
         try:
             return self.t.post_json(self.base + path, self._headers(), body)
@@ -46,7 +48,9 @@ class GitHubClient:
 
 def register_github_tools(reg: ToolRegistry, gh: GitHubClient) -> None:
     S = {"type": "string"}
-    obj = lambda props, req=None: {"type": "object", "properties": props, "required": req or list(props)}  # noqa: E731
+
+    def obj(props: dict[str, Any], req: list[str] | None = None) -> dict[str, Any]:
+        return {"type": "object", "properties": props, "required": req or list(props)}
 
     def repo(r: str) -> str:
         if r.count("/") == 1 and all(c.isalnum() or c in "-_./" for c in r) and ".." not in r:
@@ -99,7 +103,7 @@ def register_github_tools(reg: ToolRegistry, gh: GitHubClient) -> None:
         return f"created PR #{r['number']}: {r['html_url']}"
 
     L, N, H, REQ = Risk.LOW, Confirm.NEVER, Risk.HIGH, Confirm.REQUIRED
-    for name, desc, props, req, risk, conf, fn in [
+    tools: list[tuple[Any, ...]] = [
         ("github_issues", "List open issues.", {"repository": S}, None, L, N, issues),
         ("github_prs", "List open pull requests.", {"repository": S}, None, L, N, prs),
         ("github_commits", "Recent commits.", {"repository": S}, None, L, N, commits),
@@ -132,5 +136,6 @@ def register_github_tools(reg: ToolRegistry, gh: GitHubClient) -> None:
             REQ,
             create_pr,
         ),
-    ]:
+    ]
+    for name, desc, props, req, risk, conf, fn in tools:
         reg.register(ToolSpec(name, desc, obj(props, req), risk, conf, fn))

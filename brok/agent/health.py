@@ -42,7 +42,7 @@ def analyze(root: str) -> HealthReport:
             rep.findings.append(Finding("bug", "high", f.path, f"syntax error: {f.syntax_error}"))
         if f.lines > 1500:
             rep.findings.append(Finding("quality", "low", f.path, f"very large file ({f.lines} lines)"))
-    seen = {}
+    seen: dict[str, list[str]] = {}
     for dp, dns, fns in os.walk(root):
         dns[:] = [d for d in dns if d not in SKIP_DIRS]
         for fn in fns:

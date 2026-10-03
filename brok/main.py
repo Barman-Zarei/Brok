@@ -2438,6 +2438,12 @@ def main() -> None:
         # Safety net: let a second launch raise this window, so a cat hidden to a
         # tray the panel doesn't render can always be brought back with `brok`.
         window.activation_server = start_activation_server(SINGLE_INSTANCE_NAME, window)
+        try:  # configurable global hotkey (default Ctrl+Space); degrades gracefully, never blocks startup
+            from .hotkey_qt import start_hotkey
+
+            window.hotkey_bridge = start_hotkey(window)
+        except Exception:
+            logger.exception("Global hotkey setup failed")
         if sys.platform == "darwin" and window.tray_icon is not None:
             install_macos_reopen(app, window)
         # Live in the tray: hiding/closing windows no longer quits the app —

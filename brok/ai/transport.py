@@ -6,7 +6,19 @@ import json
 import threading
 import urllib.error
 import urllib.request
-from typing import Any, Iterator
+from typing import Any, Iterator, Protocol
+
+
+class Transport(Protocol):
+    """What providers need from an HTTP layer (the real one is :class:`UrllibTransport`; tests pass a fake)."""
+
+    def get_json(self, url: str, headers: dict[str, str]) -> Any: ...
+
+    def post_json(self, url: str, headers: dict[str, str], body: dict[str, Any]) -> Any: ...
+
+    def stream_lines(
+        self, url: str, headers: dict[str, str], body: dict[str, Any], cancel: threading.Event | None = None
+    ) -> Iterator[str]: ...
 
 
 class ProviderError(Exception):
@@ -21,7 +33,7 @@ class UrllibTransport:
     def __init__(self, timeout: float = 120.0) -> None:
         self.timeout = timeout
 
-    def _open(self, url: str, headers: dict[str, str], body: dict | None):
+    def _open(self, url: str, headers: dict[str, str], body: dict[str, Any] | None) -> Any:
         data = json.dumps(body).encode("utf-8") if body is not None else None
         hdrs = {"Content-Type": "application/json", **headers}
         req = urllib.request.Request(url, data=data, headers=hdrs, method="POST" if data else "GET")
@@ -43,12 +55,12 @@ class UrllibTransport:
         with self._open(url, headers, None) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
-    def post_json(self, url: str, headers: dict[str, str], body: dict) -> Any:
+    def post_json(self, url: str, headers: dict[str, str], body: dict[str, Any]) -> Any:
         with self._open(url, headers, body) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     def stream_lines(
-        self, url: str, headers: dict[str, str], body: dict, cancel: threading.Event | None = None
+        self, url: str, headers: dict[str, str], body: dict[str, Any], cancel: threading.Event | None = None
     ) -> Iterator[str]:
         with self._open(url, headers, body) as resp:
             for raw in resp:

@@ -84,6 +84,7 @@ class AIOrchestrator:
         mode = mode.upper() if mode.upper() in MODES else "CHAT"
         system = self.personality.system_prompt(mode, language)
         chain = self.chain()
+        has_images = any(m.images for m in messages)
         if not chain:
             hint = " (local-only mode is on: only a local Ollama provider is allowed)" if self.local_only else ""
             raise ProviderError("No AI provider is available" + hint + ".", retryable=False)
@@ -91,10 +92,13 @@ class AIOrchestrator:
         for prov in chain:
             if tools and not prov.supports_tools:
                 continue
+            if has_images and not getattr(prov, "supports_vision", False):
+                continue  # never silently drop an image the user attached
             started = False
             try:
                 if self.on_send:
-                    self.on_send(prov.name, prov.is_local, sum(len(m.content) for m in messages) + len(system))
+                    sent = sum(len(m.content) + sum(len(i.data) for i in m.images) for m in messages) + len(system)
+                    self.on_send(prov.name, prov.is_local, sent)
                 self.last_provider = prov
                 for ev in prov.chat(messages, system, tools, self._cancel):
                     started = True

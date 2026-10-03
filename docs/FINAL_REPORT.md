@@ -54,3 +54,19 @@ Push: `git push -u origin brok-migration` (needs your GitHub login; I could not 
 ## Roadmap
 Wire hotkey + memory into the chat bubble · screenshot capture · bundled STT (whisper.cpp) · real-key integration tests ·
 Windows/macOS CI builds · vector search behind `ProjectIndex.retrieve` · avatar pack marketplace · multi-agent.
+
+## Completed in round 3
+Privacy dashboard GUI (menu → Privacy…, `/privacy`) sharing one report with `brok-agent privacy` · quick commands routed in the
+desktop chat (`brok/quick.py`; `/search` runs off the UI thread; `/code /git /github /test /run` open the workspace) ·
+`main.py` split (2471 → ~1950 lines: `gif_utils`, `display`, `instance`, `tray`; old names re-exported) · `PixelCatWindow` →
+`BrokWindow` (alias kept), demo renamed, cat wording removed from comments · ko/ru/zh locales now cover every English string
+(test enforces it for all locales) · Whisper STT + microphone recorder behind `pip install "brok[voice]"` and a Speak button in the
+workspace · `brok[hotkey]` extra with an install hint · CI mypy scope + docs updated.
+Verified here: 422 tests pass on Python 3.12, ruff clean, mypy --strict clean on 50+ new modules, offscreen GUI start OK,
+Python 3.8 *syntax* check of every file OK (a real 3.8 interpreter was not available this round).
+
+## Still NOT done / not verified
+- `BrokWindow` is still ~1270 lines; `mypy --strict` on the upstream modules (~480 errors) was not attempted.
+- Chat bubble still has no tool use or image sending (by design: use the workspace). Persian/ru/zh/ko strings are AI-written.
+- Whisper/microphone never ran against real audio or a real model; Claude/OpenAI/Ollama/GitHub/Brave never ran with live keys.
+- Windows/macOS untested; no real display (only Qt offscreen). Wayland screenshot/hotkey limits remain. Nothing pushed to GitHub.

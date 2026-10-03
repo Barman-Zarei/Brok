@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from . import i18n, llm_prompt
-from .chat_commands import handle_chat_command
+from .quick import route as route_quick_command
 
 if TYPE_CHECKING:
     from .llm import LLMContext
@@ -268,11 +268,33 @@ class ChatDialog(QtWidgets.QDialog):
         self.append_message("user", text)
         QtCore.QTimer.singleShot(0, self.scroll_to_bottom)
         self.input_field.clear()
-        local_reply = handle_chat_command(text)  # /remember, /memory, /forget: handled locally, never sent to the AI
-        if local_reply is not None:
-            self.append_message("cat", local_reply)
+        quick = route_quick_command(text)  # /help /fix /search /code /privacy /remember …: handled before the AI
+        if quick is not None and quick.kind == "reply":
+            self.append_message("cat", quick.text)
             self.schedule_scroll()
             return
+        if quick is not None and quick.kind == "action":
+            opener = getattr(self.controller.window, quick.action, None)
+            if callable(opener):
+                opener()
+            else:
+                self.append_message("cat", tr("Error: {message}").format(message=quick.action))
+            self.schedule_scroll()
+            return
+        if quick is not None and quick.kind == "task" and quick.func is not None:
+            self.set_input_enabled(False)
+            self.waiting_for_response = True
+            worker = LLMWorker(_CallBackend(quick.func), text, "")
+            worker.signals.result.connect(self.on_ai_success)
+            worker.signals.error.connect(self.on_ai_error)
+            worker.signals.finished.connect(self.on_ai_finished)
+            self.pending_request_started, self.pending_request_text = time.monotonic(), text
+            self.thread_pool.start(worker)
+            self.pending_worker = worker
+            self.show_typing_indicator()
+            return
+        if quick is not None and quick.kind == "ai":
+            text = quick.text
         self.set_input_enabled(False)
         self.waiting_for_response = True
         self.request_ai_response(text)
@@ -396,6 +418,16 @@ class ChatDialog(QtWidgets.QDialog):
         else:
             # On failure: ERROR level, with the serialized error and the time.
             logger.error("error: %s (%.2fs)", json.dumps(response, ensure_ascii=False), duration)
+
+
+class _CallBackend:
+    """Adapter so a plain blocking function can run inside :class:`LLMWorker` (used by ``/search``)."""
+
+    def __init__(self, func) -> None:
+        self._func = func
+
+    def reply(self, user_text: str, system_prompt: str) -> str:
+        return self._func()
 
 
 class LLMWorkerSignals(QtCore.QObject):

@@ -477,14 +477,14 @@ def open_workspace(parent: QtWidgets.QWidget | None = None, project: str = "") -
     """Entry point used by the tray/context menu."""
     from .config import BrokConfig
     from .core import build_orchestrator, build_tools
-    from .privacy import PrivacyTracker
+    from .privacy import get_tracker
 
     cfg = BrokConfig.load()
     if not project:
         project = QtWidgets.QFileDialog.getExistingDirectory(parent, tr("Select a project folder"), str(Path.home()))
         if not project:
             return None
-    tracker = PrivacyTracker()
+    tracker = get_tracker()
     orch = build_orchestrator(cfg, tracker)
     c = cfg.coding
     win = WorkspaceWindow(

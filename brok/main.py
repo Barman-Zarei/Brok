@@ -1165,6 +1165,7 @@ class PixelCatWindow(QtWidgets.QWidget):
         if visible["llm"]:
             menu.addAction(i18n.tr("LLM…")).triggered.connect(self.open_llm_settings)
         menu.addAction(i18n.tr("Coding Workspace…")).triggered.connect(self.open_workspace)
+        menu.addAction(i18n.tr("Privacy…")).triggered.connect(self.open_privacy)
         if visible["calendar"]:
             menu.addAction(i18n.tr("Calendar…")).triggered.connect(self.open_calendar_settings)
         if visible["reminder"]:
@@ -1338,6 +1339,15 @@ class PixelCatWindow(QtWidgets.QWidget):
             self._workspace = open_workspace(self)
         except Exception:
             logger.exception("Failed to open the coding workspace")
+
+    def open_privacy(self) -> None:
+        """Open the privacy dashboard (provider, local/cloud, data sent, memory, accounts)."""
+        try:
+            from .privacy_ui import open_privacy
+
+            self._privacy_dialog = open_privacy(self)
+        except Exception:
+            logger.exception("Failed to open the privacy dashboard")
 
     def open_llm_settings(self) -> None:
         """Open the LLM vendor settings dialog (vendor, model, test, save)."""
@@ -2248,6 +2258,7 @@ def setup_tray(app, window):
         if visible["llm"]:
             menu.addAction(i18n.tr("LLM…"), window.open_llm_settings)
         menu.addAction(i18n.tr("Coding Workspace…"), window.open_workspace)
+        menu.addAction(i18n.tr("Privacy…"), window.open_privacy)
         if visible["calendar"]:
             menu.addAction(i18n.tr("Calendar…"), window.open_calendar_settings)
         if visible["reminder"]:

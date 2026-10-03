@@ -111,11 +111,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  ✗ {name}: {exc}")
         return 0
     if a.cmd == "privacy":
-        mem = MemoryStore()
-        print(f"Provider: {cfg.ai.provider} ({'local-only' if cfg.ai.local_only else 'cloud allowed'})")
-        print(f"Memory: {mem.counts()}  ({mem.path})")
-        print("Secrets: env vars / OS keyring only; never written to config, logs or memory.")
-        print("Dangerous tools (delete, commit, push, risky commands) always ask first.")
+        from .privacy import build_report, format_report
+
+        print(format_report(build_report(cfg)))
         return 0
     mem = MemoryStore()
     if a.action == "list":

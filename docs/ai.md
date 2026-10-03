@@ -17,3 +17,10 @@ LEARNING (selected by `/command` or inferred from the text, including Persian ke
 
 Vision: `Message.images` is mapped to each provider's image format (Claude, Ollama, OpenAI).
 Model names are configuration (`ai.claude_model` etc.), not hard-coded behaviour.
+
+## Quick commands in the desktop chat
+`/help` lists them. `/explain`, `/fix`, `/learn`, `/chat <text>` are sent to the AI with a task-specific prompt.
+`/search <query>` runs the web provider in a background thread (needs `BRAVE_API_KEY`; otherwise it says so).
+`/code`, `/git`, `/github`, `/test`, `/run` open the coding workspace, where tools, diffs and approvals live — the
+chat bubble itself never executes tools. `/remind`, `/settings`, `/privacy` open those windows.
+`/remember`, `/memory`, `/forget`, `/forget-all` manage memory. Plain text is ordinary chat.

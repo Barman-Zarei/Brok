@@ -38,7 +38,8 @@ class HotkeyManager:
             listener.start()
             self._listener = listener
         except Exception as exc:  # noqa: BLE001 - optional feature must never crash the app
-            self.status = f"unavailable on this system ({type(exc).__name__}); use the tray icon instead"
+            hint = " — install it with: pip install \"brok[hotkey]\"" if isinstance(exc, ImportError) else ""
+            self.status = f"unavailable on this system ({type(exc).__name__}){hint}; use the tray icon instead"
             logger.warning("global hotkey unavailable: %s", exc)
             return False
         self.status = "active"

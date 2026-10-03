@@ -2,7 +2,11 @@
 
 ```
 brok/
-├── main.py, *_ui.py        existing desktop overlay (always-on-top avatar, tray, reminders, activity…)
+├── main.py, *_ui.py        existing desktop overlay (BrokWindow: always-on-top avatar, reminders, activity…)
+├── gif_utils.py display.py  GIF/pixmap helpers; X11/screen detection (split out of main.py)
+├── instance.py tray.py      single-instance activation; system tray + desktop entry (split out of main.py)
+├── quick.py                 quick-command routing for the chat bubble (/fix /code /search /privacy …)
+├── privacy_ui.py            privacy dashboard window
 ├── avatar/                 states · engine (state machine) · manager (events→states) · renderer · themes · assets
 ├── ai/                     messages · transport · personality · orchestrator · providers/{claude,ollama,openai_compat}
 ├── agent/                  tools (registry+permissions) · builtin_tools · sandbox · workspace (jail) · project · index

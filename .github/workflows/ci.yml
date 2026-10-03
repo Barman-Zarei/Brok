@@ -42,7 +42,7 @@ jobs:
         if: matrix.python-version == '3.12'
         run: |
           pip install mypy
-          mypy --python-version 3.10 --strict --ignore-missing-imports --follow-imports=silent brok/ai brok/agent brok/avatar brok/voice brok/web brok/config.py brok/core.py brok/cli.py brok/commands.py brok/memory.py brok/privacy.py brok/plugins.py brok/hotkey.py brok/hotkey_qt.py brok/productivity.py brok/github_agent.py brok/logging_setup.py brok/chat_commands.py brok/llm_claude.py brok/workspace_ui.py
+          mypy --python-version 3.10 --strict --ignore-missing-imports --follow-imports=silent brok/ai brok/agent brok/avatar brok/voice brok/web brok/config.py brok/core.py brok/cli.py brok/commands.py brok/memory.py brok/privacy.py brok/plugins.py brok/hotkey.py brok/hotkey_qt.py brok/productivity.py brok/github_agent.py brok/logging_setup.py brok/chat_commands.py brok/llm_claude.py brok/workspace_ui.py brok/quick.py brok/privacy_ui.py
 
       - name: Package validation
         run: |

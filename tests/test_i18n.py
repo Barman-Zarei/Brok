@@ -67,3 +67,14 @@ def test_scan_locales_parses_meta_and_strings(tmp_path, monkeypatch):
     assert langs["xx"] == "Testish"
     assert catalogs["xx"]["Chat"] == "ZZ"
     assert langs["en"] == "English"  # English is always available
+
+
+def test_every_locale_covers_every_english_string():
+    import json
+    from pathlib import Path
+
+    loc = Path(__file__).resolve().parent.parent / "brok" / "locale"
+    en = set(json.loads((loc / "en.json").read_text(encoding="utf-8"))["strings"])
+    for f in loc.glob("*.json"):
+        have = set(json.loads(f.read_text(encoding="utf-8"))["strings"])
+        assert not en - have, f"{f.name} is missing {sorted(en - have)[:5]}"

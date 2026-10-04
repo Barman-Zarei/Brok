@@ -11,6 +11,9 @@ on your projects. It is a derivative of [myCat](https://github.com/yumiaura/myCa
 
 <img src="docs/brok-states.png" alt="Brok avatar states"/>
 
+> **Status: alpha (0.2.0).** Developed and tested on Linux. Windows 10+ and macOS should work but are not yet
+> verified; Windows 7 is not supported (Qt 6). Please report problems in the issue tracker.
+
 ### What it can do
 - **Robot avatar** with 13 states (idle, listening, thinking, typing, coding, working, speaking, happy, confused,
   error, success, sleeping, notification), state-driven; extra avatar packs via `pack.json`.

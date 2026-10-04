@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [0.2.0] - 2026-10-04
+
+First release as **Brok**, a derivative of myCat 0.1.37 (see NOTICE).
+
+### Added
+- Robot avatar subsystem (13 states), multi-provider AI (Claude, Ollama, OpenAI-compatible) with orchestrator,
+  permission-controlled coding agent and tools, command sandbox, project index, coding workspace, Persian + RTL UI,
+  memory, voice (optional), vision, GitHub and web search tools, plugin API, privacy dashboard, quick commands.
+
+### Changed
+- Package, CLI and window renamed from myCat to Brok. The old configuration is migrated automatically.
+
+### Known limitations
+- Alpha: developed and tested on Linux (Qt offscreen, Python 3.8 and 3.12). Windows and macOS are not yet verified.
+- Requires Windows 10+ (Qt 6). Live provider connections (Claude, OpenAI, GitHub, Brave) were tested with fakes only.
+
 ### Added
 - **Homebrew installation instructions for macOS.** The English, Russian, Chinese, Indonesian and Korean READMEs now document installation from `yumiaura/tap`, the alternative tap-first setup, updates and removal.
 

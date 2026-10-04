@@ -4,12 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brok"
-version = "0.1.37"
-description = "Brok AI Desktop Companion: Qt Overlay"
+version = "0.2.0"
+description = "Brok: a Persian-first AI desktop companion and permission-controlled coding agent (Qt overlay)"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [{ name = "Barman" }]
+license = { file = "LICENSE.txt" }
 classifiers = [
+    "Development Status :: 3 - Alpha",
     "Environment :: X11 Applications :: Qt",
     "Intended Audience :: End Users/Desktop",
     "Programming Language :: Python :: 3.8",
@@ -60,6 +62,12 @@ calendar = ["icalendar>=6", "recurring-ical-events>=3"]
 testpaths = ["tests"]
 
 # Console script `brok` → calls brok.main:main
+[project.urls]
+Homepage = "https://github.com/Barman-Zarei/Brok"
+Repository = "https://github.com/Barman-Zarei/Brok"
+Issues = "https://github.com/Barman-Zarei/Brok/issues"
+Upstream = "https://github.com/yumiaura/myCat"
+
 [project.scripts]
 brok = "brok.main:main"
 brok-agent = "brok.cli:main"

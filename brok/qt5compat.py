@@ -6,7 +6,8 @@ PySide6, so on machines where PySide6 is missing and PySide2 is present this mod
 
 * ``QtGui.QAction`` / ``QShortcut`` / ``QActionGroup`` (they live in QtWidgets in Qt 5),
 * ``exec()`` on QApplication/QDialog/QMenu/QEventLoop (Qt 5 only has ``exec_()``),
-* ``QMouseEvent.position()`` / ``globalPosition()`` (Qt 5 has ``localPos()`` / ``screenPos()``).
+* ``QMouseEvent.position()`` / ``globalPosition()`` (Qt 5 has ``localPos()`` / ``screenPos()``),
+* ``QFontDatabase.families()`` as a static call (an instance method in Qt 5).
 
 Scoped enums (``Qt.AlignmentFlag.AlignCenter``) already work in PySide2 5.15. If PySide6 is importable this module
 does nothing, so the same code runs unchanged on every other platform.
@@ -40,6 +41,11 @@ def install() -> bool:
             cls.globalPosition = lambda self: self.screenPos()  # type: ignore[attr-defined]
 
     module = type(sys)("PySide6")
+    font_families = QtGui.QFontDatabase.families
+    QtGui.QFontDatabase.families = staticmethod(  # type: ignore[assignment]
+        lambda *args: font_families(QtGui.QFontDatabase(), *args)
+    )
+
     submodules = {"QtCore": QtCore, "QtGui": QtGui, "QtWidgets": QtWidgets, "QtNetwork": QtNetwork}
     module.__dict__.update(__version__=PySide2.__version__, **submodules)
     sys.modules["PySide6"] = module

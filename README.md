@@ -1,3 +1,5 @@
+> **Branch `LEGACY` — older operating systems and older dependency versions.** See [docs/BRANCH.md](docs/BRANCH.md).
+
 EN | [FA](docs/README_FA.md) | [RU](docs/README_RU.md) | [CN](docs/README_CN.md) | [ID](docs/README_ID.md) | [KO](docs/README_KO.md)
 
 ## Brok 🤖 — Persian-first AI desktop companion & coding agent

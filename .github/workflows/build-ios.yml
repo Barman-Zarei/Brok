@@ -1,0 +1,68 @@
+name: Build iOS (Xcode project / unsigned archive)
+
+# UNVERIFIED: never run. PySide6 on iOS arrives with Qt 6.12 and the tooling is young: the Xcode project is produced
+# by Qt's `tools/cross_compile_ios` scripts from a hand-written `pyside6-ios.toml` (no generator yet, no iOS
+# Simulator, no third-party C-extension wheels). This workflow performs the documented steps and stops where Qt
+# says a human must act:
+#   1. install Qt for macOS + iOS (aqtinstall) and cross-compile PySide6 for ios_arm64   -> uploaded as an artefact
+#   2. if `pyside6-ios.toml` exists in the repository: generate the Xcode project and build an UNSIGNED archive
+#   3. installing on a device or the App Store needs YOUR Apple Developer account + signing: not done here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      qt_version:
+        description: "Qt version with iOS support for PySide6 (6.12 or newer)"
+        required: false
+        default: "6.12.0"
+      pyside_setup_ref:
+        description: "Git ref of qt/pyside-setup to use (branch or tag matching the Qt version)"
+        required: false
+        default: "6.12"
+
+jobs:
+  ios:
+    runs-on: macos-15
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Qt (macOS host + iOS)
+        run: |
+          python -m pip install --upgrade pip aqtinstall
+          aqt install-qt mac desktop "${{ inputs.qt_version }}" -O "$HOME/Qt"
+          aqt install-qt mac ios "${{ inputs.qt_version }}" -O "$HOME/Qt"
+          ls "$HOME/Qt/${{ inputs.qt_version }}"
+
+      - name: Get pyside-setup
+        run: git clone --depth 1 --branch "${{ inputs.pyside_setup_ref }}" https://code.qt.io/pyside/pyside-setup
+
+      - name: Cross-compile PySide6 for iOS
+        run: |
+          python -m pip install -r pyside-setup/requirements.txt
+          python pyside-setup/tools/cross_compile_ios/main.py build --qt-install-path "$HOME/Qt/${{ inputs.qt_version }}"
+
+      - name: Generate the Xcode project and build an unsigned archive
+        run: |
+          if [ ! -f pyside6-ios.toml ]; then
+            echo "::notice::pyside6-ios.toml not found: skipping Xcode project generation (see docs/BRANCH.md)."
+            exit 0
+          fi
+          python pyside-setup/tools/cross_compile_ios/main.py generate -c pyside6-ios.toml
+          proj="$(find . -name '*.xcodeproj' -maxdepth 4 | head -1)"
+          [ -n "$proj" ] || { echo "::error::no .xcodeproj was generated"; exit 1; }
+          xcodebuild -project "$proj" -scheme "$(basename "$proj" .xcodeproj)" -sdk iphoneos \
+            -configuration Release CODE_SIGNING_ALLOWED=NO -archivePath build/Brok.xcarchive archive
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brok-ios
+          path: |
+            build/Brok.xcarchive
+            **/PySide6*.whl
+            **/shiboken6*.whl
+          if-no-files-found: warn

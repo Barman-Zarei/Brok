@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import os
 import sys
-from pathlib import Path
 from collections.abc import Sequence
+from pathlib import Path
 
 
 def workspace_dir() -> Path:

@@ -13,8 +13,8 @@ on:
   workflow_dispatch: {}
 
 env:
-  PYTHON_VERSION: "3.12"        # interpreter used for the frozen build
-  EXTRA_PIP: "openai"           # optional deps to bundle (a frozen app cannot `pip install` later)
+  PYTHON_VERSION: "3.8"        # interpreter used for the frozen build
+  EXTRA_PIP: ""           # optional deps to bundle (a frozen app cannot `pip install` later)
   BRANCH_LABEL: ${{ github.ref_name }}
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
+          pip install "pyinstaller<6" "setuptools<70"   # PyInstaller 5 + old setuptools: the combination that freezes PySide2 on 3.8
           pip install -e .
           [ -z "$EXTRA_PIP" ] || pip install $EXTRA_PIP
       - name: Build
@@ -43,57 +43,6 @@ jobs:
         with:
           name: brok-windows
           path: dist/brok-*-windows-x64.exe
-          if-no-files-found: error
-
-  macos-arm64:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -e .
-          [ -z "$EXTRA_PIP" ] || pip install $EXTRA_PIP
-      - name: Build
-        run: pyinstaller --noconfirm brok.spec
-      - name: Zip the .app
-        run: |
-          safe="$(echo "$BRANCH_LABEL" | tr '/ ' '--')"
-          cd dist && ditto -c -k --keepParent brok.app "brok-${safe}-macos-arm64.zip"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: brok-macos-arm64
-          path: dist/brok-*-macos-arm64.zip
-          if-no-files-found: error
-
-  macos-intel:
-    runs-on: macos-15-intel
-    continue-on-error: true   # Intel runners are being phased out; do not fail the branch for it
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -e .
-          [ -z "$EXTRA_PIP" ] || pip install $EXTRA_PIP
-      - name: Build
-        run: pyinstaller --noconfirm brok.spec
-      - name: Zip the .app
-        run: |
-          safe="$(echo "$BRANCH_LABEL" | tr '/ ' '--')"
-          cd dist && ditto -c -k --keepParent brok.app "brok-${safe}-macos-x64.zip"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: brok-macos-intel
-          path: dist/brok-*-macos-x64.zip
           if-no-files-found: error
 
   linux:
@@ -111,7 +60,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller
+          pip install "pyinstaller<6" "setuptools<70"   # PyInstaller 5 + old setuptools: the combination that freezes PySide2 on 3.8
           pip install -e .
           [ -z "$EXTRA_PIP" ] || pip install $EXTRA_PIP
       - name: Build

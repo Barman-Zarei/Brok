@@ -81,7 +81,7 @@ a = Analysis(
     # string import PyInstaller's static analysis cannot follow. Without this
     # the exe dies at startup with `ModuleNotFoundError: No module named
     # 'brok.llm'`.
-    hiddenimports=collect_submodules('brok'),
+    hiddenimports=collect_submodules('brok') + ['PySide2.QtCore', 'PySide2.QtGui', 'PySide2.QtWidgets', 'PySide2.QtNetwork'],
     hookspath=[],
     runtime_hooks=[],
     excludes=[],

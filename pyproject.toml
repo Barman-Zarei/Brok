@@ -7,7 +7,7 @@ name = "brok"
 version = "0.2.0"
 description = "Brok: a Persian-first AI desktop companion and permission-controlled coding agent (Qt overlay)"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.8,<3.11"
 authors = [{ name = "Barman" }]
 license = { file = "LICENSE.txt" }
 classifiers = [
@@ -23,7 +23,8 @@ classifiers = [
 dependencies = [
     "pillow>=10.4",
     # 6.6.3.1 is the newest PySide6 wheel that installs on Python 3.8.
-    "pyside6>=6.6.3",
+    # Windows 7: Qt 6 needs Windows 10+. Qt 5.15 (PySide2) runs on Windows 7 SP1; see brok/qt5compat.py.
+    "PySide2==5.15.2.1",
     # Global key/click COUNTS (the key identity is discarded in the hook — only
     # an integer survives), so the counts work out of the box on a plain
     # `pip install brok` everywhere, including the prebuilt exe.

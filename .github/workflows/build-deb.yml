@@ -59,6 +59,7 @@ jobs:
           set -euo pipefail
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION="${VERSION#v}"  # Debian versions must start with a digit (v0.2.0 -> 0.2.0)
           else
             # Non-tag (manual dispatch) build: take the version from pyproject so a
             # dispatched build of a release commit yields a correctly-versioned

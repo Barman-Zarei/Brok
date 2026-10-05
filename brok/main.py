@@ -74,22 +74,22 @@ else:
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from .display import (  # noqa: E402,F401
+from brok.display import (  # noqa: E402,F401
     ensure_virtual_monitor,
     randr_monitor_count,
     usable_screen_rect,
     x11_compositor_active,
     x11_screen_size,
 )
-from .gif_utils import (  # noqa: E402,F401
+from brok.gif_utils import (  # noqa: E402,F401
     get_gif_duration,
     harden_pixmap,
     movie_from_gif_bytes,
     parse_gif_frame_delays,
     scale_pixmap_if_needed,
 )
-from .instance import activate_running_instance, install_macos_reopen, start_activation_server  # noqa: E402,F401
-from .tray import (  # noqa: E402,F401
+from brok.instance import activate_running_instance, install_macos_reopen, start_activation_server  # noqa: E402,F401
+from brok.tray import (  # noqa: E402,F401
     assets_dir,
     desktop_exec_command,
     desktop_version,
@@ -99,9 +99,9 @@ from .tray import (  # noqa: E402,F401
     setup_tray,
     tidy_separators,
 )
-from .window_dialogs import DialogsMixin  # noqa: E402
-from .window_geometry import GeometryMixin  # noqa: E402
-from .window_update import UpdateMixin  # noqa: E402
+from brok.window_dialogs import DialogsMixin  # noqa: E402
+from brok.window_geometry import GeometryMixin  # noqa: E402
+from brok.window_update import UpdateMixin  # noqa: E402
 
 # Make logs readable for non-ASCII text (Cyrillic, emoji): force UTF-8 on the
 # console streams when the locale left them as ASCII (otherwise the logger

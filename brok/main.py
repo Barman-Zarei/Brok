@@ -649,7 +649,9 @@ class BrokWindow(DialogsMixin, UpdateMixin, GeometryMixin, QtWidgets.QWidget):
 
         self.pack_timer = QtCore.QTimer(self)
         self.pack_timer.timeout.connect(self.pack_tick)
-        self.pack_timer.start(33)             # ~30 fps; only repaints when something changed
+        from . import profile as _profile
+
+        self.pack_timer.start(_profile.active().tick_ms)  # ~30 fps by default; only repaints when something changed
         logger.info(
             f"Loaded interactive char '{pack.name}' ({pack.static.width()}x{pack.static.height()}; "
             f"eyes={pack.eyes is not None} blink={pack.blink_enabled} "
@@ -1334,9 +1336,17 @@ def main() -> None:
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
+    from . import profile as _profile
+
+    prof = _profile.active()
+    _profile.apply_environment(prof)
+    if prof.debug_logging:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     app_version = update_check.current_version()
-    logger.info("brok %s", app_version)
-    update_check.check_in_background(app_version)
+    logger.info("brok %s (profile: %s)", app_version, prof.name)
+    if prof.check_updates:
+        update_check.check_in_background(app_version)
 
     # Apply the saved UI language before any window or menu is built.
     i18n.load_language(CFG_FILE)

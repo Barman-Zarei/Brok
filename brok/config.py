@@ -112,6 +112,7 @@ class BrokConfig:
         except (OSError, ValueError):
             pass
         apply_env(cfg, os.environ if env is None else env)
+        _apply_profile(cfg)
         return cfg
 
     def save(self, path: Path | None = None) -> Path:
@@ -125,6 +126,16 @@ class BrokConfig:
             pass
         tmp.replace(p)
         return p
+
+
+def _apply_profile(cfg: BrokConfig) -> None:
+    """Profiles that promise 'local only' (OFFLINE) override the file/env: that is the point of the profile."""
+    from . import profile
+
+    if profile.active().local_only:
+        cfg.ai.local_only = True
+        cfg.ai.provider = "ollama"
+        cfg.ai.fallbacks = ["ollama"]
 
 
 def _merge(obj: Any, data: dict[str, Any]) -> None:

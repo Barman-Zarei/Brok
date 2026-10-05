@@ -7,7 +7,7 @@ name = "brok"
 version = "0.2.0"
 description = "Brok: a Persian-first AI desktop companion and permission-controlled coding agent (Qt overlay)"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [{ name = "Barman" }]
 license = { file = "LICENSE.txt" }
 classifiers = [

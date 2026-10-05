@@ -1,0 +1,88 @@
+name: Build Android APK
+
+# UNVERIFIED: this workflow has never been run. It follows Qt's documented `pyside6-android-deploy` flow (Technical
+# Preview, Linux host only). The Android wheels of PySide6/shiboken6 are NOT on PyPI: give their URLs as inputs (or
+# set the repository variables PYSIDE_ANDROID_WHEEL_URL / SHIBOKEN_ANDROID_WHEEL_URL). They must match the host
+# PySide6 version and the Python version below. Expect to iterate on the first runs: send the log of a failed run.
+#
+# The result is a regular full-screen app (the workspace), not a floating avatar. See docs/BRANCH.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pyside_wheel_url:
+        description: "URL of the PySide6 Android wheel (…-android_aarch64.whl)"
+        required: false
+      shiboken_wheel_url:
+        description: "URL of the shiboken6 Android wheel (…-android_aarch64.whl)"
+        required: false
+      pyside_version:
+        description: "Host PySide6 version (must match the wheels), empty = latest"
+        required: false
+        default: ""
+      python_version:
+        description: "Python version of the Android wheels (cp tag)"
+        required: false
+        default: "3.11"
+
+env:
+  NDK_VERSION: "26.1.10909125"   # NDK r26b, the version pyside6-android-deploy requires
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install the Android NDK
+        run: sdkmanager "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Install the deploy tool
+        run: |
+          python -m pip install --upgrade pip
+          if [ -n "${{ inputs.pyside_version }}" ]; then pip install "pyside6==${{ inputs.pyside_version }}"; else pip install pyside6; fi
+          pip install -r "$(python -c 'import PySide6,os;print(os.path.join(os.path.dirname(PySide6.__file__),"scripts","requirements-android.txt"))')"
+          pip install -e .
+
+      - name: Download the Android wheels
+        env:
+          PYSIDE_URL: ${{ inputs.pyside_wheel_url || vars.PYSIDE_ANDROID_WHEEL_URL }}
+          SHIBOKEN_URL: ${{ inputs.shiboken_wheel_url || vars.SHIBOKEN_ANDROID_WHEEL_URL }}
+        run: |
+          if [ -z "$PYSIDE_URL" ] || [ -z "$SHIBOKEN_URL" ]; then
+            echo "::error::Provide the PySide6 and shiboken6 Android wheel URLs (workflow inputs or repository variables)."
+            exit 1
+          fi
+          curl -fL "$PYSIDE_URL" -o "$(basename "${PYSIDE_URL%%\?*}")"
+          curl -fL "$SHIBOKEN_URL" -o "$(basename "${SHIBOKEN_URL%%\?*}")"
+          ls -la *.whl
+
+      - name: Build the APK
+        run: |
+          pyside6-android-deploy --name Brok -f \
+            --wheel-pyside "$(ls PySide6-*.whl | head -1)" \
+            --wheel-shiboken "$(ls shiboken6-*.whl | head -1)" \
+            --sdk-path "$ANDROID_HOME" \
+            --ndk-path "$ANDROID_HOME/ndk/${NDK_VERSION}" \
+            --extra-ignore-dirs=tests,docs,demo,.github \
+            --keep-deployment-files -v
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brok-android
+          path: |
+            **/*.apk
+            **/*.aab
+          if-no-files-found: error

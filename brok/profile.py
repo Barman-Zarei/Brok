@@ -12,7 +12,7 @@ import logging
 import os
 from dataclasses import dataclass
 
-DEFAULT_PROFILE = "standard"  # the only line that differs between branches' runtime behaviour
+DEFAULT_PROFILE = "experimental"  # the only line that differs between branches' runtime behaviour
 
 
 @dataclass(frozen=True)

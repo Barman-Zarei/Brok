@@ -1,3 +1,5 @@
+> **Branches:** `brok-migration` is the main line (Python 3.10+). Variants for Windows 7, Python 3.8, old systems, low-end PCs, offline use, a lite install, no-GPU machines, Android, iOS and experiments are listed in [docs/BRANCHES.md](docs/BRANCHES.md).
+
 EN | [FA](docs/README_FA.md) | [RU](docs/README_RU.md) | [CN](docs/README_CN.md) | [ID](docs/README_ID.md) | [KO](docs/README_KO.md)
 
 ## Brok 🤖 — Persian-first AI desktop companion & coding agent

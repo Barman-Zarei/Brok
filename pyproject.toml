@@ -91,4 +91,7 @@ extend-exclude = ["README.md", "docs/*"]
 
 [tool.ruff.lint]
 select = ["C4", "E", "F", "I", "PERF", "UP"]
-ignore = ["PERF203"]
+# UP006/UP007/UP035/UP045: the typing-module spellings are kept on purpose. Shared code is merged into the
+# PYTHON38 / LEGACY / WIN7 branches, which still run on Python 3.8/3.9 where `collections.abc.Callable[...]` etc.
+# are not usable at run time.
+ignore = ["PERF203", "UP006", "UP007", "UP035", "UP045"]

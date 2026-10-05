@@ -12,7 +12,7 @@ Brok adalah robot kecil yang tinggal di desktop Anda (tanpa bingkai, selalu di a
 - **Keamanan:** setiap alat punya tingkat risiko; perubahan file menampilkan diff dulu; hapus, commit, push, dan perintah berisiko selalu meminta konfirmasi; perintah berbahaya diblokir; ada batas langkah, waktu, token, dan panggilan alat
 - Antarmuka Persia dan RTL, mode belajar, debugger AI, laporan kesehatan proyek, memori yang Anda kendalikan (`/remember`, `/memory`, `/forget`), mode lokal-saja, hotkey global (default Ctrl+Space), lampiran gambar/tangkapan layar
 
-### Instalasi (Python ≥ 3.8)
+### Instalasi (Python ≥ 3.10)
 ```bash
 pip install .
 brok                              # desktop

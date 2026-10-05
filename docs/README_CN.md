@@ -12,7 +12,7 @@ Brok 是住在你桌面上的小机器人（无边框、始终置顶、可拖动
 - **安全：** 每个工具都有风险等级；修改文件前先显示 diff；删除、commit、push 和高风险命令始终需要确认；危险命令会被直接拦截；步数、时间、token 和工具调用次数均有上限
 - 波斯语界面与 RTL、学习模式、AI 调试器、项目健康报告、可控的记忆（`/remember`、`/memory`、`/forget`）、仅本地模式、全局热键（默认 Ctrl+Space）、图片与截图附件
 
-### 安装（Python ≥ 3.8）
+### 安装（Python ≥ 3.10）
 ```bash
 pip install .
 brok                              # desktop

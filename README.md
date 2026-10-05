@@ -29,11 +29,11 @@ on your projects. It is a derivative of [myCat](https://github.com/yumiaura/myCa
 - Terminal agent: `brok-agent ask|code|fix|debug|learn|health|doctor|privacy|memory`.
 
 **Honest status:** the core (providers, tools, permissions, agent loop, memory, index, avatar, workspace UI, hotkey,
-vision attach, assistants) is covered by automated tests that pass on Python 3.8 and 3.12 (Linux, headless), and the new
+vision attach, assistants) is covered by automated tests that pass on Python 3.10–3.13 (Linux, headless), and the new
 modules pass `mypy --strict`. Not verified by the authors: real Claude/OpenAI/Ollama/GitHub calls with live keys,
 Windows/macOS builds, a physical display, microphone speech-to-text (only the interface + OS text-to-speech exist).
 
-## 🚀 Quick start (Python ≥ 3.8)
+## 🚀 Quick start (Python ≥ 3.10)
 
 ```bash
 pip install .                 # or: pip install ".[secure,calendar]"

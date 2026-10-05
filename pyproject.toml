@@ -23,7 +23,7 @@ classifiers = [
 dependencies = [
     "pillow>=10.4",
     # 6.6.3.1 is the newest PySide6 wheel that installs on Python 3.8.
-    "pyside6>=6.6.3",
+    "pyside6-essentials>=6.6.3",
     # Global key/click COUNTS (the key identity is discarded in the hook — only
     # an integer survives), so the counts work out of the box on a plain
     # `pip install brok` everywhere, including the prebuilt exe.

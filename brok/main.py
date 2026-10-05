@@ -1478,7 +1478,7 @@ def main() -> None:
         # tray the panel doesn't render can always be brought back with `brok`.
         window.activation_server = start_activation_server(SINGLE_INSTANCE_NAME, window)
         try:  # configurable global hotkey (default Ctrl+Space); degrades gracefully, never blocks startup
-            from .hotkey_qt import start_hotkey
+            from brok.hotkey_qt import start_hotkey
 
             window.hotkey_bridge = start_hotkey(window)
         except Exception:

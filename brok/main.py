@@ -649,7 +649,7 @@ class BrokWindow(DialogsMixin, UpdateMixin, GeometryMixin, QtWidgets.QWidget):
 
         self.pack_timer = QtCore.QTimer(self)
         self.pack_timer.timeout.connect(self.pack_tick)
-        from . import profile as _profile
+        from brok import profile as _profile
 
         self.pack_timer.start(_profile.active().tick_ms)  # ~30 fps by default; only repaints when something changed
         logger.info(
@@ -1336,7 +1336,7 @@ def main() -> None:
     if args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    from . import profile as _profile
+    from brok import profile as _profile
 
     prof = _profile.active()
     _profile.apply_environment(prof)

@@ -34,8 +34,9 @@ def test_main_starts_as_a_script_not_just_parses_args():
 
 
 def test_main_has_no_relative_imports_outside_the_package_branch():
-    """Frozen/script runs have no parent package, so a relative import anywhere in main.py (even inside a function
-    that only runs later, such as the hotkey set-up) fails at run time. Only the `if __package__:` block may use them."""
+    """Frozen/script runs have no parent package, so a relative import anywhere in main.py (even inside a
+    function that only runs later, such as the hotkey set-up) fails at run time.
+    Only the `if __package__:` block may use them."""
     import ast
 
     tree = ast.parse((ROOT / "brok" / "main.py").read_text(encoding="utf-8"))

@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 
 def workspace_dir() -> Path:
@@ -24,7 +24,7 @@ def workspace_dir() -> Path:
     return d
 
 
-def main(argv: Optional[Sequence[str]] = None, auto_quit_ms: int = 0) -> int:
+def main(argv: Sequence[str] | None = None, auto_quit_ms: int = 0) -> int:
     """Start the mobile workspace. ``auto_quit_ms`` is only for tests (quit after N milliseconds)."""
     os.environ.setdefault("BROK_PROFILE", "low-end")
     from . import profile

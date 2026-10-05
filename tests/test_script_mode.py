@@ -41,5 +41,6 @@ def test_main_has_no_relative_imports_outside_the_package_branch():
     tree = ast.parse((ROOT / "brok" / "main.py").read_text(encoding="utf-8"))
     allowed = [n for n in ast.walk(tree) if isinstance(n, ast.If) and getattr(n.test, "id", "") == "__package__"]
     inside = {id(x) for n in allowed for x in ast.walk(n)}
-    bad = [n.lineno for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.level > 0 and id(n) not in inside]
+    imports = [n for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.level > 0]
+    bad = [n.lineno for n in imports if id(n) not in inside]
     assert not bad, f"relative imports in main.py at lines {bad}"

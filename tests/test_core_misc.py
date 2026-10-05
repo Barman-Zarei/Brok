@@ -33,7 +33,8 @@ def test_memory_crud_and_privacy(tmp_path):
     assert oct((tmp_path / "m.json").stat().st_mode)[-3:] == "600"
 
 
-def test_config_defaults_env_and_no_secrets(tmp_path):
+def test_config_defaults_env_and_no_secrets(tmp_path, monkeypatch):
+    monkeypatch.setenv("BROK_PROFILE", "standard")  # this test is about the standard defaults, not a branch profile
     c = BrokConfig.load(tmp_path / "x.json", env={"BROK_AI_PROVIDER": "claude", "BROK_LOCAL_ONLY": "true"})
     assert c.ai.provider == "claude" and c.ai.local_only and c.ui.language == "fa" and c.security.diff_first
     p = c.save(tmp_path / "x.json")

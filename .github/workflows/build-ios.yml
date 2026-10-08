@@ -5,7 +5,8 @@ name: Build iOS (Xcode project / unsigned archive)
 # Simulator, no third-party C-extension wheels). This workflow performs the documented steps and stops where Qt
 # says a human must act:
 #   1. install Qt for macOS + iOS (aqtinstall) and cross-compile PySide6 for ios_arm64   -> uploaded as an artefact
-#   2. if `pyside6-ios.toml` exists in the repository: generate the Xcode project and build an UNSIGNED archive
+#   2. `pyside6-ios.toml` is REQUIRED: without it the run fails (no silent green run); with it, generate the Xcode
+#      project and build an UNSIGNED archive
 #   3. installing on a device or the App Store needs YOUR Apple Developer account + signing: not done here.
 
 on:
@@ -46,12 +47,26 @@ jobs:
           python -m pip install -r pyside-setup/requirements.txt
           python pyside-setup/tools/cross_compile_ios/main.py build --qt-install-path "$HOME/Qt/${{ inputs.qt_version }}"
 
-      - name: Generate the Xcode project and build an unsigned archive
+      # Upload what was built so far even if the next step fails (the cross-compiled PySide6 is the slow part).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: brok-ios-pyside-wheels
+          path: |
+            **/PySide6*.whl
+            **/shiboken6*.whl
+          if-no-files-found: warn
+
+      # No pyside6-ios.toml = no Xcode project = no app. That must be a RED run, not a green one with nothing in it.
+      - name: Require pyside6-ios.toml
         run: |
           if [ ! -f pyside6-ios.toml ]; then
-            echo "::notice::pyside6-ios.toml not found: skipping Xcode project generation (see docs/BRANCH.md)."
-            exit 0
+            echo "::error::pyside6-ios.toml is missing: Qt's generator cannot create the Xcode project without it. Write it by hand (Qt's blog 'Bringing PySide6 on iOS' / pyside-setup/tools/cross_compile_ios) and commit it to this branch."
+            exit 1
           fi
+
+      - name: Generate the Xcode project and build an unsigned archive
+        run: |
           python pyside-setup/tools/cross_compile_ios/main.py generate -c pyside6-ios.toml
           proj="$(find . -name '*.xcodeproj' -maxdepth 4 | head -1)"
           [ -n "$proj" ] || { echo "::error::no .xcodeproj was generated"; exit 1; }
@@ -61,8 +76,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: brok-ios
-          path: |
-            build/Brok.xcarchive
-            **/PySide6*.whl
-            **/shiboken6*.whl
-          if-no-files-found: warn
+          path: build/Brok.xcarchive
+          if-no-files-found: error

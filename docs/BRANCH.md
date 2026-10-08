@@ -24,3 +24,10 @@ Prepares an iOS build with Qt 6.12+'s PySide6 iOS tooling in `.github/workflows/
 Verified here: the entry point starts headless, the workflow YAML parses. **Never run:** the workflow, the Xcode
 project, any device. Whether Qt 6.12 is published for aqtinstall at your run time is unchecked.
 
+
+## Update (audit fixes)
+- The workflow now **fails** when `pyside6-ios.toml` is missing (it used to finish green with no app). Write that file by hand
+  (Qt's tooling has no generator for it yet; its schema is defined by Qt 6.12's `tools/cross_compile_ios`, which this repo
+  has not been able to verify) and commit it here.
+- Pillow/pynput are not installed on iOS (pyproject markers); the config dir falls back to the app data dir when `$HOME`
+  is not writable.

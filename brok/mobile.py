@@ -24,6 +24,24 @@ def workspace_dir() -> Path:
     return d
 
 
+def _use_app_data_dir_if_home_unwritable(app_name: str = "Brok") -> None:
+    """Point the config at Qt's per-app data dir when ``$HOME`` is missing or read-only (common in app sandboxes)."""
+    if os.environ.get("BROK_CONFIG_DIR") or os.environ.get("ANDROID_PRIVATE"):
+        return
+    try:
+        home_ok = os.access(Path.home(), os.W_OK)
+    except (RuntimeError, OSError):  # Path.home() raises when HOME is unset and there is no passwd entry
+        home_ok = False
+    if home_ok:
+        return
+    from PySide6 import QtCore
+
+    QtCore.QCoreApplication.setApplicationName(app_name)
+    base = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.AppDataLocation)
+    if base:
+        os.environ["BROK_CONFIG_DIR"] = str(Path(base) / "config")
+
+
 def main(argv: Sequence[str] | None = None, auto_quit_ms: int = 0) -> int:
     """Start the mobile workspace. ``auto_quit_ms`` is only for tests (quit after N milliseconds)."""
     os.environ.setdefault("BROK_PROFILE", "low-end")
@@ -33,6 +51,7 @@ def main(argv: Sequence[str] | None = None, auto_quit_ms: int = 0) -> int:
     from PySide6 import QtCore, QtWidgets
 
     app = QtWidgets.QApplication(list(argv) if argv is not None else sys.argv)
+    _use_app_data_dir_if_home_unwritable()
     from .workspace_ui import open_workspace
 
     win = open_workspace(None, str(workspace_dir()))

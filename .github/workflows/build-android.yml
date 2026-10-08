@@ -1,32 +1,37 @@
 name: Build Android APK
 
-# UNVERIFIED: this workflow has never been run. It follows Qt's documented `pyside6-android-deploy` flow (Technical
-# Preview, Linux host only). The Android wheels of PySide6/shiboken6 are NOT on PyPI: give their URLs as inputs (or
-# set the repository variables PYSIDE_ANDROID_WHEEL_URL / SHIBOKEN_ANDROID_WHEEL_URL). They must match the host
-# PySide6 version and the Python version below. Expect to iterate on the first runs: send the log of a failed run.
-#
-# The result is a regular full-screen app (the workspace), not a floating avatar. See docs/BRANCH.md.
+# Follows Qt's documented `pyside6-android-deploy` flow (Technical Preview, Linux host only). Facts this workflow relies on
+# (checked against PySide6 6.11.2's own tool, not guessed):
+#   * The Android wheels (PySide6 + shiboken6, cp311, android_aarch64) are published on download.qt.io, NOT on PyPI.
+#     They are found by version below; give explicit URLs only to override that.
+#   * The host `pyside6` version MUST equal the wheel version (same input is used for both).
+#   * The tool downloads the NDK it needs (r27c for 6.11) and, if no --sdk-path is given, uses buildozer's SDK handling.
+#     We therefore do NOT install/pin an NDK ourselves (the old pinned r26b did not match 6.11).
+#   * The tool needs `main.py` in the project root, and writes `buildozer.spec` on first run only. We run it twice:
+#     `--init` (creates the spec), then we add the data-file extensions + INTERNET permission, then the real build.
+#   * The tool prints errors instead of failing, so the last step checks that an .apk/.aab really exists.
+# Still never run on a real device. See docs/BRANCH.md.
 
 on:
   workflow_dispatch:
     inputs:
-      pyside_wheel_url:
-        description: "URL of the PySide6 Android wheel (…-android_aarch64.whl)"
-        required: false
-      shiboken_wheel_url:
-        description: "URL of the shiboken6 Android wheel (…-android_aarch64.whl)"
-        required: false
       pyside_version:
-        description: "Host PySide6 version (must match the wheels), empty = latest"
+        description: "PySide6 version to build with (must have Android wheels on download.qt.io, e.g. 6.11.2)"
         required: false
-        default: ""
+        default: "6.11.2"
       python_version:
-        description: "Python version of the Android wheels (cp tag)"
+        description: "Python version of the Android wheels (cp tag); Qt publishes cp311"
         required: false
         default: "3.11"
+      pyside_wheel_url:
+        description: "Optional override: URL of the PySide6 Android wheel (…-android_aarch64.whl)"
+        required: false
+      shiboken_wheel_url:
+        description: "Optional override: URL of the shiboken6 Android wheel (…-android_aarch64.whl)"
+        required: false
 
 env:
-  NDK_VERSION: "26.1.10909125"   # NDK r26b, the version pyside6-android-deploy requires
+  QT_WHEELS: https://download.qt.io/official_releases/QtForPython
 
 jobs:
   apk:
@@ -44,40 +49,99 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
-
-      - name: Install the Android NDK
-        run: sdkmanager "ndk;${NDK_VERSION}" "platforms;android-34" "build-tools;34.0.0"
-
-      - name: Install the deploy tool
-        run: |
-          python -m pip install --upgrade pip
-          if [ -n "${{ inputs.pyside_version }}" ]; then pip install "pyside6==${{ inputs.pyside_version }}"; else pip install pyside6; fi
-          pip install -r "$(python -c 'import PySide6,os;print(os.path.join(os.path.dirname(PySide6.__file__),"scripts","requirements-android.txt"))')"
-          pip install -e .
-
       - name: Download the Android wheels
         env:
           PYSIDE_URL: ${{ inputs.pyside_wheel_url || vars.PYSIDE_ANDROID_WHEEL_URL }}
           SHIBOKEN_URL: ${{ inputs.shiboken_wheel_url || vars.SHIBOKEN_ANDROID_WHEEL_URL }}
+          V: ${{ inputs.pyside_version }}
+          PYVER: ${{ inputs.python_version }}
         run: |
-          if [ -z "$PYSIDE_URL" ] || [ -z "$SHIBOKEN_URL" ]; then
-            echo "::error::Provide the PySide6 and shiboken6 Android wheel URLs (workflow inputs or repository variables)."
-            exit 1
-          fi
-          curl -fL "$PYSIDE_URL" -o "$(basename "${PYSIDE_URL%%\?*}")"
+          set -euo pipefail
+          mkdir -p wheels && cd wheels
+          pyv="cp$(echo "$PYVER" | tr -d .)"
+          # find the wheel file name in Qt's directory listing (the name case changed between releases)
+          pick() {  # $1 = package name pattern, $2... = listing URLs
+            local pat="$1"; shift
+            for dir in "$@"; do
+              name="$(curl -fsSL "$dir/" | grep -oiE "href=\"$pat-$V-[^\"/]*$pyv-$pyv-android_aarch64\.whl\"" | head -1 | sed -E 's/^href="//; s/"$//')" || true
+              [ -z "$name" ] || { echo "$dir/$name"; return 0; }
+            done
+            return 1
+          }
+          if [ -z "${PYSIDE_URL:-}" ];   then PYSIDE_URL="$(pick 'pyside6' "$QT_WHEELS/pyside6")"   || { echo "::error::No PySide6 $V $pyv Android wheel on download.qt.io. Pick another pyside_version or pass pyside_wheel_url."; exit 1; }; fi
+          if [ -z "${SHIBOKEN_URL:-}" ]; then SHIBOKEN_URL="$(pick 'shiboken6' "$QT_WHEELS/shiboken6" "$QT_WHEELS/pyside6")" || { echo "::error::No shiboken6 $V $pyv Android wheel found. Pass shiboken_wheel_url."; exit 1; }; fi
+          echo "PySide6 wheel:   $PYSIDE_URL"
+          echo "shiboken6 wheel: $SHIBOKEN_URL"
+          curl -fL "$PYSIDE_URL"   -o "$(basename "${PYSIDE_URL%%\?*}")"
           curl -fL "$SHIBOKEN_URL" -o "$(basename "${SHIBOKEN_URL%%\?*}")"
-          ls -la *.whl
+          ls -la
+
+      - name: Install the deploy tool (host PySide6 = wheel version)
+        env:
+          V: ${{ inputs.pyside_version }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install "pyside6==$V"
+          pip install -r "$(python -c 'import PySide6,os;print(os.path.join(os.path.dirname(PySide6.__file__),"scripts","requirements-android.txt"))')"
+
+      - name: Create buildozer.spec (tool --init)
+        run: |
+          set -euo pipefail
+          pyside6-android-deploy --name Brok -f --init \
+            --wheel-pyside "$(ls wheels/[Pp]y[Ss]ide6-*.whl | head -1)" \
+            --wheel-shiboken "$(ls wheels/shiboken6-*.whl | head -1)" \
+            --extra-ignore-dirs=tests,docs,demo,.github,packaging,snap \
+            --keep-deployment-files -v
+          test -f buildozer.spec || { echo "::error::buildozer.spec was not created (see the tool output above)"; exit 1; }
+
+      - name: Add app data files and permissions to buildozer.spec
+        run: |
+          python - <<'PY'
+          import re, pathlib
+          p = pathlib.Path("buildozer.spec")
+          t = p.read_text(encoding="utf-8")
+
+          def setkey(text, key, fn):
+              pat = re.compile(r"^[#\s]*" + re.escape(key) + r"\s*=.*$", re.M)
+              m = pat.search(text)
+              if m:
+                  old = m.group(0).split("=", 1)[1].strip() if not m.group(0).lstrip().startswith("#") else ""
+                  return text[: m.start()] + f"{key} = {fn(old)}" + text[m.end():]
+              return re.sub(r"^\[app\]\s*$", lambda m: f"[app]\n{key} = {fn('')}", text, count=1, flags=re.M)
+
+          # brok ships .zip chars, .json locales, the .j2 prompt and fonts: buildozer only bundles listed extensions
+          need = ["zip", "json", "j2", "ttf", "gif", "svg", "ini", "txt", "md"]
+          t = setkey(t, "source.include_exts", lambda old: ",".join(dict.fromkeys([e for e in old.split(",") if e] + need)))
+          t = setkey(t, "source.exclude_dirs", lambda old: "tests, docs, demo, packaging, snap, .github, .git, bin")
+          # cloud AI providers need the network
+          def perms(old):
+              items = [x.strip() for x in old.split(",") if x.strip()]
+              for need_perm in ("INTERNET", "ACCESS_NETWORK_STATE"):
+                  if need_perm not in items:
+                      items.append(need_perm)
+              return ", ".join(items)
+          t = setkey(t, "android.permissions", perms)
+          p.write_text(t, encoding="utf-8")
+          print([l for l in t.splitlines() if l.startswith(("source.include_exts", "source.exclude_dirs", "android.permissions", "requirements"))])
+          PY
 
       - name: Build the APK
         run: |
+          set -euo pipefail
           pyside6-android-deploy --name Brok -f \
-            --wheel-pyside "$(ls PySide6-*.whl | head -1)" \
-            --wheel-shiboken "$(ls shiboken6-*.whl | head -1)" \
-            --sdk-path "$ANDROID_HOME" \
-            --ndk-path "$ANDROID_HOME/ndk/${NDK_VERSION}" \
-            --extra-ignore-dirs=tests,docs,demo,.github \
+            --wheel-pyside "$(ls wheels/[Pp]y[Ss]ide6-*.whl | head -1)" \
+            --wheel-shiboken "$(ls wheels/shiboken6-*.whl | head -1)" \
+            --extra-ignore-dirs=tests,docs,demo,.github,packaging,snap \
             --keep-deployment-files -v
+
+      # pyside6-android-deploy prints its errors and still exits 0, so check the result ourselves.
+      - name: Check that an APK/AAB exists
+        run: |
+          set -euo pipefail
+          found="$(find . -type f \( -name '*.apk' -o -name '*.aab' \) -not -path './wheels/*' | head -5)"
+          if [ -z "$found" ]; then echo "::error::no .apk/.aab was produced: read the 'Build the APK' log"; exit 1; fi
+          echo "$found"
 
       - uses: actions/upload-artifact@v4
         with:

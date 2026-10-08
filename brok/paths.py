@@ -10,6 +10,7 @@ per-OS conventional dirs; see ``activity_store.user_data_dir`` /
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 APP_NAME = "brok"
@@ -17,7 +18,17 @@ LEGACY_APP_NAME = "mycat"  # upstream name, read only for one-time migration
 
 
 def config_dir() -> Path:
-    """Directory holding ``config.ini`` (and the LLM history) — ``~/.config/brok``."""
+    """Directory holding ``config.ini`` (and the LLM history) — ``~/.config/brok``.
+
+    Two overrides exist for app sandboxes (Android/iOS), where ``$HOME`` may be unset or read-only:
+    ``BROK_CONFIG_DIR`` (explicit) and ``ANDROID_PRIVATE`` (set by python-for-android to the app's private dir).
+    """
+    override = os.environ.get("BROK_CONFIG_DIR")
+    if override:
+        return Path(override)
+    private = os.environ.get("ANDROID_PRIVATE")
+    if private:
+        return Path(private) / ".config" / APP_NAME
     return Path.home() / ".config" / APP_NAME
 
 

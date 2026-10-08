@@ -21,7 +21,7 @@ classifiers = [
     "Operating System :: MacOS",
 ]
 dependencies = [
-    "pillow>=10.4",
+    "pillow>=10.4; sys_platform != 'android' and sys_platform != 'ios'",
     # 6.6.3.1 is the newest PySide6 wheel that installs on Python 3.8.
     "pyside6>=6.6.3",
     # Global key/click COUNTS (the key identity is discarded in the hook — only
@@ -32,7 +32,7 @@ dependencies = [
     #     pynput on Linux because it hard-requires `evdev`, a C extension with no
     #     wheel that would make `pip install brok` fail to build without a
     #     compiler. Off X11 (Wayland) it degrades to cursor-only.
-    "pynput>=1.7; sys_platform != 'linux'",
+    "pynput>=1.7; sys_platform != 'linux' and sys_platform != 'android' and sys_platform != 'ios'",
     "python-xlib>=0.33; sys_platform == 'linux'",
 ]
 

@@ -1,2 +1,3 @@
-pillow>=12.0.0
-pyside6>=6.10.0
+# Keep in sync with pyproject.toml: this branch uses the slim PySide6 "essentials" package (QtCore/Gui/Widgets/Network).
+pillow>=10.4
+pyside6-essentials>=6.6.3

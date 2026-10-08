@@ -1,2 +1,3 @@
-pillow>=12.0.0
-pyside6>=6.10.0
+# Keep in sync with pyproject.toml (the source of truth for this branch's pins).
+pillow>=10.4,<11
+pyside6==6.6.3.1

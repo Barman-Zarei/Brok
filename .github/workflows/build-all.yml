@@ -14,7 +14,7 @@ on:
 
 env:
   PYTHON_VERSION: "3.9"        # interpreter used for the frozen build
-  EXTRA_PIP: "openai"           # optional deps to bundle (a frozen app cannot `pip install` later)
+  EXTRA_PIP: ""           # optional deps to bundle (a frozen app cannot `pip install` later)
   BRANCH_LABEL: ${{ github.ref_name }}
 
 jobs:

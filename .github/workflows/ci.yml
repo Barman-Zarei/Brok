@@ -64,12 +64,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest]   # PySide2 5.15.2.1 has no macOS arm64 wheel; this branch targets Windows 7
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.8"   # requires-python is >=3.8,<3.11 (PySide2 5.15.2.1)
       - name: Install package + dev tools
         run: |
           python -m pip install --upgrade pip

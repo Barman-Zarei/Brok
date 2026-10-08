@@ -17,7 +17,7 @@ import logging
 import time
 from dataclasses import dataclass
 
-from PySide6 import QtCore
+from PySide2 import QtCore
 
 logger = logging.getLogger(__name__)
 

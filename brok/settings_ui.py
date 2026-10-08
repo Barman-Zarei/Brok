@@ -4,7 +4,7 @@ import configparser
 import logging
 from pathlib import Path
 
-from PySide6 import QtWidgets
+from PySide2 import QtWidgets
 
 from . import config_store, i18n, menu_config, secret_store, speech_bubble
 
@@ -28,7 +28,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.wait_spinbox = QtWidgets.QDoubleSpinBox()
         self.wait_spinbox.setRange(0.5, 60.0)
         self.wait_spinbox.setSingleStep(0.5)
-        
+
         # Load current wait time from main window if available, else default to 5.0
         current_wait = 5.0
         if self.main_window and hasattr(self.main_window, 'wait_time'):
@@ -97,17 +97,17 @@ class SettingsDialog(QtWidgets.QDialog):
                 config = configparser.ConfigParser()
                 if self.config_path.exists():
                     config.read_string(config_store.read_config_text(self.config_path), source=str(self.config_path))
-                
+
                 if 'settings' not in config:
                     config.add_section('settings')
-                
+
                 new_wait_time = self.wait_spinbox.value()
                 config['settings']['wait_time'] = str(new_wait_time)
-                
+
                 with open(self.config_path, 'w', encoding="utf-8") as f:
                     config.write(f)
                 secret_store.secure_file(self.config_path)
-                
+
                 logger.info(f"Saved wait_time setting to INI: {new_wait_time}")
 
                 # Apply to main window immediately

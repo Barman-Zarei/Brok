@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from PySide6 import QtCore
+from PySide2 import QtCore
 
 if __package__:
     from . import activity as activity_mod
@@ -49,7 +49,7 @@ def cursor_km_estimate(mouse_px: int) -> float:
     """Pixels → km via the primary screen's DPI (96 when unavailable)."""
     dpi = 96.0
     try:
-        from PySide6 import QtGui
+        from PySide2 import QtGui
 
         screen = QtGui.QGuiApplication.primaryScreen()
         if screen is not None:
@@ -220,7 +220,7 @@ class FocusController(QtCore.QObject):
             # the window's enterEvent) and dismiss any that is currently on screen.
             window.setToolTip("")
             try:
-                from PySide6 import QtWidgets
+                from PySide2 import QtWidgets
 
                 QtWidgets.QToolTip.hideText()
             except Exception:  # noqa: BLE001 - a tooltip must never break the timer
@@ -230,7 +230,7 @@ class FocusController(QtCore.QObject):
         window.setToolTip(text)
         # While the tooltip is on screen, keep its clock/stats ticking.
         try:
-            from PySide6 import QtGui, QtWidgets
+            from PySide2 import QtGui, QtWidgets
 
             if QtWidgets.QToolTip.isVisible() and window.underMouse():
                 QtWidgets.QToolTip.showText(QtGui.QCursor.pos(), text, window)

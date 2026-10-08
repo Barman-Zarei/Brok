@@ -50,7 +50,7 @@ def test_report_never_contains_secrets(monkeypatch):
 
 
 def test_privacy_dialog_opens(qtbot=None):
-    from PySide6 import QtWidgets
+    from PySide2 import QtWidgets
 
     from brok.privacy_ui import PrivacyDialog
 

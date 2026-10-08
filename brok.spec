@@ -14,7 +14,16 @@
 import sys
 from pathlib import Path
 
+import importlib.util
+
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+
+# WIN7 branch: the Qt binding is PySide2 (Qt 5.15); the code imports it as `PySide6` through brok/qt5compat.py. That
+# alias is created at run time, so PyInstaller cannot see it: name the real binding explicitly and exclude the other
+# one so the frozen app never bundles two Qt copies.
+QT_BINDING = "PySide6" if importlib.util.find_spec("PySide6") else "PySide2"
+QT_OTHER = "PySide2" if QT_BINDING == "PySide6" else "PySide6"
+QT_MODULES = [f"{QT_BINDING}.{m}" for m in ("QtCore", "QtGui", "QtWidgets", "QtNetwork")]
 
 # Make the in-tree `brok` package importable while the spec is evaluated, so
 # collect_submodules() below can enumerate it even when the package is not
@@ -81,10 +90,10 @@ a = Analysis(
     # string import PyInstaller's static analysis cannot follow. Without this
     # the exe dies at startup with `ModuleNotFoundError: No module named
     # 'brok.llm'`.
-    hiddenimports=collect_submodules('brok') + ['PySide2.QtCore', 'PySide2.QtGui', 'PySide2.QtWidgets', 'PySide2.QtNetwork'],
+    hiddenimports=collect_submodules('brok') + QT_MODULES,
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    excludes=[QT_OTHER],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     noarchive=False,

@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from datetime import time as day_time
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 if __package__:
     from . import activity as activity_mod

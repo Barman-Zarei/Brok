@@ -33,7 +33,7 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui
+from PySide2 import QtCore, QtGui
 
 CONFIG_NAME = "config.json"
 DEFAULT_MAX_WIDTH = 200

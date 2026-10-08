@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6 import QtCore, QtNetwork
+from PySide2 import QtCore, QtNetwork
 
 logger = logging.getLogger(__name__)
 

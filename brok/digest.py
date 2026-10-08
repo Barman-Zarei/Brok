@@ -16,7 +16,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui
+from PySide2 import QtCore, QtGui
 
 if __package__:
     from . import activity as activity_mod

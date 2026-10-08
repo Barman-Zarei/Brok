@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 
 from PIL import Image
-from PySide6 import QtCore, QtWidgets
+from PySide2 import QtCore, QtWidgets
 
 from brok import char_catalog
 from brok.ai_char_ui import AICharDialog

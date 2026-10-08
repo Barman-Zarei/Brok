@@ -1,2 +1,6 @@
-pillow>=12.0.0
-pyside6>=6.10.0
+# Windows 7 branch: Qt 6 / PySide6 does not run on Windows 7, so this branch uses Qt 5.15 (PySide2) on Python 3.8-3.10.
+# Keep in sync with pyproject.toml (the source of truth); brok/qt5compat.py exposes PySide2 under the PySide6 name.
+pillow>=10.4
+PySide2==5.15.2.1
+pynput>=1.7; sys_platform != 'linux'
+python-xlib>=0.33; sys_platform == 'linux'

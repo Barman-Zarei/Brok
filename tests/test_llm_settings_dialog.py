@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6 import QtWidgets
+from PySide2 import QtWidgets
 
 from brok import llm_settings_ui
 
@@ -71,7 +71,7 @@ def test_switching_vendor_clears_stale_models(qapp):
 
 
 def test_long_model_names_get_tooltips(qapp):
-    from PySide6 import QtCore
+    from PySide2 import QtCore
 
     dialog = llm_settings_ui.LLMSettingsDialog(make_window())
     long_name = "meta-llama/llama-3.1-8b-instruct:free"

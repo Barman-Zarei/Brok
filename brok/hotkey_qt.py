@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from PySide6 import QtCore
+from PySide2 import QtCore
 
 from .hotkey import HotkeyManager
 

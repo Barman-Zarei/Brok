@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import math
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from . import config_store, paths
 

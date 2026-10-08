@@ -9,7 +9,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 # isort: off
 import brok  # noqa: F401,E402  (installs the PySide2 alias; must come before the first PySide6 import)
 import pytest  # noqa: E402
-from PySide6 import QtWidgets  # noqa: E402
+from PySide2 import QtWidgets  # noqa: E402
 # isort: on
 
 

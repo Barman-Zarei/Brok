@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6 import QtCore, QtWidgets
+from PySide2 import QtCore, QtWidgets
 
 if __package__:
     from . import calendar_ics, i18n

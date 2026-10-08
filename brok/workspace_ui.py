@@ -9,7 +9,7 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from . import i18n
 from .agent.builtin_tools import build_registry  # noqa: F401  (re-exported for tests)

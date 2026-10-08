@@ -9,7 +9,7 @@ lives right here on the board.
 
 from __future__ import annotations
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from . import activity as activity_mod
 from . import i18n, key_heatmap

@@ -12,13 +12,13 @@ to nothing. Everything below is the public part.
 
 ## Project overview
 
-`brok` is a desktop pet: a frameless, always-on-top, draggable PySide6 window
+`brok` is a desktop pet: a frameless, always-on-top, draggable Qt window (PySide2 on this branch, via brok/qt5compat.py)
 showing an animated character, plus a set of opt-in companions that speak through
 that character (reminders, a private activity diary, focus, GitHub notifications,
 ICS calendar reminders and an LLM chat).
 
 - Published on PyPI as `brok`; console entry point `brok.main:main`.
-- Requires Python 3.8 or newer. Hard dependencies are only PySide6 and Pillow,
+- Requires Python 3.8-3.10. Hard dependencies are only PySide2 (Qt 5.15) and Pillow,
   plus a key/click counter: `pynput` off Linux, `python-xlib` on Linux.
 - Prebuilt Windows/macOS binaries and a `.deb`/AppImage are built by the workflows
   in `.github/workflows/`.

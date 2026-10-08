@@ -6,7 +6,7 @@ Brok desktop overlay with GIF animation from ZIP archives, PySide6 transparent o
 - Right click → Quit.
 
 Dependencies:
-pip install PySide6
+pip install PySide2   # Qt 5.15 (Windows 7); PySide6 is aliased by brok/qt5compat.py
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ else:
     update_check = importlib.import_module("brok.update_check")
     updater = importlib.import_module("brok.updater")
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from brok.display import (  # noqa: E402,F401
     ensure_virtual_monitor,
@@ -188,7 +188,7 @@ def load_packaged_images(
             logger.info(f"Extracted {gif_file_name} from {char_path.name}")
     except zipfile.BadZipFile as exc:
         raise ValueError(f"Invalid char archive: {char_path}") from exc
-    
+
     # Build the animated movie straight from the GIF bytes in memory.
     movie = movie_from_gif_bytes(gif_data)
     movie.jumpToFrame(0)
@@ -221,14 +221,14 @@ def load_config(screen_width: int, screen_height: int, window_width: int, window
     default_x = screen_width - window_width - DEFAULT_POSITION_OFFSET_X
     default_y = screen_height - window_height - DEFAULT_POSITION_OFFSET_Y
     config_data = {'x': default_x, 'y': default_y}
-    
+
     if not CFG_FILE.exists():
         return config_data
-    
+
     try:
         config = configparser.ConfigParser()
         config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        
+
         if 'window' in config:
             if 'x' in config['window']:
                 config_data['x'] = int(config['window']['x'])
@@ -236,7 +236,7 @@ def load_config(screen_width: int, screen_height: int, window_width: int, window
                 config_data['y'] = int(config['window']['y'])
     except Exception as e:
         logger.error(f"Config load error: {e}")
-    
+
     return config_data
 
 
@@ -244,22 +244,22 @@ def save_config(config: dict) -> None:
     """Save configuration to INI file."""
     try:
         CFG_DIR.mkdir(parents=True, exist_ok=True)
-        
+
         # Read existing config if it exists
         file_config = configparser.ConfigParser()
         if CFG_FILE.exists():
             file_config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        
+
         # Ensure [window] section exists
         if 'window' not in file_config:
             file_config.add_section('window')
-        
+
         # Update window position if provided
         if 'x' in config:
             file_config['window']['x'] = str(config['x'])
         if 'y' in config:
             file_config['window']['y'] = str(config['y'])
-        
+
         # Write to file
         with open(CFG_FILE, 'w', encoding="utf-8") as f:
             file_config.write(f)
@@ -273,11 +273,11 @@ def load_image_from_ini() -> str | None:
     if not CFG_FILE.exists():
         logger.info("INI config not found, using default image")
         return None
-    
+
     try:
         config = configparser.ConfigParser()
         config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        
+
         if 'settings' in config and 'default_image' in config['settings']:
             image_name = config['settings']['default_image']
             logger.info(f"Loaded image from INI: {image_name}")
@@ -438,7 +438,7 @@ class UpdateSignals(QtCore.QObject):
 
 class BrokWindow(DialogsMixin, UpdateMixin, GeometryMixin, QtWidgets.QWidget):
     """Main Brok avatar window widget with PNG/GIF animation and dragging."""
-    
+
     def __init__(
         self,
         png_pixmap: QtGui.QPixmap,
@@ -453,7 +453,7 @@ class BrokWindow(DialogsMixin, UpdateMixin, GeometryMixin, QtWidgets.QWidget):
         app_instance = QtWidgets.QApplication.instance()
         if app_instance is not None:
             platform_name = (app_instance.platformName() or "").lower()
-        
+
         # Window flags for transparent, frameless, always-on-top window
         # Qt.Window (not Qt.Tool) so Brok gets an entry in the taskbar /
         # program list at startup — Tool windows are hidden from it.
@@ -1088,7 +1088,7 @@ class BrokWindow(DialogsMixin, UpdateMixin, GeometryMixin, QtWidgets.QWidget):
 
 
 
-    
+
     def schedule_next_animation(self) -> None:
         """Schedule the next PNG -> GIF transition with a single-shot timer."""
         delay_ms = max(0, int(self.wait_time * 1000))
@@ -1352,7 +1352,7 @@ def main() -> None:
     i18n.load_language(CFG_FILE)
 
     llm_context = llm.initialize(args)
-    
+
     # Suppress Qt D-Bus warnings on Linux
     os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.theme.gnome=false")
     os.environ.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", "")
@@ -1399,7 +1399,7 @@ def main() -> None:
     except Exception as e:
         logger.error(f"Failed to initialize Qt application: {e}")
         sys.exit(1)
-    
+
     # Single instance: a second launch must not spawn a second cat. Hold the
     # lock for the whole process lifetime (it is released when the process
     # exits). A lock left by a crashed instance is reclaimed automatically
@@ -1418,19 +1418,19 @@ def main() -> None:
         """Handle Ctrl+C gracefully."""
         logger.info("\nReceived interrupt signal, shutting down...")
         app.quit()
-    
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     # Allow signal handling during Qt event loop
     timer = QtCore.QTimer()
     timer.timeout.connect(lambda: None)  # Allow Python signal handlers to run
     timer.start(100)  # Check every 100ms
-    
+
     # Scan for available ZIP files
     available_images = scan_chars()
     logger.info(f"Found {len(available_images)} ZIP archive(s): {', '.join(available_images)}")
-    
+
     # Load default image from INI if no image path provided
     default_image = None
     if not args.image:
@@ -1438,7 +1438,7 @@ def main() -> None:
         if default_image and default_image not in available_images:
             logger.warning(f"Image '{default_image}' from INI not found in available images, using default image")
             default_image = None
-    
+
     # Resolve the chosen char's ZIP, then branch on format: a new interactive
     # pack (static/blink/eyes/config) or a legacy single-GIF char.
     try:
@@ -1463,7 +1463,7 @@ def main() -> None:
         sys.exit(2)
     if llm_context:
         llm.attach(window, llm_context)
-    
+
     if args.pos:
         window.move(args.pos[0], args.pos[1])
 

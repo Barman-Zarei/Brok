@@ -30,7 +30,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from PySide6 import QtCore, QtGui, QtWidgets  # noqa: E402
+from PySide2 import QtCore, QtGui, QtWidgets  # noqa: E402
 
 import brok.main as cat  # noqa: E402
 

@@ -1,0 +1,216 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 53e5a2c..fa7152f 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -64,12 +64,12 @@ jobs:
+     strategy:
+       fail-fast: false
+       matrix:
+-        os: [windows-latest, macos-latest]
++        os: [windows-latest]   # PySide2 5.15.2.1 has no macOS arm64 wheel; this branch targets Windows 7
+     steps:
+       - uses: actions/checkout@v5
+       - uses: actions/setup-python@v6
+         with:
+-          python-version: "3.12"
++          python-version: "3.8"   # requires-python is >=3.8,<3.11 (PySide2 5.15.2.1)
+       - name: Install package + dev tools
+         run: |
+           python -m pip install --upgrade pip
+diff --git a/CLAUDE.md b/CLAUDE.md
+index e3be7fc..f392e75 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -12,13 +12,13 @@ to nothing. Everything below is the public part.
+ 
+ ## Project overview
+ 
+-`brok` is a desktop pet: a frameless, always-on-top, draggable PySide6 window
++`brok` is a desktop pet: a frameless, always-on-top, draggable Qt window (PySide2 on this branch, via brok/qt5compat.py)
+ showing an animated character, plus a set of opt-in companions that speak through
+ that character (reminders, a private activity diary, focus, GitHub notifications,
+ ICS calendar reminders and an LLM chat).
+ 
+ - Published on PyPI as `brok`; console entry point `brok.main:main`.
+-- Requires Python 3.8 or newer. Hard dependencies are only PySide6 and Pillow,
++- Requires Python 3.8-3.10. Hard dependencies are only PySide2 (Qt 5.15) and Pillow,
+   plus a key/click counter: `pynput` off Linux, `python-xlib` on Linux.
+ - Prebuilt Windows/macOS binaries and a `.deb`/AppImage are built by the workflows
+   in `.github/workflows/`.
+diff --git a/Dockerfile b/Dockerfile
+index 5825842..b8dd84a 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM --platform=$BUILDPLATFORM python:3.11-slim
++FROM --platform=$BUILDPLATFORM python:3.8-slim
+ 
+ WORKDIR /app
+ 
+diff --git a/README.md b/README.md
+index ef2865c..ac53b05 100644
+--- a/README.md
++++ b/README.md
+@@ -44,8 +44,8 @@ export ANTHROPIC_API_KEY=...  # optional, for Claude  (or use Ollama: ollama pul
+ brok-agent doctor             # check providers
+ brok-agent --project . ask "این پروژه چه کاری انجام می‌دهد؟"
+ ```
+-Python 3.8 uses PySide6 6.6.3 / Pillow 10.4 (see [docs/PYTHON_COMPATIBILITY.md](docs/PYTHON_COMPATIBILITY.md));
+-3.8 is end-of-life, prefer 3.10+ when you can. More: [configuration](docs/configuration.md),
++This branch uses Qt 5.15 via PySide2 5.15.2.1 / Pillow 10.4 on Python 3.8-3.10 so it runs on Windows 7
++(see [docs/PYTHON_COMPATIBILITY.md](docs/PYTHON_COMPATIBILITY.md)); 3.8 is end-of-life, but Windows 7 cannot run newer Python. More: [configuration](docs/configuration.md),
+ [architecture](docs/architecture.md), [AI](docs/ai.md), [coding agent](docs/coding-agent.md),
+ [privacy](docs/privacy.md), [plugins](docs/plugins.md), [development](docs/development.md),
+ [troubleshooting](docs/troubleshooting.md).
+@@ -88,9 +88,9 @@ docker compose -f docker-compose.mac.yml up
+ - Make sure `~/.config/brok/` exists and is writable; the config file is `~/.config/brok/config.ini`.
+ 
+ **Windows / launch issues** 🪟
+-- Need Python ≥ 3.10 (`python --version`) for the pip install, or just use the prebuilt `.exe`.
++- Need Python 3.8–3.10 (`python --version`) for the pip install (Windows 7 tops out at 3.8), or just use the prebuilt `.exe`.
+ - From the repo you can also launch with `run.bat` (Windows) or `run.sh` (Linux/macOS).
+-- Verify PySide6: `python -c "import PySide6; print('PySide6 OK')"`.
++- Verify Qt: `python -c "import PySide2; print('PySide2 OK')"` (this branch ships Qt 5.15; `PySide6` is only an internal alias).
+ 
+ **Permission errors** 🔒
+ - On Linux prefer a user install over `sudo` (`pip install --user brok`).
+diff --git a/brok.spec b/brok.spec
+index 9ff9de5..5061ef2 100644
+--- a/brok.spec
++++ b/brok.spec
+@@ -14,8 +14,17 @@
+ import sys
+ from pathlib import Path
+ 
++import importlib.util
++
+ from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+ 
++# WIN7 branch: the Qt binding is PySide2 (Qt 5.15); the code imports it as `PySide6` through brok/qt5compat.py. That
++# alias is created at run time, so PyInstaller cannot see it: name the real binding explicitly and exclude the other
++# one so the frozen app never bundles two Qt copies.
++QT_BINDING = "PySide6" if importlib.util.find_spec("PySide6") else "PySide2"
++QT_OTHER = "PySide2" if QT_BINDING == "PySide6" else "PySide6"
++QT_MODULES = [f"{QT_BINDING}.{m}" for m in ("QtCore", "QtGui", "QtWidgets", "QtNetwork")]
++
+ # Make the in-tree `brok` package importable while the spec is evaluated, so
+ # collect_submodules() below can enumerate it even when the package is not
+ # pip-installed in the build environment.
+@@ -81,10 +90,10 @@ a = Analysis(
+     # string import PyInstaller's static analysis cannot follow. Without this
+     # the exe dies at startup with `ModuleNotFoundError: No module named
+     # 'brok.llm'`.
+-    hiddenimports=collect_submodules('brok') + ['PySide2.QtCore', 'PySide2.QtGui', 'PySide2.QtWidgets', 'PySide2.QtNetwork'],
++    hiddenimports=collect_submodules('brok') + QT_MODULES,
+     hookspath=[],
+     runtime_hooks=[],
+-    excludes=[],
++    excludes=[QT_OTHER],
+     win_no_prefer_redirects=False,
+     win_private_assemblies=False,
+     noarchive=False,
+diff --git a/brok/agent/project.py b/brok/agent/project.py
+index a16d1c5..fb3bf01 100644
+--- a/brok/agent/project.py
++++ b/brok/agent/project.py
+@@ -59,6 +59,7 @@ def detect_project(root: str) -> ProjectInfo:
+             ("Flask", "flask"),
+             ("FastAPI", "fastapi"),
+             ("PySide6", "pyside6"),
++            ("PySide2", "pyside2"),
+             ("Kivy", "kivy"),
+         ):
+             if key in low:
+diff --git a/brok/main.py b/brok/main.py
+index 5b13e13..26e2738 100644
+--- a/brok/main.py
++++ b/brok/main.py
+@@ -6,7 +6,7 @@ Brok desktop overlay with GIF animation from ZIP archives, PySide6 transparent o
+ - Right click → Quit.
+ 
+ Dependencies:
+-pip install PySide6
++pip install PySide2   # Qt 5.15 (Windows 7); PySide6 is aliased by brok/qt5compat.py
+ """
+ 
+ from __future__ import annotations
+diff --git a/brok/qt5compat.py b/brok/qt5compat.py
+index a1f2b35..6e26026 100644
+--- a/brok/qt5compat.py
++++ b/brok/qt5compat.py
+@@ -42,9 +42,14 @@ def install() -> bool:
+ 
+     module = type(sys)("PySide6")
+     font_families = QtGui.QFontDatabase.families
+-    QtGui.QFontDatabase.families = staticmethod(  # type: ignore[assignment]
+-        lambda *args: font_families(QtGui.QFontDatabase(), *args)
+-    )
++
++    def _families(*args):  # type: ignore[no-untyped-def]
++        # Qt 5 aborts when a QFontDatabase is built before the QGuiApplication exists; Qt 6 returns a list.
++        if QtGui.QGuiApplication.instance() is None:
++            return []
++        return font_families(QtGui.QFontDatabase(), *args)
++
++    QtGui.QFontDatabase.families = staticmethod(_families)  # type: ignore[assignment]
+ 
+     submodules = {"QtCore": QtCore, "QtGui": QtGui, "QtWidgets": QtWidgets, "QtNetwork": QtNetwork}
+     module.__dict__.update(__version__=PySide2.__version__, **submodules)
+diff --git a/docs/BASELINE.md b/docs/BASELINE.md
+index 683e5b9..0f8fe54 100644
+--- a/docs/BASELINE.md
++++ b/docs/BASELINE.md
+@@ -4,7 +4,7 @@ Source: https://github.com/yumiaura/myCat (287 commits). Audited in a Linux sand
+ 
+ ## Architecture
+ - Single package `mycat/`, ~37 top-level definitions in `main.py` (2447 lines, god-module: window, overlay, tray, wiring).
+-- Stack: PySide6>=6.10, Pillow>=12, pynput (Win/mac) / python-xlib (Linux). Extras: `secure` (keyring), `calendar` (icalendar).
++- Stack: PySide2==5.15.2.1 (WIN7 branch; main uses PySide6>=6.10), Pillow>=10.4, pynput (Win/mac) / python-xlib (Linux). Extras: `secure` (keyring), `calendar` (icalendar).
+ - Features: draggable always-on-top character, char packs (zip), reminders, activity diary + key heatmap, focus, GitHub notifications, ICS calendar, shop, updater, localization (en/ko/ru/zh), speech bubbles.
+ - AI today: `llm_vendors.py` (Ollama + OpenAI-compatible chat, env/keyring keys), `llm_ui.py` (ChatDialog, LLMWorker QRunnable), `ai_backends.py` (image generation only: OpenAI/A1111/ComfyUI). **No Claude provider, no tools, no agent, no memory, no Persian locale.**
+ - CI: ci.yml, publish, AppImage/deb/snap/binary release workflows. Docker + PyInstaller spec present.
+diff --git a/docs/FINAL_REPORT.md b/docs/FINAL_REPORT.md
+index c2626a9..962c04f 100644
+--- a/docs/FINAL_REPORT.md
++++ b/docs/FINAL_REPORT.md
+@@ -45,7 +45,7 @@ README in RU/CN/KO/ID/FA rewritten for Brok · one real bug found by mypy and fi
+ ## How to run
+ `pip install .` → `brok` (GUI) · `brok-agent --project . ask "..."` · `brok-agent doctor`.
+ Claude: `export ANTHROPIC_API_KEY=...` (or LLM… dialog). Ollama: `ollama serve && ollama pull llama3.1`.
+-Python 3.8 note: PySide6 6.6.3.1 and Pillow 10.4 are the newest wheels for 3.8 (pip picks them automatically).
++Python 3.8 note (WIN7 branch): PySide2 5.15.2.1 and Pillow 10.4 are used so the app runs on Windows 7.
+ 
+ ## Git
+ Branch `brok-migration`; remote `origin` = https://github.com/Barman-Zarei/Brok.git, `upstream` = yumiaura/myCat.
+diff --git a/docs/PYTHON_COMPATIBILITY.md b/docs/PYTHON_COMPATIBILITY.md
+index 2d0f6af..9992008 100644
+--- a/docs/PYTHON_COMPATIBILITY.md
++++ b/docs/PYTHON_COMPATIBILITY.md
+@@ -5,7 +5,7 @@
+ Earlier audit note claiming 3.8 was impossible was wrong; it was corrected after actually testing.
+ 
+ ## Pinned constraints on Python 3.8
+-- PySide6: newest installable wheel on 3.8 is **6.6.3.1** (6.7+ ship cp39+ wheels). pip picks it automatically; Python 3.9+ gets the latest PySide6.
++- Qt binding: this branch uses **PySide2 5.15.2.1** (Qt 5.15, the last Qt that runs on Windows 7). Its wheels exist for Python 3.8-3.10 only. PySide6 is not used here; `brok/qt5compat.py` aliases PySide2 as PySide6.
+ - Pillow: **10.4.x** is the last series supporting 3.8 (`pillow>=10.4`).
+ - Python 3.8 is end-of-life; it works, but gets no security fixes. Prefer 3.10+ when you can.
+ 
+@@ -19,4 +19,4 @@ Earlier audit note claiming 3.8 was impossible was wrong; it was corrected after
+ Planned AI features (Claude/Ollama over HTTP via stdlib or httpx) have no 3.8 blocker. Anything needing a newer-only dependency will be flagged and gated by a Python-version marker.
+ 
+ ## Verified
+-Full test suite (425 tests) passes on CPython 3.8.20 and 3.12.3 (offscreen Qt). PySide6 6.6.3.1 / Pillow 10.4 are what pip resolves on 3.8.
++Full test suite (425 tests) passes on CPython 3.8.20 and 3.12.3 (offscreen Qt). PySide2 5.15.2.1 / Pillow 10.4 are what pip resolves on 3.8 (WIN7 branch).
+diff --git a/requirements.txt b/requirements.txt
+index 567a782..9d27e48 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,2 +1,6 @@
+-pillow>=12.0.0
+-pyside6>=6.10.0
++# Windows 7 branch: Qt 6 / PySide6 does not run on Windows 7, so this branch uses Qt 5.15 (PySide2) on Python 3.8-3.10.
++# Keep in sync with pyproject.toml (the source of truth); brok/qt5compat.py exposes PySide2 under the PySide6 name.
++pillow>=10.4
++PySide2==5.15.2.1
++pynput>=1.7; sys_platform != 'linux'
++python-xlib>=0.33; sys_platform == 'linux'

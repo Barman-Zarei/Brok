@@ -6,7 +6,7 @@ import logging
 import os
 import threading
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from . import (
     char_catalog,

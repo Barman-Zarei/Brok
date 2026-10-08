@@ -7,7 +7,7 @@ import logging
 import os
 import time
 
-from PySide6 import QtCore, QtWidgets
+from PySide2 import QtCore, QtWidgets
 
 from . import i18n, llm_ollama, llm_openai_compat, llm_prompt, llm_vendors
 from .ui_theme import LIGHT_QSS

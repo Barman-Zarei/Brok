@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from . import autostart, i18n, menu_config, paths, update_check, updater
 

@@ -78,7 +78,7 @@ def test_persian_locale_complete_and_rtl():
 
 
 def test_rtl_layout_direction_applied():
-    from PySide6 import QtCore, QtWidgets
+    from PySide2 import QtCore, QtWidgets
 
     from brok import i18n
 

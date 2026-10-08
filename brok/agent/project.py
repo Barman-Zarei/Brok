@@ -59,6 +59,7 @@ def detect_project(root: str) -> ProjectInfo:
             ("Flask", "flask"),
             ("FastAPI", "fastapi"),
             ("PySide6", "pyside6"),
+            ("PySide2", "pyside2"),
             ("Kivy", "kivy"),
         ):
             if key in low:

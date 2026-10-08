@@ -45,7 +45,7 @@ README in RU/CN/KO/ID/FA rewritten for Brok · one real bug found by mypy and fi
 ## How to run
 `pip install .` → `brok` (GUI) · `brok-agent --project . ask "..."` · `brok-agent doctor`.
 Claude: `export ANTHROPIC_API_KEY=...` (or LLM… dialog). Ollama: `ollama serve && ollama pull llama3.1`.
-Python 3.8 note: PySide6 6.6.3.1 and Pillow 10.4 are the newest wheels for 3.8 (pip picks them automatically).
+Python 3.8 note (WIN7 branch): PySide2 5.15.2.1 and Pillow 10.4 are used so the app runs on Windows 7.
 
 ## Git
 Branch `brok-migration`; remote `origin` = https://github.com/Barman-Zarei/Brok.git, `upstream` = yumiaura/myCat.

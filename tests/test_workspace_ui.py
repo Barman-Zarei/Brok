@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 
 import pytest
-from PySide6 import QtCore, QtWidgets
+from PySide2 import QtCore, QtWidgets
 
 from brok.agent.builtin_tools import build_registry
 from brok.agent.loop import Limits

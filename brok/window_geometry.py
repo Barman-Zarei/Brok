@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from . import display as _display
 
@@ -64,7 +64,7 @@ class GeometryMixin:
             x, y, union, fallback_x, fallback_y,
         )
         return fallback_x, fallback_y
-    
+
     def save_position(self) -> None:
         """Save current window position to config."""
         pos = self.pos()

@@ -4,7 +4,7 @@ Source: https://github.com/yumiaura/myCat (287 commits). Audited in a Linux sand
 
 ## Architecture
 - Single package `mycat/`, ~37 top-level definitions in `main.py` (2447 lines, god-module: window, overlay, tray, wiring).
-- Stack: PySide6>=6.10, Pillow>=12, pynput (Win/mac) / python-xlib (Linux). Extras: `secure` (keyring), `calendar` (icalendar).
+- Stack: PySide2==5.15.2.1 (WIN7 branch; main uses PySide6>=6.10), Pillow>=10.4, pynput (Win/mac) / python-xlib (Linux). Extras: `secure` (keyring), `calendar` (icalendar).
 - Features: draggable always-on-top character, char packs (zip), reminders, activity diary + key heatmap, focus, GitHub notifications, ICS calendar, shop, updater, localization (en/ko/ru/zh), speech bubbles.
 - AI today: `llm_vendors.py` (Ollama + OpenAI-compatible chat, env/keyring keys), `llm_ui.py` (ChatDialog, LLMWorker QRunnable), `ai_backends.py` (image generation only: OpenAI/A1111/ComfyUI). **No Claude provider, no tools, no agent, no memory, no Persian locale.**
 - CI: ci.yml, publish, AppImage/deb/snap/binary release workflows. Docker + PyInstaller spec present.

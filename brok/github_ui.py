@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import os
 
-from PySide6 import QtCore, QtWidgets
+from PySide2 import QtCore, QtWidgets
 
 if __package__:
     from . import github_notify, i18n

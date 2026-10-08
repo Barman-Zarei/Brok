@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui
+from PySide2 import QtCore, QtGui
 
 if __package__:
     from . import activity_store, config_store, key_heatmap, paths

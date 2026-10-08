@@ -12,7 +12,7 @@ import logging
 import os
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from . import ai_backends, ai_char, char_catalog, i18n, secret_store
 from .ui_theme import LIGHT_QSS

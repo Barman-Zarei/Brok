@@ -1,0 +1,52 @@
+diff --git a/.github/workflows/build-all.yml b/.github/workflows/build-all.yml
+index 77ff798..e5a5860 100644
+--- a/.github/workflows/build-all.yml
++++ b/.github/workflows/build-all.yml
+@@ -29,7 +29,7 @@ jobs:
+         shell: bash
+         run: |
+           python -m pip install --upgrade pip
+-          pip install pyinstaller
++          pip install "pyinstaller>=6.6,<7"
+           pip install -e .
+           [ -z "$EXTRA_PIP" ] || pip install $EXTRA_PIP
+       - name: Build
+@@ -55,7 +55,7 @@ jobs:
+       - name: Install
+         run: |
+           python -m pip install --upgrade pip
+-          pip install pyinstaller
++          pip install "pyinstaller>=6.6,<7"
+           pip install -e .
+           [ -z "$EXTRA_PIP" ] || pip install $EXTRA_PIP
+       - name: Build
+@@ -85,7 +85,7 @@ jobs:
+       - name: Install
+         run: |
+           python -m pip install --upgrade pip
+-          pip install pyinstaller
++          pip install "pyinstaller>=6.6,<7"
+           pip install -e .
+           [ -z "$EXTRA_PIP" ] || pip install $EXTRA_PIP
+       - name: Build
+diff --git a/Dockerfile b/Dockerfile
+index 5825842..b8dd84a 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM --platform=$BUILDPLATFORM python:3.11-slim
++FROM --platform=$BUILDPLATFORM python:3.8-slim
+ 
+ WORKDIR /app
+ 
+diff --git a/requirements.txt b/requirements.txt
+index 567a782..17065ae 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,2 +1,4 @@
+-pillow>=12.0.0
+-pyside6>=6.10.0
++# Keep in sync with pyproject.toml. On Python 3.8 pip resolves PySide6 6.6.3.1 and Pillow 10.4.x automatically
++# (newer releases require Python 3.9/3.10+).
++pillow>=10.4
++pyside6>=6.6.3

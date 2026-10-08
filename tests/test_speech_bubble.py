@@ -7,7 +7,7 @@ Reminder entry in *Show in menu* ticks the same box (handled in the dialog).
 
 from __future__ import annotations
 
-from PySide6 import QtWidgets
+from PySide2 import QtWidgets
 
 from brok import speech_bubble
 

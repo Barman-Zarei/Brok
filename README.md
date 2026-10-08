@@ -44,8 +44,8 @@ export ANTHROPIC_API_KEY=...  # optional, for Claude  (or use Ollama: ollama pul
 brok-agent doctor             # check providers
 brok-agent --project . ask "این پروژه چه کاری انجام می‌دهد؟"
 ```
-Python 3.8 uses PySide6 6.6.3 / Pillow 10.4 (see [docs/PYTHON_COMPATIBILITY.md](docs/PYTHON_COMPATIBILITY.md));
-3.8 is end-of-life, prefer 3.10+ when you can. More: [configuration](docs/configuration.md),
+This branch uses Qt 5.15 via PySide2 5.15.2.1 / Pillow 10.4 on Python 3.8-3.10 so it runs on Windows 7
+(see [docs/PYTHON_COMPATIBILITY.md](docs/PYTHON_COMPATIBILITY.md)); 3.8 is end-of-life, but Windows 7 cannot run newer Python. More: [configuration](docs/configuration.md),
 [architecture](docs/architecture.md), [AI](docs/ai.md), [coding agent](docs/coding-agent.md),
 [privacy](docs/privacy.md), [plugins](docs/plugins.md), [development](docs/development.md),
 [troubleshooting](docs/troubleshooting.md).
@@ -88,9 +88,9 @@ docker compose -f docker-compose.mac.yml up
 - Make sure `~/.config/brok/` exists and is writable; the config file is `~/.config/brok/config.ini`.
 
 **Windows / launch issues** 🪟
-- Need Python ≥ 3.10 (`python --version`) for the pip install, or just use the prebuilt `.exe`.
+- Need Python 3.8–3.10 (`python --version`) for the pip install (Windows 7 tops out at 3.8), or just use the prebuilt `.exe`.
 - From the repo you can also launch with `run.bat` (Windows) or `run.sh` (Linux/macOS).
-- Verify PySide6: `python -c "import PySide6; print('PySide6 OK')"`.
+- Verify Qt: `python -c "import PySide2; print('PySide2 OK')"` (this branch ships Qt 5.15; `PySide6` is only an internal alias).
 
 **Permission errors** 🔒
 - On Linux prefer a user install over `sudo` (`pip install --user brok`).

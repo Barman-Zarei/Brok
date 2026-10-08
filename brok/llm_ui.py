@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 from . import i18n, llm_prompt
 from .quick import route as route_quick_command

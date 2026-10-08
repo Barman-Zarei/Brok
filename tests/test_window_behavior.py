@@ -8,7 +8,7 @@ import math
 import zipfile
 
 from PIL import Image
-from PySide6 import QtCore, QtGui
+from PySide2 import QtCore, QtGui
 
 import brok.main as m
 from brok import char_pack

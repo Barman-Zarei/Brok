@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 
-from PySide6 import QtCore, QtWidgets
+from PySide2 import QtCore, QtWidgets
 
 logger = logging.getLogger(__name__)
 

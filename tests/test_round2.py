@@ -5,7 +5,7 @@ import time
 
 import pytest
 from PIL import Image
-from PySide6 import QtWidgets
+from PySide2 import QtWidgets
 
 from brok import chat_commands, llm_prompt
 from brok.agent.builtin_tools import build_registry

@@ -42,9 +42,14 @@ def install() -> bool:
 
     module = type(sys)("PySide6")
     font_families = QtGui.QFontDatabase.families
-    QtGui.QFontDatabase.families = staticmethod(  # type: ignore[assignment]
-        lambda *args: font_families(QtGui.QFontDatabase(), *args)
-    )
+
+    def _families(*args):  # type: ignore[no-untyped-def]
+        # Qt 5 aborts when a QFontDatabase is built before the QGuiApplication exists; Qt 6 returns a list.
+        if QtGui.QGuiApplication.instance() is None:
+            return []
+        return font_families(QtGui.QFontDatabase(), *args)
+
+    QtGui.QFontDatabase.families = staticmethod(_families)  # type: ignore[assignment]
 
     submodules = {"QtCore": QtCore, "QtGui": QtGui, "QtWidgets": QtWidgets, "QtNetwork": QtNetwork}
     module.__dict__.update(__version__=PySide2.__version__, **submodules)

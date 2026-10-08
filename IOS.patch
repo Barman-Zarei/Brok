@@ -1,0 +1,213 @@
+diff --git a/.github/workflows/build-ios.yml b/.github/workflows/build-ios.yml
+index b700750..61ed3ad 100644
+--- a/.github/workflows/build-ios.yml
++++ b/.github/workflows/build-ios.yml
+@@ -5,7 +5,8 @@ name: Build iOS (Xcode project / unsigned archive)
+ # Simulator, no third-party C-extension wheels). This workflow performs the documented steps and stops where Qt
+ # says a human must act:
+ #   1. install Qt for macOS + iOS (aqtinstall) and cross-compile PySide6 for ios_arm64   -> uploaded as an artefact
+-#   2. if `pyside6-ios.toml` exists in the repository: generate the Xcode project and build an UNSIGNED archive
++#   2. `pyside6-ios.toml` is REQUIRED: without it the run fails (no silent green run); with it, generate the Xcode
++#      project and build an UNSIGNED archive
+ #   3. installing on a device or the App Store needs YOUR Apple Developer account + signing: not done here.
+ 
+ on:
+@@ -46,12 +47,26 @@ jobs:
+           python -m pip install -r pyside-setup/requirements.txt
+           python pyside-setup/tools/cross_compile_ios/main.py build --qt-install-path "$HOME/Qt/${{ inputs.qt_version }}"
+ 
+-      - name: Generate the Xcode project and build an unsigned archive
++      # Upload what was built so far even if the next step fails (the cross-compiled PySide6 is the slow part).
++      - uses: actions/upload-artifact@v4
++        if: always()
++        with:
++          name: brok-ios-pyside-wheels
++          path: |
++            **/PySide6*.whl
++            **/shiboken6*.whl
++          if-no-files-found: warn
++
++      # No pyside6-ios.toml = no Xcode project = no app. That must be a RED run, not a green one with nothing in it.
++      - name: Require pyside6-ios.toml
+         run: |
+           if [ ! -f pyside6-ios.toml ]; then
+-            echo "::notice::pyside6-ios.toml not found: skipping Xcode project generation (see docs/BRANCH.md)."
+-            exit 0
++            echo "::error::pyside6-ios.toml is missing: Qt's generator cannot create the Xcode project without it. Write it by hand (Qt's blog 'Bringing PySide6 on iOS' / pyside-setup/tools/cross_compile_ios) and commit it to this branch."
++            exit 1
+           fi
++
++      - name: Generate the Xcode project and build an unsigned archive
++        run: |
+           python pyside-setup/tools/cross_compile_ios/main.py generate -c pyside6-ios.toml
+           proj="$(find . -name '*.xcodeproj' -maxdepth 4 | head -1)"
+           [ -n "$proj" ] || { echo "::error::no .xcodeproj was generated"; exit 1; }
+@@ -61,8 +76,5 @@ jobs:
+       - uses: actions/upload-artifact@v4
+         with:
+           name: brok-ios
+-          path: |
+-            build/Brok.xcarchive
+-            **/PySide6*.whl
+-            **/shiboken6*.whl
+-          if-no-files-found: warn
++          path: build/Brok.xcarchive
++          if-no-files-found: error
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 3093f8c..68307bd 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -11,7 +11,7 @@ jobs:
+     strategy:
+       fail-fast: false
+       matrix:
+-        python-version: ["3.8", "3.10", "3.12", "3.13"]
++        python-version: ["3.10", "3.12", "3.13"]
+     steps:
+       - uses: actions/checkout@v5
+ 
+diff --git a/brok/mobile.py b/brok/mobile.py
+index 840d031..e4c84eb 100644
+--- a/brok/mobile.py
++++ b/brok/mobile.py
+@@ -24,6 +24,24 @@ def workspace_dir() -> Path:
+     return d
+ 
+ 
++def _use_app_data_dir_if_home_unwritable(app_name: str = "Brok") -> None:
++    """Point the config at Qt's per-app data dir when ``$HOME`` is missing or read-only (common in app sandboxes)."""
++    if os.environ.get("BROK_CONFIG_DIR") or os.environ.get("ANDROID_PRIVATE"):
++        return
++    try:
++        home_ok = os.access(Path.home(), os.W_OK)
++    except (RuntimeError, OSError):  # Path.home() raises when HOME is unset and there is no passwd entry
++        home_ok = False
++    if home_ok:
++        return
++    from PySide6 import QtCore
++
++    QtCore.QCoreApplication.setApplicationName(app_name)
++    base = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.AppDataLocation)
++    if base:
++        os.environ["BROK_CONFIG_DIR"] = str(Path(base) / "config")
++
++
+ def main(argv: Sequence[str] | None = None, auto_quit_ms: int = 0) -> int:
+     """Start the mobile workspace. ``auto_quit_ms`` is only for tests (quit after N milliseconds)."""
+     os.environ.setdefault("BROK_PROFILE", "low-end")
+@@ -33,6 +51,7 @@ def main(argv: Sequence[str] | None = None, auto_quit_ms: int = 0) -> int:
+     from PySide6 import QtCore, QtWidgets
+ 
+     app = QtWidgets.QApplication(list(argv) if argv is not None else sys.argv)
++    _use_app_data_dir_if_home_unwritable()
+     from .workspace_ui import open_workspace
+ 
+     win = open_workspace(None, str(workspace_dir()))
+diff --git a/brok/paths.py b/brok/paths.py
+index d16447e..f24605b 100644
+--- a/brok/paths.py
++++ b/brok/paths.py
+@@ -10,6 +10,7 @@ per-OS conventional dirs; see ``activity_store.user_data_dir`` /
+ 
+ from __future__ import annotations
+ 
++import os
+ from pathlib import Path
+ 
+ APP_NAME = "brok"
+@@ -17,7 +18,17 @@ LEGACY_APP_NAME = "mycat"  # upstream name, read only for one-time migration
+ 
+ 
+ def config_dir() -> Path:
+-    """Directory holding ``config.ini`` (and the LLM history) — ``~/.config/brok``."""
++    """Directory holding ``config.ini`` (and the LLM history) — ``~/.config/brok``.
++
++    Two overrides exist for app sandboxes (Android/iOS), where ``$HOME`` may be unset or read-only:
++    ``BROK_CONFIG_DIR`` (explicit) and ``ANDROID_PRIVATE`` (set by python-for-android to the app's private dir).
++    """
++    override = os.environ.get("BROK_CONFIG_DIR")
++    if override:
++        return Path(override)
++    private = os.environ.get("ANDROID_PRIVATE")
++    if private:
++        return Path(private) / ".config" / APP_NAME
+     return Path.home() / ".config" / APP_NAME
+ 
+ 
+diff --git a/docs/BRANCH.md b/docs/BRANCH.md
+index 537ab1e..1b779be 100644
+--- a/docs/BRANCH.md
++++ b/docs/BRANCH.md
+@@ -24,3 +24,10 @@ Prepares an iOS build with Qt 6.12+'s PySide6 iOS tooling in `.github/workflows/
+ Verified here: the entry point starts headless, the workflow YAML parses. **Never run:** the workflow, the Xcode
+ project, any device. Whether Qt 6.12 is published for aqtinstall at your run time is unchecked.
+ 
++
++## Update (audit fixes)
++- The workflow now **fails** when `pyside6-ios.toml` is missing (it used to finish green with no app). Write that file by hand
++  (Qt's tooling has no generator for it yet; its schema is defined by Qt 6.12's `tools/cross_compile_ios`, which this repo
++  has not been able to verify) and commit it here.
++- Pillow/pynput are not installed on iOS (pyproject markers); the config dir falls back to the app data dir when `$HOME`
++  is not writable.
+diff --git a/pyproject.toml b/pyproject.toml
+index ecc17cf..581bce8 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -21,7 +21,7 @@ classifiers = [
+     "Operating System :: MacOS",
+ ]
+ dependencies = [
+-    "pillow>=10.4",
++    "pillow>=10.4; sys_platform != 'android' and sys_platform != 'ios'",
+     # 6.6.3.1 is the newest PySide6 wheel that installs on Python 3.8.
+     "pyside6>=6.6.3",
+     # Global key/click COUNTS (the key identity is discarded in the hook — only
+@@ -32,7 +32,7 @@ dependencies = [
+     #     pynput on Linux because it hard-requires `evdev`, a C extension with no
+     #     wheel that would make `pip install brok` fail to build without a
+     #     compiler. Off X11 (Wayland) it degrades to cursor-only.
+-    "pynput>=1.7; sys_platform != 'linux'",
++    "pynput>=1.7; sys_platform != 'linux' and sys_platform != 'android' and sys_platform != 'ios'",
+     "python-xlib>=0.33; sys_platform == 'linux'",
+ ]
+ 
+diff --git a/tests/test_mobile.py b/tests/test_mobile.py
+index 1b29b7d..2a26893 100644
+--- a/tests/test_mobile.py
++++ b/tests/test_mobile.py
+@@ -1,6 +1,8 @@
+ import os
++import subprocess
++import sys
+ 
+-from brok import mobile
++from brok import mobile, paths
+ 
+ 
+ def test_workspace_dir_is_created(tmp_path, monkeypatch):
+@@ -17,3 +19,25 @@ def test_mobile_app_starts_and_quits_headless(tmp_path, monkeypatch):
+     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+     assert mobile.main(["brok"], auto_quit_ms=300) == 0
+     assert os.environ["BROK_PROFILE"]  # the low-end profile is the mobile default
++
++
++def test_config_dir_overrides(tmp_path, monkeypatch):
++    monkeypatch.delenv("BROK_CONFIG_DIR", raising=False)
++    monkeypatch.setenv("ANDROID_PRIVATE", str(tmp_path / "private"))
++    assert paths.config_dir() == tmp_path / "private" / ".config" / "brok"
++    monkeypatch.setenv("BROK_CONFIG_DIR", str(tmp_path / "explicit"))
++    assert paths.config_dir() == tmp_path / "explicit"
++
++
++def test_mobile_entry_does_not_need_pillow_or_desktop_hooks(tmp_path):
++    """Pillow, pynput, Xlib and psutil have no Android/iOS wheels: the mobile entry point must start without them."""
++    code = (
++        "import sys\n"
++        "for m in ('PIL', 'pynput', 'Xlib', 'psutil'):\n"
++        "    sys.modules[m] = None\n"
++        "from brok import mobile\n"
++        "raise SystemExit(mobile.main(['brok'], auto_quit_ms=200))\n"
++    )
++    env = dict(os.environ, HOME=str(tmp_path), XDG_CONFIG_HOME=str(tmp_path), QT_QPA_PLATFORM="offscreen")
++    result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=60)
++    assert result.returncode == 0, result.stderr

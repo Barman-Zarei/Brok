@@ -25,7 +25,7 @@ import json
 import logging
 from pathlib import Path
 
-from PySide6 import QtGui, QtWidgets
+from PySide2 import QtGui, QtWidgets
 
 from . import config_store, paths
 
@@ -83,7 +83,7 @@ def is_rtl(code: str | None = None) -> bool:
 
 def apply_layout_direction(app) -> None:
     """Mirror every widget for right-to-left languages (Persian, Arabic, Hebrew, Urdu)."""
-    from PySide6 import QtCore
+    from PySide2 import QtCore
 
     app.setLayoutDirection(QtCore.Qt.RightToLeft if is_rtl() else QtCore.Qt.LeftToRight)
 

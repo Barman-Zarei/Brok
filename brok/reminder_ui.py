@@ -20,7 +20,7 @@ import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore, QtGui, QtWidgets
 
 if __package__:
     from . import i18n

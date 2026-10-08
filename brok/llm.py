@@ -8,7 +8,7 @@ import os
 from dataclasses import dataclass
 from typing import Protocol
 
-from PySide6 import QtWidgets
+from PySide2 import QtWidgets
 
 from . import llm_prompt, llm_ui, llm_vendors
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import logging
 
-from PySide6 import QtCore, QtGui
+from PySide2 import QtCore, QtGui
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ def get_gif_duration(movie: QtGui.QMovie, gif_data: bytes) -> tuple[float, list[
             estimated_delays = [100] * frame_count
             logger.debug(f"Using estimated duration: {frame_count} frames * 0.1s = {estimated_duration:.2f}s")
             return estimated_duration, estimated_delays
-        
+
         return 0.0, []
     except Exception as e:
         logger.debug(f"Could not calculate GIF duration: {e}")
@@ -93,30 +93,30 @@ def scale_pixmap_if_needed(pixmap: QtGui.QPixmap, max_width: int, max_height: in
     """
     original_width = pixmap.width()
     original_height = pixmap.height()
-    
+
     # Calculate scale factors for both dimensions
     width_scale = 1.0
     height_scale = 1.0
-    
+
     if original_width > max_width:
         width_scale = max_width / original_width
     if original_height > max_height:
         height_scale = max_height / original_height
-    
+
     # Use the smaller scale factor to ensure both constraints are met
     scale_factor = min(width_scale, height_scale)
-    
+
     # Only scale if needed
     if scale_factor < 1.0:
         new_width = int(original_width * scale_factor)
         new_height = int(original_height * scale_factor)
-        
+
         return pixmap.scaled(
             new_width, new_height,
             QtCore.Qt.AspectRatioMode.KeepAspectRatio,
             QtCore.Qt.TransformationMode.SmoothTransformation
         )
-    
+
     return pixmap
 
 

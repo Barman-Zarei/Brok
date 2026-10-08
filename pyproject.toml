@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brok"
-version = "0.7.0"
+version = "0.7.15"
 description = "Brok: a Persian-first AI desktop companion and permission-controlled coding agent (Qt overlay)"
 readme = "README.md"
 requires-python = ">=3.8,<3.11"

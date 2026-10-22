@@ -111,11 +111,17 @@ def test_quick_action_sends_selection_in_persian(app, tmp_path):
 
 def test_terminal_uses_the_sandbox(app, tmp_path):
     w, _ = make_window(tmp_path, [], lambda r: False)
-    w.cmd_input.setText("rm -rf /")
-    w.run_terminal_command()
+
+    def run(cmd: str) -> None:  # the terminal runs off the GUI thread: pump events until it reports back
+        w.cmd_input.setText(cmd)
+        w.run_terminal_command()
+        deadline = time.time() + 10
+        while w._terminal_busy and time.time() < deadline:
+            app.processEvents()
+
+    run("rm -rf /")
     assert "blocked" in w.output.toPlainText()
-    w.cmd_input.setText("git status")
-    w.run_terminal_command()
+    run("git status")
     assert "exit=" in w.output.toPlainText()
 
 

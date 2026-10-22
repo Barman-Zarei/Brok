@@ -37,6 +37,11 @@ All notable changes to this project are documented in this file.
   nested-quantifier regexes such as `(a+)+` (Python's `re` cannot be interrupted), caps scanned line length and stops
   after 30 s. Closing the window while a tool is still running no longer destroys a live `QThread`.
   `list_directory` shows `build/`, `dist/`, `target/`; env scrubbing also covers `PASSWD`/`COOKIE`/`PRIVATE`.
+- **Remaining findings**: the terminal panel runs commands on its own thread (a slow command no longer freezes the
+  window) and its approvals work with or without an agent running; pressing Stop while an approval prompt is open
+  reports `SKIPPED`, not "DENIED: the user did not approve"; `ANTHROPIC_API_KEY` now takes precedence over the
+  keyring (as documented, and as OpenAI already did); error messages no longer include a URL's query string or
+  credentials; the health scan reports a `.env` only when git does *not* ignore it, instead of flagging every `.env`.
 
 ## [0.2.0] - 2026-10-04
 

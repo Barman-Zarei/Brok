@@ -128,6 +128,8 @@ class ToolRegistry:
                 diff = spec.preview(arguments) if spec.preview else None
                 req = ApprovalRequest(name, arguments, risk, why, diff)
                 if self.policy.approver is None or not self.policy.approver(req):
+                    if self.cancel_event is not None and self.cancel_event.is_set():
+                        return "SKIPPED: not executed (run cancelled)."  # Stop pressed while the prompt was open
                     logger.info("tool %s denied (risk=%s)", name, risk.name)
                     return f"DENIED: the user did not approve '{name}'."
             logger.info("tool %s executing (risk=%s)", name, risk.name)

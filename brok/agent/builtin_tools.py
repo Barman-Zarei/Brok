@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import time
 from typing import Any, Callable, Iterator
 
 from .diff import unified_diff
@@ -15,6 +16,9 @@ from .tools import Confirm, PermissionPolicy, Risk, ToolError, ToolRegistry, Too
 from .workspace import SKIP_DIRS, Workspace
 
 MAX_READ = 200_000
+SEARCH_SECONDS = 30
+_NESTED_QUANTIFIER = re.compile(r"\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)\s*(?:[+*]|\{\d+,\d*\})")
+_LIST_HIDDEN = {".git", "node_modules", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"}
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-]{0,100}$")  # git ref/branch names: no leading '-' (option injection)
 
 
@@ -69,15 +73,21 @@ def build_registry(
             raise ToolError("not a directory")
         items = sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
         return (
-            "\n".join(("[dir] " if i.is_dir() else "") + i.name for i in items if i.name not in SKIP_DIRS) or "(empty)"
+            "\n".join(("[dir] " if i.is_dir() else "") + i.name for i in items if i.name not in _LIST_HIDDEN)
+            or "(empty)"
         )
 
     def search_text(pattern: str, path: str = ".", max_results: int = 50) -> str:
         base = ws.resolve(path, must_exist=True)
+        if _NESTED_QUANTIFIER.search(
+            pattern
+        ):  # (a+)+ style patterns can hang the whole agent (Python re can't be interrupted)
+            raise ToolError("regex rejected: nested quantifiers can hang the search; simplify the pattern")
         try:
             rx = re.compile(pattern)
         except re.error as exc:
             raise ToolError(f"bad regex: {exc}")
+        budget_end = time.monotonic() + SEARCH_SECONDS
 
         def candidates() -> Iterator[str]:
             if base.is_file():  # a single file is a valid search target
@@ -90,6 +100,9 @@ def build_registry(
 
         out: list[str] = []
         for fp in candidates():
+            if time.monotonic() > budget_end:
+                out.append("[search stopped: time limit reached]")
+                break
             try:
                 real = ws.resolve(os.path.relpath(fp, ws.root))
             except ToolError:  # e.g. a symlink pointing outside the project: skip it, keep searching
@@ -101,7 +114,7 @@ def build_registry(
                     continue
                 with open(real, encoding="utf-8", errors="ignore") as fh:
                     for i, line in enumerate(fh, 1):
-                        if rx.search(line):
+                        if rx.search(line[:5000]):
                             out.append(f"{os.path.relpath(fp, ws.root)}:{i}: {line.strip()[:200]}")
                             if len(out) >= max_results:
                                 return "\n".join(out)
@@ -127,6 +140,8 @@ def build_registry(
     def _preview_write(a: dict[str, Any]) -> str | None:
         try:
             p = ws.resolve(a["path"])
+            if p.is_file() and p.stat().st_size > MAX_READ * 5:
+                return None
             before = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
             return unified_diff(before, a["content"], a["path"])
         except (ToolError, KeyError, OSError):
@@ -271,7 +286,7 @@ def build_registry(
         v = classify_command(command)
         if v.level == BLOCKED:  # blocked commands never run, even if somehow approved
             raise ToolError("command blocked as dangerous: " + "; ".join(v.reasons))
-        r = run_command(command, str(ws.root), command_timeout)
+        r = run_command(command, str(ws.root), command_timeout, cancel=reg.cancel_event)
         return f"exit={r.returncode}\n{r.output}"
 
     def _project_cmd(kind: str) -> str:
@@ -279,7 +294,7 @@ def build_registry(
         cmd = {"test": info.test_command, "lint": info.lint_command, "format": info.format_command}[kind]
         if not cmd:
             raise ToolError(f"no {kind} command detected for this project")
-        r = run_command(cmd, str(ws.root), command_timeout)
+        r = run_command(cmd, str(ws.root), command_timeout, cancel=reg.cancel_event)
         return f"$ {cmd}\nexit={r.returncode}\n{r.output}"
 
     T = ToolSpec

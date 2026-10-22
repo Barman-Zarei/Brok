@@ -105,9 +105,12 @@ class AgentLoop:
     ) -> AgentResult:
         # NOTE: the cancel flag is cleared when the run *ends*, not when it starts, so a cancel() that arrives
         # just before run() begins is honoured instead of being lost.
+        prev = self.registry.cancel_event
+        self.registry.cancel_event = self._cancel  # lets a running command be killed by Stop
         try:
             return self._run(task, history, language, images)
         finally:
+            self.registry.cancel_event = prev
             self._cancel.clear()
 
     def _run(self, task: str, history: list[Message] | None, language: str, images: list[Any] | None) -> AgentResult:

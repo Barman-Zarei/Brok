@@ -5,6 +5,7 @@ from __future__ import annotations
 import enum
 import inspect
 import logging
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -80,6 +81,7 @@ class ToolRegistry:
     def __init__(self, policy: PermissionPolicy | None = None) -> None:
         self.policy = policy or PermissionPolicy()
         self._tools: dict[str, ToolSpec] = {}
+        self.cancel_event: threading.Event | None = None  # set by AgentLoop for the duration of a run
 
     def register(self, spec: ToolSpec) -> None:
         if spec.name in self._tools:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import socket
 import threading
 import urllib.error
 import urllib.request
@@ -28,6 +29,14 @@ class ProviderError(Exception):
     def __init__(self, message: str, *, retryable: bool = True) -> None:
         super().__init__(message)
         self.retryable = retryable
+
+
+def _abort_socket(resp: Any) -> None:
+    """Unblock a thread that is waiting in ``recv`` on this response (shutdown wakes it; close alone may not)."""
+    try:
+        resp.fp.raw._sock.shutdown(socket.SHUT_RDWR)
+    except Exception:  # noqa: BLE001 - best effort: no socket, already closed, TLS wrapper quirks
+        pass
 
 
 class UrllibTransport:
@@ -71,6 +80,16 @@ class UrllibTransport:
         self, url: str, headers: dict[str, str], body: dict[str, Any], cancel: threading.Event | None = None
     ) -> Iterator[str]:
         with self._open(url, headers, body) as resp:
+            done = threading.Event()
+            if cancel is not None:
+
+                def _watch() -> None:  # a silent server would otherwise block cancel until the socket timeout
+                    while not done.is_set():
+                        if cancel.wait(0.2):
+                            _abort_socket(resp)
+                            return
+
+                threading.Thread(target=_watch, daemon=True, name="brok-stream-cancel").start()
             try:
                 for raw in resp:
                     if cancel is not None and cancel.is_set():
@@ -78,5 +97,9 @@ class UrllibTransport:
                     line = raw.decode("utf-8", "replace").rstrip("\r\n")
                     if line:
                         yield line
-            except (OSError, http.client.HTTPException) as exc:  # reset, timeout or IncompleteRead mid-stream
+            except (OSError, ValueError, http.client.HTTPException) as exc:  # reset, timeout, IncompleteRead, closed
+                if cancel is not None and cancel.is_set():
+                    return  # we closed the socket ourselves
                 raise ProviderError(f"Connection lost while streaming: {exc}") from exc
+            finally:
+                done.set()

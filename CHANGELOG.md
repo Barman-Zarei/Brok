@@ -30,10 +30,13 @@ All notable changes to this project are documented in this file.
 - **Misc**: terminal-panel commands that need approval can be approved without a running agent; `خطا` selects DEBUG mode
   like `ارور` (Arabic ي/ك are normalised); the health scan no longer exempts files named `test_agent.py` and its
   duplicate-block window no longer skips the last block; the traceback parser understands `ExceptionGroup`.
-
-### Known limitations (not changed)
-- Cancel is noticed only when the provider sends a line or the socket times out (up to 120 s of silence); a running
-  tool cannot be interrupted mid-call. A stream that ends without a terminal marker is still treated as complete.
+- **Stop reaches blocking work**: cancelling now unblocks a stream whose server went silent (the socket is shut down
+  instead of waiting up to 120 s) and kills a running command together with everything it spawned (`run_command` is
+  polled every 0.2 s; the timeout kills the whole process group too). A stream that ends without its terminal marker
+  (`[DONE]` / `message_stop` / `done`) is now an error instead of a "complete" answer. `search_text` rejects
+  nested-quantifier regexes such as `(a+)+` (Python's `re` cannot be interrupted), caps scanned line length and stops
+  after 30 s. Closing the window while a tool is still running no longer destroys a live `QThread`.
+  `list_directory` shows `build/`, `dist/`, `target/`; env scrubbing also covers `PASSWD`/`COOKIE`/`PRIVATE`.
 
 ## [0.2.0] - 2026-10-04
 

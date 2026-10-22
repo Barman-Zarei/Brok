@@ -60,6 +60,7 @@ class OllamaProvider(AIProvider):
                 for t in tools
             ]
         n = 0
+        finished = False
         for line in self.transport.stream_lines(f"{self.host}/api/chat", {}, body, cancel):
             try:
                 obj = json.loads(line)
@@ -82,5 +83,8 @@ class OllamaProvider(AIProvider):
                     "tool_call", tool_call=ToolCall(f"ollama-{next(self._seq)}", fn.get("name", ""), args)
                 )
             if obj.get("done"):
+                finished = True
                 yield StreamEvent("done", stop_reason="tool_use" if n else obj.get("done_reason", "stop"))
                 return
+        if not finished and not (cancel is not None and cancel.is_set()):
+            raise ProviderError("The connection closed before the response was complete.")

@@ -480,6 +480,11 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
 
     # approval: tool runs in the worker thread; the dialog must run in the GUI thread
     def ask_from_worker(self, req: ApprovalRequest) -> bool:
+        if QtCore.QThread.currentThread() == self.thread():
+            # Called on the GUI thread (the terminal panel runs commands there, with no agent worker): ask directly.
+            if req.diff:
+                self.diff_view.setPlainText(req.diff)
+            return bool(self._show_approval(req))
         holder = _ApprovalHolder(req)
         if self.worker is None:
             return False

@@ -54,7 +54,7 @@ def analyze(root: str) -> HealthReport:
                 text = open(fp, encoding="utf-8", errors="ignore").read()
             except OSError:
                 continue
-            if redact(text) != text and fn != "test_agent.py":
+            if redact(text) != text:
                 rep.findings.append(Finding("security", "high", rel, "possible hard-coded secret"))
             if fn.endswith(".py"):
                 for m in re.finditer(r"^\s*except\s*:\s*$", text, re.M):
@@ -63,8 +63,9 @@ def analyze(root: str) -> HealthReport:
                     )
                 if re.search(r"\beval\(|\bexec\(|shell\s*=\s*True|pickle\.loads", text):
                     rep.findings.append(Finding("security", "medium", rel, "risky call (eval/exec/shell=True/pickle)"))
-                for i in range(0, len(text.splitlines()) - 8, 8):  # crude duplicate-block detector
-                    block = "\n".join(ln.strip() for ln in text.splitlines()[i : i + 8])
+                src_lines = text.splitlines()
+                for i in range(0, len(src_lines) - 7, 8):  # crude duplicate-block detector (8-line windows)
+                    block = "\n".join(ln.strip() for ln in src_lines[i : i + 8])
                     if len(block) > 160:
                         seen.setdefault(block, []).append(f"{rel}:{i + 1}")
     for locs in seen.values():

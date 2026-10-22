@@ -5,7 +5,7 @@ import os
 import threading
 from typing import Any, Callable, Iterator
 
-from ..messages import Message, StreamEvent, ToolCall, ToolSchema
+from ..messages import Message, StreamEvent, ToolCall, ToolSchema, parse_tool_args
 from ..transport import ProviderError, Transport
 from .base import AIProvider
 
@@ -76,7 +76,8 @@ class ClaudeProvider(AIProvider):
                     {"type": "image", "source": {"type": "base64", "media_type": i.media_type, "data": i.data}}
                     for i in m.images
                 ]
-                blocks.append({"type": "text", "text": m.content})
+                if m.content or not blocks:  # the API rejects empty text blocks (image-only messages)
+                    blocks.append({"type": "text", "text": m.content})
                 push("user", blocks)
         return out
 
@@ -110,7 +111,9 @@ class ClaudeProvider(AIProvider):
                 continue
             t = ev.get("type")
             if t == "error":
-                raise ProviderError("Claude: " + str(ev.get("error", {}).get("message", "unknown error")))
+                err = ev.get("error")
+                msg = err.get("message", "unknown error") if isinstance(err, dict) else err
+                raise ProviderError(f"Claude: {msg}")
             if t == "content_block_start":
                 cb = ev.get("content_block", {})
                 if cb.get("type") == "tool_use":
@@ -123,11 +126,7 @@ class ClaudeProvider(AIProvider):
                     blocks[ev["index"]]["json"] += d.get("partial_json", "")
             elif t == "content_block_stop" and ev.get("index") in blocks:
                 b = blocks.pop(ev["index"])
-                try:
-                    args = json.loads(b["json"]) if b["json"] else {}
-                except ValueError:
-                    args = {}
-                yield StreamEvent("tool_call", tool_call=ToolCall(b["id"], b["name"], args))
+                yield StreamEvent("tool_call", tool_call=ToolCall(b["id"], b["name"], parse_tool_args(b["json"])))
             elif t == "message_delta":
                 stop = ev.get("delta", {}).get("stop_reason") or stop
             elif t == "message_stop":

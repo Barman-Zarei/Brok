@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import enum
+import inspect
 import logging
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from ..ai.messages import ToolSchema
+from ..ai.messages import INVALID_ARGS_KEY, ToolSchema
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,20 @@ class ToolRegistry:
         spec = self._tools.get(name)
         if spec is None:
             return f"ERROR: unknown tool '{name}'"
+        if not isinstance(arguments, dict):
+            return f"ERROR: bad arguments for {name}: expected a JSON object"
+        if INVALID_ARGS_KEY in arguments:
+            return (
+                f"ERROR: the arguments of {name} were not valid JSON (the reply may have been cut off). "
+                "The tool was NOT run; send the call again with complete arguments."
+            )
+        try:
+            # Check the call shape up front, so a TypeError raised *inside* a tool is a crash, not "bad arguments".
+            inspect.signature(spec.func).bind(**arguments)
+        except TypeError as exc:
+            return f"ERROR: bad arguments for {name}: {exc}"
+        except (ValueError, KeyError):  # signature not introspectable: fall through to the call itself
+            pass
         try:
             if spec.precheck:
                 refusal = spec.precheck(arguments)
@@ -117,8 +132,6 @@ class ToolRegistry:
             return spec.func(**arguments)
         except ToolError as exc:
             return f"ERROR: {exc}"
-        except TypeError as exc:
-            return f"ERROR: bad arguments for {name}: {exc}"
         except Exception as exc:  # noqa: BLE001 - never crash the agent loop
             logger.exception("tool %s crashed", name)
             return f"ERROR: {type(exc).__name__}: {exc}"

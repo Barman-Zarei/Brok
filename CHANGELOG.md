@@ -4,6 +4,37 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Fixed (debug pass)
+- **Agent loop honours Stop and the deadline before every tool call**, not only between model turns. Calls that are not
+  run get a `SKIPPED: …` tool result (the history stays valid for Claude/OpenAI/Ollama); a deadline that passes while the
+  model is answering dispatches nothing; the token budget is re-checked inside a batch; a `cancel()` that arrives just
+  before `run()` is no longer lost; a model reply cut off by its output limit (`max_tokens`/`length`) ends the run as
+  `truncated` and runs no tools; unexpected provider/network exceptions end the run as `error` instead of crashing it.
+- **Effect records**: `AgentResult.effects` (and an optional `on_effect` callback) record each dispatched call as
+  `started` *before* it runs and `finished`/`skipped` after, so an interrupted run can be checked before it is retried.
+  Tool-call ids are made unique within a history.
+- **Command sandbox**: the "read-only" whitelist no longer allows `git diff/log --output=…`, `git branch -D`,
+  `git remote add`, `--no-index`, reading `.env` files, or reading paths outside the project without approval;
+  `rm -rf /*`, `~/`, `$HOME/`, `--recursive --force /` are now blocked, not just confirmed. Windows: quoted arguments no
+  longer keep literal quotes. A timed-out command keeps its partial output.
+- **File/git tools**: `.git` is off-limits to file tools (a planted `core.fsmonitor`/hook could run code on the next
+  `git status`) and git runs with `core.fsmonitor=false`; `move_file` can no longer rename `.env` to dodge the secrets
+  guard or move `.git`; `delete_file`/`move_file` act on a symlink itself, not its target; `git_checkout` can no longer
+  mistake a file name for a branch and discard its changes; `git_stash` rejects unknown actions instead of stashing;
+  `search_text` survives symlinks that leave the project and accepts a single file; `read_file` line numbers match
+  `search_text`; `write_file` keeps a file's CRLF/LF style; internal `TypeError`s are no longer reported as "bad arguments".
+- **Providers**: garbled/truncated tool-call JSON is no longer turned into `{}` (which ran tools with default
+  arguments); mid-stream connection errors become `ProviderError`; string `error` payloads (OpenAI-compatible servers)
+  no longer raise `AttributeError`; Ollama/OpenAI fallback tool-call ids are unique across turns; Claude no longer
+  sends an empty text block for image-only messages; "no provider supports tools/vision" now says so.
+- **Misc**: terminal-panel commands that need approval can be approved without a running agent; `خطا` selects DEBUG mode
+  like `ارور` (Arabic ي/ك are normalised); the health scan no longer exempts files named `test_agent.py` and its
+  duplicate-block window no longer skips the last block; the traceback parser understands `ExceptionGroup`.
+
+### Known limitations (not changed)
+- Cancel is noticed only when the provider sends a line or the socket times out (up to 120 s of silence); a running
+  tool cannot be interrupted mid-call. A stream that ends without a terminal marker is still treated as complete.
+
 ## [0.2.0] - 2026-10-04
 
 First release as **Brok**, a derivative of myCat 0.1.37 (see NOTICE).

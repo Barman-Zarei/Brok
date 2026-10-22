@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 from dataclasses import dataclass, field
 
 from ..logging_setup import redact
@@ -31,6 +32,20 @@ class HealthReport:
         return [f for f in self.findings if f.category == c]
 
 
+def _is_git_ignored(root: str, rel: str) -> bool:
+    try:
+        r = subprocess.run(["git", "check-ignore", "-q", "--", rel], cwd=root, capture_output=True, timeout=10)
+        if r.returncode in (0, 1):
+            return r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:  # not a git repo / no git: fall back to a literal look at .gitignore
+        with open(os.path.join(root, ".gitignore"), encoding="utf-8", errors="ignore") as fh:
+            return any(ln.strip() in (".env", ".env*", "*.env", "/.env", rel) for ln in fh)
+    except OSError:
+        return False
+
+
 def analyze(root: str) -> HealthReport:
     rep = HealthReport()
     info = detect_project(root)
@@ -54,7 +69,10 @@ def analyze(root: str) -> HealthReport:
                 text = open(fp, encoding="utf-8", errors="ignore").read()
             except OSError:
                 continue
-            if redact(text) != text:
+            if fn == ".env" or (fn.startswith(".env.") and not fn.endswith((".example", ".sample", ".template"))):
+                if not _is_git_ignored(root, rel):
+                    rep.findings.append(Finding("security", "high", rel, "secrets file is not ignored by git"))
+            elif redact(text) != text:
                 rep.findings.append(Finding("security", "high", rel, "possible hard-coded secret"))
             if fn.endswith(".py"):
                 for m in re.finditer(r"^\s*except\s*:\s*$", text, re.M):

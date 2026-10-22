@@ -454,6 +454,11 @@ def test_E8_terminal_panel_command_can_be_approved_without_agent(tmp_path):
     w._show_approval = lambda req: asked.append(req) or True
     w.cmd_input.setText("python3 -c pass")  # unlisted program: needs approval
     w.run_terminal_command()
+    deadline = time.time() + 10  # runs on its own thread; the approval arrives as a queued signal
+    app = QtWidgets.QApplication.instance()
+    while w._terminal_busy and time.time() < deadline:
+        app.processEvents()
+        time.sleep(0.01)
     assert asked and "exit=0" in w.output.toPlainText()
 
 
@@ -551,3 +556,37 @@ def test_K7_list_directory_shows_build_dirs(tmp_path):
     (tmp_path / "node_modules").mkdir()
     out = build_registry(str(tmp_path), PermissionPolicy()).execute("list_directory", {"path": "."})
     assert "build" in out and "node_modules" not in out
+
+
+# ================================================= 8. third round
+def test_R1_stop_during_approval_is_not_reported_as_denied():
+    import threading
+
+    ev = threading.Event()
+    reg = ToolRegistry(PermissionPolicy(approver=lambda req: ev.set() or False))  # prompt closed by Stop
+    reg.cancel_event = ev
+    reg.register(ToolSpec("t", "d", {"type": "object", "properties": {}}, Risk.HIGH, Confirm.REQUIRED, lambda: "ran"))
+    out = reg.execute("t", {})
+    assert out.startswith("SKIPPED") and "DENIED" not in out
+
+
+def test_R2_api_key_env_var_beats_keyring_like_openai(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "from-env")
+    assert ClaudeProvider(key_resolver=lambda: "from-keyring", transport=object())._key() == "from-env"
+
+
+def test_R3_error_urls_do_not_leak_query_keys():
+    from brok.ai.transport import _safe_url
+
+    assert _safe_url("https://u:pw@host.example:8443/v1/m?key=SECRET#x") == "https://host.example:8443/v1/m"
+
+
+def test_R4_health_secrets_file_reported_only_when_not_ignored(tmp_path):
+    from brok.agent.health import analyze
+
+    repo(tmp_path)
+    (tmp_path / ".env").write_text("API_KEY=abcdefghijklmnop\n")
+    where = lambda: [f.where for f in analyze(str(tmp_path)).findings if f.category == "security"]  # noqa: E731
+    assert ".env" in where()  # not ignored: that is the real problem
+    (tmp_path / ".gitignore").write_text(".env\n")
+    assert ".env" not in where()

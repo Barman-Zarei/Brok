@@ -7,6 +7,7 @@ import json
 import socket
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any, Iterator, Protocol
 
@@ -29,6 +30,16 @@ class ProviderError(Exception):
     def __init__(self, message: str, *, retryable: bool = True) -> None:
         super().__init__(message)
         self.retryable = retryable
+
+
+def _safe_url(url: str) -> str:
+    """URL for error messages: no userinfo, query or fragment (API keys sometimes travel there)."""
+    try:
+        u = urllib.parse.urlsplit(url)
+        host = u.hostname or ""
+        return f"{u.scheme}://{host}{':' + str(u.port) if u.port else ''}{u.path}"
+    except ValueError:
+        return "<url>"
 
 
 def _abort_socket(resp: Any) -> None:
@@ -56,10 +67,10 @@ class UrllibTransport:
             except Exception:  # noqa: BLE001
                 pass
             raise ProviderError(
-                f"HTTP {exc.code} from {url}: {detail}", retryable=exc.code >= 500 or exc.code == 429
+                f"HTTP {exc.code} from {_safe_url(url)}: {detail}", retryable=exc.code >= 500 or exc.code == 429
             ) from exc
         except (urllib.error.URLError, OSError, ValueError) as exc:
-            raise ProviderError(f"Cannot reach {url}: {exc}") from exc
+            raise ProviderError(f"Cannot reach {_safe_url(url)}: {exc}") from exc
 
     @staticmethod
     def _decode(resp: Any) -> Any:

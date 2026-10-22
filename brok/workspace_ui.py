@@ -88,6 +88,9 @@ class AgentWorker(QtCore.QThread):
 
 
 class WorkspaceWindow(QtWidgets.QMainWindow):
+    _terminal_approval = QtCore.Signal(object)  # approval asked by a terminal-panel thread (no agent worker running)
+    _terminal_output = QtCore.Signal(str)
+
     def __init__(
         self,
         project: str,
@@ -99,6 +102,9 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         avatar: AvatarManager | None = None,
     ) -> None:
         super().__init__(parent)
+        self._terminal_busy = False
+        self._terminal_approval.connect(self._on_approval)
+        self._terminal_output.connect(self._on_terminal_output)
         self.orch, self.registry_factory = orchestrator, registry_factory
         self.limits, self.language = limits or Limits(), language
         self.avatar = avatar or AvatarManager(AvatarEngine())
@@ -489,9 +495,8 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
                 self.diff_view.setPlainText(req.diff)
             return bool(self._show_approval(req))
         holder = _ApprovalHolder(req)
-        if self.worker is None:
-            return False
-        self.worker.approval.emit(holder)
+        # From the agent worker thread, or from a terminal-panel thread when no agent is running.
+        (self.worker.approval if self.worker is not None else self._terminal_approval).emit(holder)
         while not holder.event.wait(0.1):
             if self.worker is not None and self.worker.loop._cancel.is_set():
                 return False
@@ -512,9 +517,24 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
         cmd = self.cmd_input.text().strip()
         if cmd:
             self.cmd_input.clear()
+            if self._terminal_busy:
+                self.output.appendPlainText(tr("(a command is still running)"))
+                return
             self.output.appendPlainText(f"$ {cmd}")
-            # same sandbox + approval path as the agent: risky commands ask, dangerous ones are blocked
-            self.output.appendPlainText(self.registry.execute("run_command", {"command": cmd}))
+            self._terminal_busy = True
+
+            def work() -> None:  # same sandbox + approval path as the agent, but never on the GUI thread
+                try:
+                    out = self.registry.execute("run_command", {"command": cmd})
+                except Exception as exc:  # noqa: BLE001
+                    out = f"ERROR: {type(exc).__name__}: {exc}"
+                self._terminal_output.emit(out)
+
+            threading.Thread(target=work, daemon=True, name="brok-terminal").start()
+
+    def _on_terminal_output(self, out: str) -> None:
+        self._terminal_busy = False
+        self.output.appendPlainText(out)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
         if self.worker:

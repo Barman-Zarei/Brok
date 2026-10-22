@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import threading
 import urllib.error
@@ -51,21 +52,31 @@ class UrllibTransport:
         except (urllib.error.URLError, OSError, ValueError) as exc:
             raise ProviderError(f"Cannot reach {url}: {exc}") from exc
 
+    @staticmethod
+    def _decode(resp: Any) -> Any:
+        try:
+            return json.loads(resp.read().decode("utf-8"))
+        except (OSError, http.client.HTTPException, ValueError) as exc:  # reset / truncated body / not JSON
+            raise ProviderError(f"Invalid or incomplete response: {exc}") from exc
+
     def get_json(self, url: str, headers: dict[str, str]) -> Any:
         with self._open(url, headers, None) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            return self._decode(resp)
 
     def post_json(self, url: str, headers: dict[str, str], body: dict[str, Any]) -> Any:
         with self._open(url, headers, body) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            return self._decode(resp)
 
     def stream_lines(
         self, url: str, headers: dict[str, str], body: dict[str, Any], cancel: threading.Event | None = None
     ) -> Iterator[str]:
         with self._open(url, headers, body) as resp:
-            for raw in resp:
-                if cancel is not None and cancel.is_set():
-                    return
-                line = raw.decode("utf-8", "replace").rstrip("\r\n")
-                if line:
-                    yield line
+            try:
+                for raw in resp:
+                    if cancel is not None and cancel.is_set():
+                        return
+                    line = raw.decode("utf-8", "replace").rstrip("\r\n")
+                    if line:
+                        yield line
+            except (OSError, http.client.HTTPException) as exc:  # reset, timeout or IncompleteRead mid-stream
+                raise ProviderError(f"Connection lost while streaming: {exc}") from exc

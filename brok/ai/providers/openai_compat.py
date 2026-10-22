@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import threading
 from typing import Any, Callable, Iterator
 
-from ..messages import Message, StreamEvent, ToolCall, ToolSchema
+from ..messages import Message, StreamEvent, ToolCall, ToolSchema, parse_tool_args
 from ..transport import ProviderError, Transport
 from .base import AIProvider
 
@@ -27,6 +28,7 @@ class OpenAIProvider(AIProvider):
         super().__init__(model, transport)
         self.base_url = base_url.rstrip("/")
         self._resolver, self._key_env = key_resolver, key_env
+        self._seq = itertools.count(1)  # fallback tool-call ids stay unique across turns
 
     def _headers(self) -> dict[str, str]:
         key = os.environ.get(self._key_env, "") or (self._resolver() if self._resolver else "")
@@ -95,9 +97,10 @@ class OpenAIProvider(AIProvider):
             except ValueError:
                 continue
             if ev.get("error"):
-                raise ProviderError("OpenAI: " + str(ev["error"].get("message", ev["error"])))
+                err = ev["error"]
+                raise ProviderError("OpenAI: " + str(err.get("message", err) if isinstance(err, dict) else err))
             for ch in ev.get("choices", []):
-                d = ch.get("delta", {})
+                d = ch.get("delta") or {}
                 if d.get("content"):
                     yield StreamEvent("text", text=d["content"])
                 for tc in d.get("tool_calls") or []:
@@ -109,9 +112,6 @@ class OpenAIProvider(AIProvider):
                 finish = ch.get("finish_reason") or finish
         for i in sorted(calls):
             c = calls[i]
-            try:
-                args = json.loads(c["args"]) if c["args"] else {}
-            except ValueError:
-                args = {}
-            yield StreamEvent("tool_call", tool_call=ToolCall(c["id"] or f"call-{i}", c["name"], args))
+            call_id = c["id"] or f"call-{next(self._seq)}"
+            yield StreamEvent("tool_call", tool_call=ToolCall(call_id, c["name"], parse_tool_args(c["args"])))
         yield StreamEvent("done", stop_reason="tool_use" if calls else finish)

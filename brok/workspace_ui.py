@@ -65,6 +65,9 @@ class ApprovalDialog(QtWidgets.QDialog):
         lay.addWidget(btns)
 
 
+_ORPHAN_WORKERS: list[QtCore.QThread] = []  # workers still finishing after their window was closed
+
+
 class AgentWorker(QtCore.QThread):
     text = QtCore.Signal(str)
     tool = QtCore.Signal(str)
@@ -516,7 +519,12 @@ class WorkspaceWindow(QtWidgets.QMainWindow):
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:  # noqa: N802
         if self.worker:
             self.worker.loop.cancel()
-            self.worker.wait(3000)
+            if not self.worker.wait(5000):
+                # Still busy (e.g. a slow tool): keep the QThread object alive until it finishes instead of
+                # destroying it while running, which aborts the whole application.
+                w = self.worker
+                _ORPHAN_WORKERS.append(w)
+                w.finished.connect(lambda: _ORPHAN_WORKERS.remove(w) if w in _ORPHAN_WORKERS else None)
         super().closeEvent(event)
 
 

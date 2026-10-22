@@ -455,3 +455,99 @@ def test_E8_terminal_panel_command_can_be_approved_without_agent(tmp_path):
     w.cmd_input.setText("python3 -c pass")  # unlisted program: needs approval
     w.run_terminal_command()
     assert asked and "exit=0" in w.output.toPlainText()
+
+
+# ================================================= 7. second round: Stop reaches blocking work
+def test_K1_run_command_is_killed_by_cancel():
+    import threading
+
+    ev = threading.Event()
+    threading.Timer(0.5, ev.set).start()
+    t0 = time.time()
+    r = run_command("sleep 8", os.getcwd(), timeout=30, cancel=ev)
+    assert r.cancelled and time.time() - t0 < 4
+
+
+def test_K2_stop_kills_a_running_tool_and_skips_the_rest(tmp_path):
+    import threading
+
+    reg = build_registry(str(tmp_path), PermissionPolicy(approver=lambda req: True))
+    call = lambda i: StreamEvent("tool_call", tool_call=ToolCall(str(i), "run_command", {"command": "sleep 8"}))  # noqa: E731
+    loop = AgentLoop(FakeOrch([[call(1), call(2)]]), reg)
+    threading.Timer(0.6, loop.cancel).start()
+    t0 = time.time()
+    res = loop.run("x")
+    assert res.status == "cancelled" and time.time() - t0 < 5
+    assert [e["state"] for e in res.effects] == ["finished", "skipped"]
+
+
+def test_K3_cancel_unblocks_a_silent_server():
+    import http.server
+    import threading
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            self.wfile.write(b"data: first\n\n")
+            self.wfile.flush()
+            time.sleep(8)  # then total silence
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    srv.daemon_threads = True
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    cancel = threading.Event()
+    threading.Timer(0.6, cancel.set).start()
+    t0 = time.time()
+    try:
+        got = list(UrllibTransport().stream_lines(f"http://127.0.0.1:{srv.server_port}/", {}, {}, cancel=cancel))
+    finally:
+        srv.shutdown()
+    assert got == ["data: first"] and time.time() - t0 < 4
+
+
+@pytest.mark.parametrize("kind", ["openai", "claude", "ollama"])
+def test_K4_stream_without_terminal_marker_is_an_error(kind):
+    if kind == "openai":
+        p = OpenAIProvider(
+            key_resolver=lambda: "k", transport=FakeTransport(['data: {"choices":[{"delta":{"content":"hi"}}]}'])
+        )
+    elif kind == "claude":
+        p = ClaudeProvider(
+            key_resolver=lambda: "k",
+            transport=FakeTransport(
+                ['data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}']
+            ),
+        )
+    else:
+        p = OllamaProvider(transport=FakeTransport(['{"message":{"content":"hi"},"done":false}']))
+    with pytest.raises(ProviderError):
+        list(p.chat([Message("user", "hi")]))
+
+
+def test_K5_complete_streams_still_work():
+    p = OpenAIProvider(
+        key_resolver=lambda: "k",
+        transport=FakeTransport(['data: {"choices":[{"delta":{"content":"hi"}}]}', "data: [DONE]"]),
+    )
+    assert [e.text for e in p.chat([Message("user", "hi")]) if e.kind == "text"] == ["hi"]
+
+
+def test_K6_catastrophic_regex_is_rejected_not_run(tmp_path):
+    (tmp_path / "x.py").write_text("a" * 40 + "!\n")
+    reg = build_registry(str(tmp_path), PermissionPolicy())
+    t0 = time.time()
+    assert reg.execute("search_text", {"pattern": "(a+)+$"}).startswith("ERROR")
+    assert time.time() - t0 < 2
+    assert "x.py" in reg.execute("search_text", {"pattern": r"(a+)!"})  # ordinary groups still fine
+
+
+def test_K7_list_directory_shows_build_dirs(tmp_path):
+    (tmp_path / "build").mkdir()
+    (tmp_path / "node_modules").mkdir()
+    out = build_registry(str(tmp_path), PermissionPolicy()).execute("list_directory", {"path": "."})
+    assert "build" in out and "node_modules" not in out

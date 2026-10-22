@@ -6,7 +6,10 @@ import os
 import platform
 import re
 import shlex
+import signal
 import subprocess
+import threading
+import time
 from dataclasses import dataclass, field
 
 SAFE, CONFIRM, BLOCKED = "safe", "confirm", "blocked"
@@ -119,7 +122,7 @@ def classify_command(command: str, os_name: str | None = None) -> Verdict:
     return Verdict(CONFIRM, reasons, v.shell, os_name)
 
 
-_SECRET_ENV = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)", re.I)
+_SECRET_ENV = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|COOKIE|PRIVATE)", re.I)
 
 
 def scrubbed_env() -> dict[str, str]:
@@ -132,35 +135,75 @@ class CommandResult:
     returncode: int
     output: str
     timed_out: bool = False
+    cancelled: bool = False
+
+
+def _kill_tree(proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
+    try:
+        if os.name == "posix":
+            os.killpg(proc.pid, signal.SIGKILL)  # the child and everything it spawned
+        else:
+            proc.kill()
+    except (OSError, ProcessLookupError):
+        pass
 
 
 def run_command(
-    command: str, cwd: str, timeout: int = 120, max_output: int = 20000, os_name: str | None = None
+    command: str,
+    cwd: str,
+    timeout: int = 120,
+    max_output: int = 20000,
+    os_name: str | None = None,
+    cancel: threading.Event | None = None,
 ) -> CommandResult:
-    """Run without a shell (argv list). Caller must already have classified/approved."""
+    """Run without a shell (argv list). Caller must already have classified/approved.
+
+    Honours ``timeout`` and ``cancel`` (polled every 0.2 s); on either the whole process tree is killed and the
+    output produced so far is kept.
+    """
     import shlex as _sh
 
     posix = (os_name or platform.system()) != "Windows"
-    argv = _sh.split(command, posix=posix)
+    try:
+        argv = _sh.split(command, posix=posix)
+    except ValueError as exc:
+        return CommandResult(-1, f"cannot run: {exc}")
     if not posix:  # shlex(posix=False) keeps the surrounding quotes in each token; the program must not see them
         argv = [a[1:-1] if len(a) >= 2 and a[0] == a[-1] and a[0] in "\"'" else a for a in argv]
     try:
-        p = subprocess.run(
+        proc = subprocess.Popen(
             argv,
             cwd=cwd,
             env=scrubbed_env(),
-            capture_output=True,
-            timeout=timeout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
             text=True,
             errors="replace",
-            stdin=subprocess.DEVNULL,
+            start_new_session=os.name == "posix",
         )
-    except subprocess.TimeoutExpired as exc:
-        parts = [x.decode("utf-8", "replace") if isinstance(x, bytes) else (x or "") for x in (exc.stdout, exc.stderr)]
-        return CommandResult(-1, "".join(parts)[-max_output:] + f"\n[timed out after {timeout}s]", True)
     except (OSError, ValueError) as exc:
         return CommandResult(-1, f"cannot run: {exc}")
-    out = (p.stdout or "") + (p.stderr or "")
-    if len(out) > max_output:
-        out = out[: max_output // 2] + "\n…[truncated]…\n" + out[-max_output // 2 :]
-    return CommandResult(p.returncode, out)
+    deadline = time.monotonic() + timeout
+    why = ""
+    while True:
+        try:
+            out, err = proc.communicate(timeout=0.2)
+            break
+        except subprocess.TimeoutExpired:
+            if cancel is not None and cancel.is_set():
+                why = "cancelled"
+            elif time.monotonic() >= deadline:
+                why = "timeout"
+            else:
+                continue
+            _kill_tree(proc)
+            out, err = proc.communicate()
+            break
+    text = (out or "") + (err or "")
+    if why:
+        note = "[cancelled]" if why == "cancelled" else f"[timed out after {timeout}s]"
+        return CommandResult(-1, text[-max_output:] + "\n" + note, why == "timeout", why == "cancelled")
+    if len(text) > max_output:
+        text = text[: max_output // 2] + "\n…[truncated]…\n" + text[-max_output // 2 :]
+    return CommandResult(proc.returncode, text)

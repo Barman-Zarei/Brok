@@ -86,11 +86,13 @@ class OpenAIProvider(AIProvider):
             ]
         calls: dict[int, dict[str, Any]] = {}
         finish = "stop"
+        finished = False
         for line in self.transport.stream_lines(f"{self.base_url}/chat/completions", self._headers(), body, cancel):
             if not line.startswith("data:"):
                 continue
             payload = line[5:].strip()
             if payload == "[DONE]":
+                finished = True
                 break
             try:
                 ev = json.loads(payload)
@@ -109,7 +111,11 @@ class OpenAIProvider(AIProvider):
                     fn = tc.get("function", {})
                     slot["name"] = fn.get("name") or slot["name"]
                     slot["args"] += fn.get("arguments", "")
+                if ch.get("finish_reason"):
+                    finished = True
                 finish = ch.get("finish_reason") or finish
+        if not finished and not (cancel is not None and cancel.is_set()):
+            raise ProviderError("The connection closed before the response was complete.")
         for i in sorted(calls):
             c = calls[i]
             call_id = c["id"] or f"call-{next(self._seq)}"

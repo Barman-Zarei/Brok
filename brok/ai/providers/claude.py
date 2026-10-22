@@ -102,6 +102,7 @@ class ClaudeProvider(AIProvider):
             ]
         blocks: dict[int, dict[str, Any]] = {}
         stop = "stop"
+        finished = False
         for line in self.transport.stream_lines(f"{self.base_url}/v1/messages", self._headers(), body, cancel):
             if not line.startswith("data:"):
                 continue
@@ -130,5 +131,8 @@ class ClaudeProvider(AIProvider):
             elif t == "message_delta":
                 stop = ev.get("delta", {}).get("stop_reason") or stop
             elif t == "message_stop":
+                finished = True
                 break
+        if not finished and not (cancel is not None and cancel.is_set()):
+            raise ProviderError("The connection closed before the response was complete.")
         yield StreamEvent("done", stop_reason=stop)

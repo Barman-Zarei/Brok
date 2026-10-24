@@ -392,7 +392,7 @@ GENERATION_DEFAULTS = {
 def load_generation_settings() -> dict:
     """Read the [generation] section of config.ini, filled in with defaults."""
     settings = dict(GENERATION_DEFAULTS)
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(interpolation=None)
     legacy_remove_background = None
     if CFG_FILE.exists():
         try:
@@ -415,7 +415,7 @@ def load_generation_settings() -> dict:
 def save_generation_settings(settings: dict) -> None:
     """Persist the generation settings into [generation] (other sections kept)."""
     CFG_DIR.mkdir(parents=True, exist_ok=True)
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(interpolation=None)
     if CFG_FILE.exists():
         try:
             parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))

@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass
 
 _FRAME = re.compile(r'File "([^"]+)", line (\d+), in (\S+)')
-_LAST = re.compile(r"^([A-Za-z_][\w.]*(?:Error|Exception|Warning|Exit|Interrupt))\s*:?\s*(.*)$", re.M)
+_LAST = re.compile(r"^([A-Za-z_][\w.]*(?:Error|Exception|Warning|Exit|Interrupt|Group|Iteration))\s*:?\s*(.*)$", re.M)
 
 
 @dataclass
@@ -39,7 +39,8 @@ def source_context(root: str, err: ParsedError, radius: int = 6, max_frames: int
         full = os.path.realpath(fr.file if os.path.isabs(fr.file) else os.path.join(root, fr.file))
         if not full.startswith(root + os.sep) or not os.path.isfile(full):
             continue
-        lines = open(full, encoding="utf-8", errors="replace").read().splitlines()
+        with open(full, encoding="utf-8", errors="replace") as fh:
+            lines = fh.read().splitlines()
         lo, hi = max(0, fr.line - 1 - radius), min(len(lines), fr.line + radius)
         body = "\n".join(f"{'>>' if i + 1 == fr.line else '  '} {i + 1}: {lines[i]}" for i in range(lo, hi))
         blocks.append(f"# {os.path.relpath(full, root)} (in {fr.func})\n{body}")

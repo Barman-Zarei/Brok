@@ -135,3 +135,55 @@ def test_snap_is_told_to_refresh_not_self_updated():
     assert not updater.can_self_update("snap")
     assert updater.update_hint("snap") == "snap refresh brok"
     assert updater.asset_name("snap") == ""
+
+
+def test_download_needs_at_least_one_attempt(tmp_path):
+    with pytest.raises(ValueError):  # used to `raise None` -> TypeError
+        updater.download("https://example/build", str(tmp_path / "b"), attempts=0)
+
+
+def test_failed_download_leaves_no_half_written_build(tmp_path, monkeypatch):
+    dest = tmp_path / "build.bin"
+    dest.write_bytes(b"OLD")  # a previous good file must survive a failed update
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: FakeResponse(b"x" * 100, 500))
+    with pytest.raises(OSError):
+        updater.download("https://example/build", str(dest), attempts=2)
+    assert dest.read_bytes() == b"OLD" and not (tmp_path / "build.bin.part").exists()
+
+
+def test_cancelled_download_leaves_nothing_behind(tmp_path, monkeypatch):
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: FakeResponse(b"x" * 500, 500))
+
+    def cancel(done, total):
+        raise RuntimeError("cancelled")
+
+    dest = tmp_path / "build.bin"
+    with pytest.raises(RuntimeError):
+        updater.download("https://example/build", str(dest), progress=cancel)
+    assert not dest.exists() and not (tmp_path / "build.bin.part").exists()
+
+
+def test_macos_swap_script_never_deletes_the_app_before_the_new_one_is_verified(tmp_path):
+    import subprocess
+
+    app = '/Applications/My "App" $HOME.app'
+    body = updater.macos_swap_script(42, "/tmp/a b.zip", app)
+    script = tmp_path / "s.sh"
+    script.write_text(body)
+    assert subprocess.run(["sh", "-n", str(script)]).returncode == 0  # quoting survives odd paths
+    check = body.index('[ -d "$tmp/brok.app" ]')
+    # verified first, only then touch the old app
+    assert check < body.index("mv ") and check < body.index("rm -rf '/Applications")
+    assert "else rm -rf" in body and ".old" in body  # restored if the copy fails
+
+
+def test_apply_macos_refuses_something_that_is_not_an_app_bundle(monkeypatch):
+    monkeypatch.setattr(updater.sys, "executable", "/opt/x/dist/brok/brok")  # bare onedir: 3 levels up is not ours
+    with pytest.raises(RuntimeError, match="not a .app"):
+        updater.apply_macos("/tmp/brok.zip")
+
+
+def test_apply_windows_refuses_paths_the_batch_file_cannot_carry(monkeypatch):
+    monkeypatch.setattr(updater.sys, "executable", "C:\\Users\\100%\\brok.exe")
+    with pytest.raises(RuntimeError, match="update manually"):
+        updater.apply_windows("C:\\Temp\\brok.exe")

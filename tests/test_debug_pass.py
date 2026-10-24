@@ -849,3 +849,213 @@ def test_A17_main_config_helpers_use_the_safe_writer(tmp_path, monkeypatch):
     brok_main.save_config({"x": 5, "y": 7})
     brok_main.mark_autostart_prompted()
     assert brok_main.load_image_from_ini() == "my%char" and brok_main.autostart_was_prompted() is True
+
+
+def test_R5_claude_never_sends_empty_or_whitespace_only_text():
+    out = ClaudeProvider._convert(
+        [
+            Message("user", "   "),
+            Message("assistant", "  \n", [ToolCall("c1", "t", {})]),
+            Message("tool", "", tool_call_id="c1"),
+        ]
+    )
+    texts = [b.get("text", b.get("content")) for m in out for b in m["content"] if b["type"] in ("text", "tool_result")]
+    assert texts and all(isinstance(x, str) and x.strip() for x in texts)
+    assert not any(b["type"] == "text" for b in out[1]["content"])  # the blank assistant text was dropped
+
+
+# ================================================= 10. SSRF guard
+def test_W1_ssrf_guard_handles_mapped_ipv6_and_scope_ids(monkeypatch):
+    import socket
+
+    from brok.web import search
+
+    def fake(addr):
+        return lambda host, port: [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", (addr, 0, 0, 0))]
+
+    for addr in ("::ffff:127.0.0.1", "fe80::1%eth0", "100.64.0.1", "169.254.169.254"):
+        monkeypatch.setattr(socket, "getaddrinfo", fake(addr))
+        assert search.is_public_url("https://example.test/") is False, addr
+    monkeypatch.setattr(socket, "getaddrinfo", fake("2001:4860:4860::8888"))
+    assert search.is_public_url("https://example.test/") is True
+
+
+def test_W2_redirects_to_private_addresses_are_refused():
+    import urllib.error
+    import urllib.request
+
+    from brok.web import search
+
+    handler = search._GuardedRedirect()
+    req = urllib.request.Request("https://example.test/")
+    with pytest.raises(urllib.error.URLError):
+        handler.redirect_request(req, None, 302, "Found", {}, "http://169.254.169.254/latest/meta-data/")
+    with pytest.raises(urllib.error.URLError):
+        handler.redirect_request(req, None, 302, "Found", {}, "http://127.0.0.1:8080/admin")
+
+
+def test_W3_connection_to_a_loopback_peer_is_refused_even_if_dns_said_public(monkeypatch):
+    import http.server
+    import threading
+    import urllib.request
+
+    from brok.web import search
+
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"internal secret")
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    monkeypatch.setattr(urllib.request, "getproxies", lambda: {})
+    try:
+        with pytest.raises(OSError):  # URLError is an OSError; the live peer check fires before any request is sent
+            search._guarded_open(urllib.request.Request(f"http://127.0.0.1:{srv.server_port}/"), timeout=5)
+    finally:
+        srv.shutdown()
+
+
+# ================================================= 11. GitHub tools
+def test_G1_github_browse_cannot_wander_or_inject_a_query():
+    from brok.agent.tools import PermissionPolicy, ToolRegistry
+    from brok.github_agent import GitHubClient, register_github_tools
+
+    urls = []
+
+    class T:
+        def get_json(self, url, headers):
+            urls.append(url)
+            return []
+
+    reg = ToolRegistry(PermissionPolicy())
+    register_github_tools(reg, GitHubClient(transport=T()))
+    assert reg.execute("github_browse", {"repository": "o/r", "path": "../../user"}).startswith("ERROR")
+    reg.execute("github_browse", {"repository": "o/r", "path": "a b/ф?ref=evil#x"})
+    assert urls == ["https://api.github.com/repos/o/r/contents/a%20b/%D1%84%3Fref%3Devil%23x"]
+    for bad in ("o/..", "./r", "o/r/x", "اوه/r", "o/r?x"):
+        assert reg.execute("github_issues", {"repository": bad}).startswith("ERROR"), bad
+
+
+def test_G2_github_commits_survives_an_empty_commit_message():
+    from brok.agent.tools import PermissionPolicy, ToolRegistry
+    from brok.github_agent import GitHubClient, register_github_tools
+
+    class T:
+        def get_json(self, url, headers):
+            return [{"sha": "abcdef1234", "commit": {"message": ""}}]
+
+    reg = ToolRegistry(PermissionPolicy())
+    register_github_tools(reg, GitHubClient(transport=T()))
+    assert reg.execute("github_commits", {"repository": "o/r"}) == "abcdef1 "
+
+
+# ================================================= 12. plugins and memory
+def test_PL1_a_plugin_that_fails_midway_leaves_no_tools_behind():
+    from brok.plugins import Plugin, PluginManager
+
+    class Half(Plugin):
+        name = "half"
+
+        def register(self, api):
+            api.register_tool(
+                ToolSpec("one", "d", {"type": "object", "properties": {}}, Risk.LOW, Confirm.NEVER, lambda: "x")
+            )
+            raise RuntimeError("boom after the first tool")
+
+    reg = ToolRegistry(PermissionPolicy())
+    mgr = PluginManager(reg)
+    assert mgr.load(Half()) is False and "half" in mgr.errors
+    assert "half.one" not in reg.names()
+
+
+def test_PL2_a_plugin_cannot_lower_risk_after_registering():
+    from brok.plugins import Plugin, PluginManager
+
+    kept = {}
+
+    class Sneaky(Plugin):
+        name = "s"
+
+        def register(self, api):
+            spec = ToolSpec("t", "d", {"type": "object", "properties": {}}, Risk.LOW, Confirm.NEVER, lambda: "ran")
+            kept["spec"] = spec
+            api.register_tool(spec)
+
+    reg = ToolRegistry(PermissionPolicy())
+    PluginManager(reg).load(Sneaky())
+    kept["spec"].risk, kept["spec"].confirm = Risk.LOW, Confirm.NEVER  # tries to go silent afterwards
+    assert reg.execute("s.t", {}).startswith("DENIED")  # still asks (no approver -> denied)
+    assert kept["spec"].name == "t"  # and the plugin's own object was not re-prefixed
+
+
+def test_MEM1_one_bad_entry_does_not_wipe_every_memory(tmp_path):
+    import json
+
+    from brok.memory import MemoryStore
+
+    f = tmp_path / "memory.json"
+    good = {"id": "a1", "kind": "longterm", "text": "keep me", "scope": "", "created": 1.0}
+    f.write_text(json.dumps([good, {"id": "b2"}, "junk", {**good, "id": "c3", "from_the_future": 1}]))
+    store = MemoryStore(f)
+    assert sorted(i.id for i in store.list()) == ["a1", "c3"]
+    store.add("longterm", "new note")  # a save after loading must not destroy the survivors
+    assert {"a1", "c3"} <= {i.id for i in MemoryStore(f).list()}
+
+
+def test_MEM2_unreadable_memory_file_is_kept_before_it_can_be_overwritten(tmp_path):
+    from brok.memory import MemoryStore
+
+    f = tmp_path / "memory.json"
+    f.write_text("{not json")
+    MemoryStore(f).add("longterm", "fresh")
+    assert (tmp_path / "memory.json.corrupt").read_text() == "{not json"
+
+
+# ================================================= 13. index / project / CLI
+def test_IX1_index_ignores_symlinks_that_leave_the_project(tmp_path):
+    from brok.agent.index import ProjectIndex
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "diary.md").write_text("# class SecretDiary\nprivate")
+    root = tmp_path / "proj"
+    root.mkdir()
+    (root / "a.py").write_text("def real_function():\n    pass\n")
+    (root / "notes.md").symlink_to(outside / "diary.md")
+    idx = ProjectIndex(str(root)).build()
+    assert "a.py" in idx.files and "notes.md" not in idx.files
+    assert "SecretDiary" not in idx.retrieve("secret diary class")
+
+
+def test_IX2_line_count_matches_the_file(tmp_path):
+    from brok.agent.index import ProjectIndex
+
+    (tmp_path / "a.py").write_text("x = 1\ny = 2\n")
+    assert ProjectIndex(str(tmp_path)).build().files["a.py"].lines == 2
+
+
+def test_PJ1_dart_detection_does_not_overwrite_an_existing_build_system(tmp_path):
+    from brok.agent.project import detect_project
+
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n")
+    (tmp_path / "pubspec.yaml").write_text("name: x\n")  # plain Dart, not Flutter
+    assert detect_project(str(tmp_path)).build_system == "setuptools/pyproject"
+
+
+def test_PJ2_requirements_options_are_not_dependencies(tmp_path):
+    from brok.agent.project import detect_project
+
+    (tmp_path / "requirements.txt").write_text("-r base.txt\n--index-url https://x\nrequests==2.0  # pinned\n")
+    assert detect_project(str(tmp_path)).dependencies == ["requests==2.0"]
+
+
+def test_CLI1_memory_add_without_text_prints_usage(capsys):
+    from brok import cli
+
+    assert cli.main(["memory", "add"]) == 1
+    assert "Usage:" in capsys.readouterr().out

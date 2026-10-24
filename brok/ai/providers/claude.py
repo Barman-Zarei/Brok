@@ -65,9 +65,11 @@ class ClaudeProvider(AIProvider):
 
         for m in messages:
             if m.role == "tool":
-                push("user", [{"type": "tool_result", "tool_use_id": m.tool_call_id, "content": m.content}])
+                # The Messages API rejects empty/whitespace-only text, in tool results as everywhere else.
+                result = m.content if m.content.strip() else "(no output)"
+                push("user", [{"type": "tool_result", "tool_use_id": m.tool_call_id, "content": result}])
             elif m.role == "assistant":
-                blocks: list[Any] = [{"type": "text", "text": m.content}] if m.content else []
+                blocks: list[Any] = [{"type": "text", "text": m.content}] if m.content.strip() else []
                 blocks += [{"type": "tool_use", "id": c.id, "name": c.name, "input": c.arguments} for c in m.tool_calls]
                 if blocks:
                     push("assistant", blocks)
@@ -76,8 +78,8 @@ class ClaudeProvider(AIProvider):
                     {"type": "image", "source": {"type": "base64", "media_type": i.media_type, "data": i.data}}
                     for i in m.images
                 ]
-                if m.content or not blocks:  # the API rejects empty text blocks (image-only messages)
-                    blocks.append({"type": "text", "text": m.content})
+                if m.content.strip() or not blocks:  # empty/whitespace text blocks are a 400; image-only needs none
+                    blocks.append({"type": "text", "text": m.content if m.content.strip() else "(empty message)"})
                 push("user", blocks)
         return out
 

@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import builtins
 import json
+import logging
 import os
+import shutil
 import time
 import uuid
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from . import paths
 from .logging_setup import redact
+
+logger = logging.getLogger(__name__)
 
 KINDS = ("conversation", "project", "preference", "longterm")
 
@@ -40,23 +44,47 @@ class MemoryStore:
         self._load()
 
     def _load(self) -> None:
+        """Load what can be loaded. One bad entry (or a field from another version) must not discard everything:
+        the next save would then overwrite the file and the user's memories would be gone for good."""
         try:
-            for d in json.loads(self.path.read_text(encoding="utf-8")):
-                self._items[d["id"]] = MemoryItem(**d)
-        except (OSError, ValueError, TypeError, KeyError):
-            self._items = {}
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except OSError:
+            return  # no file yet
+        except ValueError:
+            self._keep_unreadable_copy()
+            return
+        if not isinstance(raw, list):
+            self._keep_unreadable_copy()
+            return
+        known = {f.name for f in fields(MemoryItem)}
+        for d in raw:
+            try:
+                self._items[d["id"]] = MemoryItem(**{k: v for k, v in d.items() if k in known})
+            except (TypeError, KeyError, AttributeError):
+                logger.warning("skipping an unreadable memory entry in %s", self.path)
+
+    def _keep_unreadable_copy(self) -> None:
+        backup = self.path.with_name(self.path.name + ".corrupt")
+        try:
+            shutil.copy2(self.path, backup)
+            logger.warning("%s is unreadable; kept a copy as %s", self.path, backup)
+        except OSError:
+            pass
 
     def _save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(
-            json.dumps([asdict(i) for i in self._items.values()], ensure_ascii=False, indent=1), encoding="utf-8"
-        )
+        data = json.dumps([asdict(i) for i in self._items.values()], ensure_ascii=False, indent=1)
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)  # private from the first byte
         try:
-            os.chmod(tmp, 0o600)
-        except OSError:
-            pass
-        tmp.replace(self.path)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(data)
+                fh.flush()
+                os.fsync(fh.fileno())
+            tmp.replace(self.path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
 
     def add(self, kind: str, text: str, scope: str = "") -> MemoryItem:
         if kind not in KINDS:

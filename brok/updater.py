@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 import os
 import platform
+import shlex
 import stat
 import subprocess
 import sys
@@ -69,7 +70,7 @@ def update_hint(kind: str) -> str:
         return "Download the new .deb from the releases page and install it."
     if kind == "appimage":
         return "Download the new AppImage from the releases page."
-    if (Path(__file__).resolve().parent.parent / ".git").is_dir():
+    if (Path(__file__).resolve().parent.parent / ".git").exists():
         return "git pull"
     return "pip install --upgrade brok"
 
@@ -104,37 +105,47 @@ DOWNLOAD_ATTEMPTS = 3
 def download(url: str, dest: str, progress=None, attempts: int = DOWNLOAD_ATTEMPTS) -> None:
     """Stream ``url`` to ``dest``; call ``progress(done, total)`` as it goes.
 
-    The finished file is verified against ``Content-Length`` and a truncated or
-    interrupted transfer is retried, so a dropped connection can never leave a
-    half-written build behind for the swapper to install — that produced a
-    corrupt exe that died with "Failed to load Python DLL". ``total`` is 0 when
-    the server sends no Content-Length (then we can't verify, and take what we
-    got). ``progress`` may raise to cancel; that is not a network error, so it
-    propagates immediately instead of being retried.
+    The data goes to ``dest + ".part"`` and is moved onto ``dest`` only once it is complete, so ``dest`` is never a
+    half-written build (that produced a corrupt exe that died with "Failed to load Python DLL"): not after a failed
+    attempt, not after the last failure, and not when ``progress`` raises to cancel. The finished file is verified
+    against ``Content-Length`` and a truncated or interrupted transfer is retried. ``total`` is 0 when the server
+    sends no Content-Length (then we can't verify, and take what we got). ``progress`` may raise to cancel; that is
+    not a network error, so it propagates immediately instead of being retried.
     """
+    if attempts < 1:
+        raise ValueError("attempts must be at least 1")
     request = urllib.request.Request(url, headers={"User-Agent": "brok"})
+    part = dest + ".part"
     last_error: OSError | None = None
-    for attempt in range(1, attempts + 1):
+    try:
+        for attempt in range(1, attempts + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - official HTTPS release URL
+                    total = int(response.headers.get("Content-Length") or 0)
+                    done = 0
+                    with open(part, "wb") as out:
+                        while True:
+                            chunk = response.read(1 << 16)
+                            if not chunk:
+                                break
+                            out.write(chunk)
+                            done += len(chunk)
+                            if progress is not None:
+                                progress(done, total)
+                if total and done != total:
+                    raise OSError(f"incomplete download: got {done} of {total} bytes")
+                os.replace(part, dest)
+                return
+            except OSError as error:  # network / truncation — retry, then give up
+                last_error = error
+                logger.warning("download attempt %d/%d failed: %s", attempt, attempts, error)
+        assert last_error is not None  # attempts >= 1, so the loop ran and every pass failed
+        raise last_error
+    finally:
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 - official HTTPS release URL
-                total = int(response.headers.get("Content-Length") or 0)
-                done = 0
-                with open(dest, "wb") as out:
-                    while True:
-                        chunk = response.read(1 << 16)
-                        if not chunk:
-                            break
-                        out.write(chunk)
-                        done += len(chunk)
-                        if progress is not None:
-                            progress(done, total)
-            if total and done != total:
-                raise OSError(f"incomplete download: got {done} of {total} bytes")
-            return
-        except OSError as error:  # network / truncation — retry, then give up
-            last_error = error
-            logger.warning("download attempt %d/%d failed: %s", attempt, attempts, error)
-    raise last_error
+            os.remove(part)  # nothing half-written is ever left behind (no-op after a successful replace)
+        except OSError:
+            pass
 
 
 def staging_path(kind: str) -> str:
@@ -153,24 +164,40 @@ def apply_and_relaunch(kind: str, downloaded: str) -> None:
         raise ValueError(f"cannot self-update install kind {kind!r}")
 
 
+def macos_swap_script(pid: int, zip_path: str, app: str) -> str:
+    """The /bin/sh helper that replaces ``app`` once ``pid`` has exited.
+
+    The installed app is only touched after the new one was extracted and found; it is moved aside, not deleted, and
+    put back if the copy fails, so a corrupt download can never leave the user with no app at all.
+    """
+    q = shlex.quote
+    old = q(app + ".old")
+    reopen = f"open {q(app)}"
+    return (
+        "#!/bin/sh\n"
+        f"while kill -0 {pid} 2>/dev/null; do sleep 1; done\n"
+        'tmp="$(mktemp -d)" || exit 1\n'
+        f'/usr/bin/ditto -x -k {q(zip_path)} "$tmp" || {{ rm -rf "$tmp"; {reopen}; exit 1; }}\n'
+        f'[ -d "$tmp/brok.app" ] || {{ rm -rf "$tmp"; {reopen}; exit 1; }}\n'
+        f"rm -rf {old}\n"
+        f'mv {q(app)} {old} || {{ rm -rf "$tmp"; {reopen}; exit 1; }}\n'
+        f'if /usr/bin/ditto "$tmp/brok.app" {q(app)}; then rm -rf {old}; '
+        f"else rm -rf {q(app)}; mv {old} {q(app)}; fi\n"
+        f"/usr/bin/xattr -dr com.apple.quarantine {q(app)} 2>/dev/null\n"
+        f"{reopen}\n"
+        f'rm -rf "$tmp" {q(zip_path)} "$0"\n'
+    )
+
+
 def apply_macos(zip_path: str) -> None:
     # sys.executable is .../brok.app/Contents/MacOS/brok.
     app = os.path.dirname(os.path.dirname(os.path.dirname(sys.executable)))
-    pid = os.getpid()
+    if not app.endswith(".app") or not os.path.isdir(app):
+        # e.g. a bare onedir build: three levels up is NOT ours to replace.
+        raise RuntimeError(f"cannot self-update: {app!r} is not a .app bundle")
     script = os.path.join(tempfile.gettempdir(), "brok-update.sh")
-    body = (
-        "#!/bin/sh\n"
-        f"while kill -0 {pid} 2>/dev/null; do sleep 1; done\n"
-        'tmp="$(mktemp -d)"\n'
-        f'/usr/bin/ditto -x -k "{zip_path}" "$tmp"\n'
-        f'rm -rf "{app}"\n'
-        f'/usr/bin/ditto "$tmp/brok.app" "{app}"\n'
-        f'/usr/bin/xattr -dr com.apple.quarantine "{app}" 2>/dev/null\n'
-        f'open "{app}"\n'
-        f'rm -rf "$tmp" "{zip_path}" "$0"\n'
-    )
     with open(script, "w", encoding="utf-8") as handle:
-        handle.write(body)
+        handle.write(macos_swap_script(os.getpid(), zip_path, app))
     make_executable(script)
     subprocess.Popen(["/bin/sh", script], start_new_session=True)  # noqa: S603
     logger.info("macOS update helper launched for %s", app)
@@ -181,6 +208,10 @@ def apply_windows(downloaded: str) -> None:
     pid = os.getpid()
     log = os.path.join(tempfile.gettempdir(), "brok-update.log")
     script = os.path.join(tempfile.gettempdir(), "brok-update.bat")
+    for path in (downloaded, exe, log):
+        # The swapper uses delayed expansion: % and ! in a path would be expanded and " would end the quoting.
+        if any(ch in path for ch in '%!"'):
+            raise RuntimeError(f'cannot self-update: the path {path!r} contains one of % ! " - update manually')
     # Wait for this process (and its bootloader) to exit and release the exe, then
     # KEEP RETRYING the overwrite: a onefile build stays locked for a moment after
     # the app PID is gone, so a single `move` right away fails and nothing
@@ -236,9 +267,7 @@ def apply_windows(downloaded: str) -> None:
     # stripped, so the relaunched exe (our descendant) never inherits them and
     # extracts fresh — belt-and-suspenders with the `set ""` lines in the batch.
     clean_env = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith("_PYI") and not key.startswith("_MEIPASS")
+        key: value for key, value in os.environ.items() if not key.startswith("_PYI") and not key.startswith("_MEIPASS")
     }
     subprocess.Popen(  # noqa: S603
         ["cmd", "/c", script], creationflags=CREATE_NO_WINDOW, close_fds=True, env=clean_env

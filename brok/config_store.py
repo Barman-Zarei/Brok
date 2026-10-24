@@ -15,11 +15,45 @@ from __future__ import annotations
 import configparser
 import locale
 import logging
+import os
+import shutil
 from pathlib import Path
 
 from . import secret_store
 
 logger = logging.getLogger(__name__)
+
+
+def new_parser() -> configparser.ConfigParser:
+    """A parser WITHOUT value interpolation.
+
+    The default ``BasicInterpolation`` treats ``%`` specially: saving ``100%`` or a URL-encoded URL raised
+    ``ValueError``, and a hand-edited ``%`` made the whole file unreadable (all settings fell back to defaults).
+    """
+    return configparser.ConfigParser(interpolation=None)
+
+
+def write_config(cfg_file: Path, config: configparser.ConfigParser) -> None:
+    """Write ``config`` to ``cfg_file`` atomically and owner-only from the first byte.
+
+    A temp file is created with mode 600 (no window where plaintext secrets are world-readable), flushed to disk, then
+    renamed over the target. A crash or full disk therefore leaves the previous file intact instead of a truncated one.
+    """
+    tmp = cfg_file.with_name(cfg_file.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            config.write(fh)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, cfg_file)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    secret_store.secure_file(cfg_file)
 
 
 def bool_str(value: bool) -> str:
@@ -53,7 +87,7 @@ def read_config(cfg_file: Path) -> configparser.ConfigParser | None:
     """Parse ``cfg_file``, or ``None`` if it is absent or cannot be read."""
     if not cfg_file.exists():
         return None
-    config = configparser.ConfigParser()
+    config = new_parser()
     try:
         config.read_string(read_config_text(cfg_file), source=str(cfg_file))
     except (configparser.Error, OSError) as exc:
@@ -71,15 +105,20 @@ def write_section(name: str, values: dict, cfg_file: Path) -> None:
     """
     try:
         cfg_file.parent.mkdir(parents=True, exist_ok=True)
-        config = configparser.ConfigParser()
+        config = new_parser()
         if cfg_file.exists():
-            config.read_string(read_config_text(cfg_file), source=str(cfg_file))
+            try:
+                config.read_string(read_config_text(cfg_file), source=str(cfg_file))
+            except configparser.Error as exc:
+                # An unparsable file would otherwise block every future save. Keep it for the user, start fresh.
+                backup = cfg_file.with_name(cfg_file.name + ".corrupt")
+                shutil.copy2(cfg_file, backup)
+                logger.warning("%s unreadable (%s); copy kept as %s, starting a new file", cfg_file, exc, backup)
+                config = new_parser()
         if name not in config:
             config.add_section(name)
         config[name].update({key: str(value) for key, value in values.items()})
-        with open(cfg_file, "w", encoding="utf-8") as fh:
-            config.write(fh)
-        secret_store.secure_file(cfg_file)
+        write_config(cfg_file, config)
     except (OSError, configparser.Error) as exc:
         logger.error("Failed to save [%s] to %s: %s", name, cfg_file, exc)
 
@@ -89,11 +128,9 @@ def remove_section(name: str, cfg_file: Path) -> None:
     try:
         if not cfg_file.exists():
             return
-        config = configparser.ConfigParser()
+        config = new_parser()
         config.read_string(read_config_text(cfg_file), source=str(cfg_file))
         if config.remove_section(name):
-            with open(cfg_file, "w", encoding="utf-8") as fh:
-                config.write(fh)
-            secret_store.secure_file(cfg_file)
+            write_config(cfg_file, config)
     except (OSError, configparser.Error) as exc:
         logger.error("Failed to clear [%s] in %s: %s", name, cfg_file, exc)

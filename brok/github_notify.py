@@ -173,7 +173,7 @@ def load_github_settings(cfg_file: Path = CFG_FILE) -> GitHubSettings:
 def save_github_settings(settings: GitHubSettings, cfg_file: Path = CFG_FILE) -> None:
     try:
         cfg_file.parent.mkdir(parents=True, exist_ok=True)
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
         if cfg_file.exists():
             config.read_string(config_store.read_config_text(cfg_file), source=str(cfg_file))
         if "github" not in config:

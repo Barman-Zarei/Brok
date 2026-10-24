@@ -4,6 +4,59 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Fixed (debug pass)
+- **Agent loop honours Stop and the deadline before every tool call**, not only between model turns. Calls that are not
+  run get a `SKIPPED: …` tool result (the history stays valid for Claude/OpenAI/Ollama); a deadline that passes while the
+  model is answering dispatches nothing; the token budget is re-checked inside a batch; a `cancel()` that arrives just
+  before `run()` is no longer lost; a model reply cut off by its output limit (`max_tokens`/`length`) ends the run as
+  `truncated` and runs no tools; unexpected provider/network exceptions end the run as `error` instead of crashing it.
+- **Effect records**: `AgentResult.effects` (and an optional `on_effect` callback) record each dispatched call as
+  `started` *before* it runs and `finished`/`skipped` after, so an interrupted run can be checked before it is retried.
+  Tool-call ids are made unique within a history.
+- **Command sandbox**: the "read-only" whitelist no longer allows `git diff/log --output=…`, `git branch -D`,
+  `git remote add`, `--no-index`, reading `.env` files, or reading paths outside the project without approval;
+  `rm -rf /*`, `~/`, `$HOME/`, `--recursive --force /` are now blocked, not just confirmed. Windows: quoted arguments no
+  longer keep literal quotes. A timed-out command keeps its partial output.
+- **File/git tools**: `.git` is off-limits to file tools (a planted `core.fsmonitor`/hook could run code on the next
+  `git status`) and git runs with `core.fsmonitor=false`; `move_file` can no longer rename `.env` to dodge the secrets
+  guard or move `.git`; `delete_file`/`move_file` act on a symlink itself, not its target; `git_checkout` can no longer
+  mistake a file name for a branch and discard its changes; `git_stash` rejects unknown actions instead of stashing;
+  `search_text` survives symlinks that leave the project and accepts a single file; `read_file` line numbers match
+  `search_text`; `write_file` keeps a file's CRLF/LF style; internal `TypeError`s are no longer reported as "bad arguments".
+- **Providers**: garbled/truncated tool-call JSON is no longer turned into `{}` (which ran tools with default
+  arguments); mid-stream connection errors become `ProviderError`; string `error` payloads (OpenAI-compatible servers)
+  no longer raise `AttributeError`; Ollama/OpenAI fallback tool-call ids are unique across turns; Claude no longer
+  sends an empty text block for image-only messages; "no provider supports tools/vision" now says so.
+- **Misc**: terminal-panel commands that need approval can be approved without a running agent; `خطا` selects DEBUG mode
+  like `ارور` (Arabic ي/ك are normalised); the health scan no longer exempts files named `test_agent.py` and its
+  duplicate-block window no longer skips the last block; the traceback parser understands `ExceptionGroup`.
+- **Stop reaches blocking work**: cancelling now unblocks a stream whose server went silent (the socket is shut down
+  instead of waiting up to 120 s) and kills a running command together with everything it spawned (`run_command` is
+  polled every 0.2 s; the timeout kills the whole process group too). A stream that ends without its terminal marker
+  (`[DONE]` / `message_stop` / `done`) is now an error instead of a "complete" answer. `search_text` rejects
+  nested-quantifier regexes such as `(a+)+` (Python's `re` cannot be interrupted), caps scanned line length and stops
+  after 30 s. Closing the window while a tool is still running no longer destroys a live `QThread`.
+  `list_directory` shows `build/`, `dist/`, `target/`; env scrubbing also covers `PASSWD`/`COOKIE`/`PRIVATE`.
+- **Remaining findings**: the terminal panel runs commands on its own thread (a slow command no longer freezes the
+  window) and its approvals work with or without an agent running; pressing Stop while an approval prompt is open
+  reports `SKIPPED`, not "DENIED: the user did not approve"; `ANTHROPIC_API_KEY` now takes precedence over the
+  keyring (as documented, and as OpenAI already did); error messages no longer include a URL's query string or
+  credentials; the health scan reports a `.env` only when git does *not* ignore it, instead of flagging every `.env`.
+- **Audit of previously unread modules**:
+  - *Updater*: a failed or cancelled download no longer leaves a half-written build (`.part` file, replaced only when
+    complete); `attempts=0` no longer `raise None`; `update_hint` recognises a git worktree; the macOS swap script keeps
+    the old app until the new one is verified (moved aside, restored on failure), quotes its paths, and refuses a path
+    that is not a `.app` (it used to `rm -rf` three directories up); the Windows updater refuses `%`/`!`/`"` in paths.
+  - *Shop / characters*: server-supplied char ids can no longer escape the chars folder (download, uninstall, lookup);
+    the user's token is sent only to the shop's own origin and never re-sent on redirects; plain-http downloads from an
+    https shop are refused; one malformed catalog entry no longer discards the catalog, and a bad catalog is not cached;
+    previews are http(s)-only with a size cap; `installed.json` is written atomically; oversized char files are refused;
+    GIF frame delays of 0 ms no longer spin the timer; a sloppy `config.json` in a char no longer crashes the loader;
+    a broken saved char now falls back to a bundled one at startup instead of making the app unable to start.
+  - *Config*: values containing `%` (URL-encoded URLs, passwords, prompts) can be saved, and a hand-edited `%` no longer
+    makes the whole file unreadable (interpolation is off everywhere); config files are written atomically and are
+    owner-only from the first byte; an unparsable config is kept as `config.ini.corrupt` instead of blocking all saves.
+
 ## [0.2.0] - 2026-10-04
 
 First release as **Brok**, a derivative of myCat 0.1.37 (see NOTICE).

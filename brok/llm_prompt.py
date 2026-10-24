@@ -101,7 +101,7 @@ def load_llm_settings() -> LLMSettings:
         history_messages=int(os.getenv("LLM_HISTORY_MESSAGES", "10")),
     )
 
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(interpolation=None)
     if CFG_FILE.exists():
         try:
             parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
@@ -131,7 +131,7 @@ def save_ollama_settings(url: str, model: str) -> None:
     and the timeout untouched) and writes it back.
     """
     CFG_DIR.mkdir(parents=True, exist_ok=True)
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(interpolation=None)
     if CFG_FILE.exists():
         try:
             parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
@@ -150,7 +150,7 @@ def save_ollama_settings(url: str, model: str) -> None:
 def save_llm_enabled(enabled: bool) -> None:
     """Persist the LLM enabled flag into [llm] of config.ini."""
     CFG_DIR.mkdir(parents=True, exist_ok=True)
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(interpolation=None)
     if CFG_FILE.exists():
         try:
             parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
@@ -175,7 +175,7 @@ def load_llm_enabled() -> bool:
     env_value = (os.getenv("LLM_ENABLED") or "").strip().lower()
     enabled = True if env_value == "" else env_value not in {"0", "false", "off", "no"}
     if CFG_FILE.exists():
-        parser = configparser.ConfigParser()
+        parser = configparser.ConfigParser(interpolation=None)
         try:
             parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
             if parser.has_option("llm", "enabled"):

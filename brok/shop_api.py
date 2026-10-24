@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import tempfile
 import urllib.error
 import urllib.parse
@@ -52,16 +53,17 @@ class CharEntry:
 
     @classmethod
     def from_dict(cls, data: dict) -> CharEntry:
+        char_id = safe_char_id(data["id"])
         return cls(
-            id=str(data["id"]),
-            name=str(data.get("name", data["id"])),
+            id=char_id,
+            name=str(data.get("name", char_id)),
             author=str(data.get("author", "")),
             description=str(data.get("description", "")),
             preview_url=str(data.get("preview_url", "")),
             download_url=str(data.get("download_url", "")),
             sha256=str(data.get("sha256", "")),
             size_bytes=int(data.get("size_bytes", 0)),
-            version=str(data.get("version", "0.0.0")),
+            version=re.sub(r"[^\w.+-]", "_", str(data.get("version", "0.0.0")))[:40] or "0.0.0",
             tier=str(data.get("tier", "free")),
             released_at=str(data.get("released_at", "")),
             tags=list(data.get("tags", [])),
@@ -81,12 +83,41 @@ class Catalog:
             schema_version=int(data.get("schema_version", 1)),
             generated_at=str(data.get("generated_at", "")),
             # Server wire key stays "characters"; our field is `chars`.
-            chars=[CharEntry.from_dict(s) for s in data.get("characters", [])],
+            chars=cls._parse_entries(data.get("characters", [])),
         )
+
+    @staticmethod
+    def _parse_entries(raw: object) -> list[CharEntry]:
+        """One malformed/unsafe entry must not take the whole catalog (or its cached copy) down: skip it."""
+        entries: list[CharEntry] = []
+        for item in raw if isinstance(raw, list) else []:
+            try:
+                entries.append(CharEntry.from_dict(item))
+            except (KeyError, ValueError, TypeError, AttributeError) as exc:
+                logger.warning("Skipping invalid catalog entry: %s", exc)
+        return entries
 
 
 class ShopError(RuntimeError):
     """Raised for any shop-API failure that should surface to the user."""
+
+
+MAX_PREVIEW_BYTES = 5 * 1024 * 1024
+PREVIEW_SUFFIXES = (".gif", ".png", ".jpg", ".jpeg", ".webp")
+
+
+def safe_char_id(value: object) -> str:
+    """A server-supplied char id becomes a file name, so it must be a plain name: no path separators, drive
+    letters/streams (``:``), NUL or ``..`` — otherwise ``../../x`` would write/delete outside the chars folder."""
+    text = str(value)
+    if not text or text in (".", "..") or any(ch in text for ch in '/\\:\x00') or text != text.strip():
+        raise ValueError(f"unsafe char id: {text!r}")
+    return text
+
+
+def _origin(url: str) -> tuple[str, str]:
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme.lower(), parts.netloc.lower()
 
 
 def resolve_base_url(config_path: Path | None = None) -> str:
@@ -95,7 +126,7 @@ def resolve_base_url(config_path: Path | None = None) -> str:
     if env_url:
         return env_url.rstrip("/")
     if config_path and config_path.exists():
-        parser = configparser.ConfigParser()
+        parser = configparser.ConfigParser(interpolation=None)
         try:
             parser.read_string(config_store.read_config_text(config_path), source=str(config_path))
             if parser.has_section("shop"):
@@ -168,10 +199,14 @@ class ShopClient:
                         logger.debug("Could not persist ETag: %s", exc)
                 if status == 200 and body:
                     try:
+                        catalog = Catalog.from_dict(json.loads(body.decode("utf-8")))
+                    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                        raise ShopError(f"Catalog response is not a valid catalog: {exc}") from exc
+                    try:  # only a catalog that parsed is worth caching (a bad one would poison the fallback)
                         cache_file.write_bytes(body)
                     except OSError as exc:
                         logger.debug("Could not persist catalog cache: %s", exc)
-                    return Catalog.from_dict(json.loads(body.decode("utf-8")))
+                    return catalog
         except urllib.error.HTTPError as exc:
             if exc.code == 304:
                 logger.debug("Catalog 304 Not Modified — using cached copy")
@@ -187,8 +222,6 @@ class ShopClient:
                 logger.warning("Catalog network error; falling back to cache: %s", exc.reason)
                 return cached
             raise ShopError(f"Cannot reach shop: {exc.reason}") from exc
-        except json.JSONDecodeError as exc:
-            raise ShopError(f"Catalog response is not valid JSON: {exc}") from exc
 
         return self.load_cached_catalog(cache_file)
 
@@ -203,7 +236,7 @@ class ShopClient:
     def load_cached_catalog(self, cache_file: Path) -> Catalog:
         try:
             return Catalog.from_dict(json.loads(cache_file.read_text(encoding="utf-8")))
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
             raise ShopError(f"Cannot read cached catalog: {exc}") from exc
 
     # ---- preview -----------------------------------------------------------
@@ -217,8 +250,11 @@ class ShopClient:
             previews_dir.mkdir(parents=True, exist_ok=True)
         except OSError:
             return None
-        # Extension follows the URL suffix (.gif / .png).
-        suffix = Path(urllib.parse.urlparse(char.preview_url).path).suffix.lower() or ".gif"
+        if urllib.parse.urlsplit(char.preview_url).scheme.lower() not in ("http", "https"):
+            return None  # urlopen would happily read file:// or ftp:// URLs named by the server
+        suffix = Path(urllib.parse.urlparse(char.preview_url).path).suffix.lower()
+        if suffix not in PREVIEW_SUFFIXES:
+            suffix = ".gif"
         dest = previews_dir / f"{char.id}-{char.version}{suffix}"
         if dest.exists() and dest.stat().st_size > 0:
             return dest
@@ -229,7 +265,9 @@ class ShopClient:
                 method="GET",
             )
             with urllib.request.urlopen(request, timeout=self.catalog_timeout) as response:
-                data = response.read()
+                data = response.read(MAX_PREVIEW_BYTES + 1)
+            if len(data) > MAX_PREVIEW_BYTES:
+                return None
             tmp = dest.with_suffix(dest.suffix + ".tmp")
             tmp.write_bytes(data)
             os.replace(tmp, dest)
@@ -255,15 +293,19 @@ class ShopClient:
         - Raises ShopError on any failure; partial files are cleaned up.
         - `progress_cb(downloaded, total)` is invoked periodically (best-effort).
         """
+        try:
+            char_id = safe_char_id(char.id)
+        except ValueError as exc:
+            raise ShopError(str(exc)) from exc
         dest_dir.mkdir(parents=True, exist_ok=True)
-        final_path = dest_dir / f"{char.id}.zip"
+        final_path = dest_dir / f"{char_id}.zip"
         url = self.resolve_download_url(char)
 
         headers = {"User-Agent": "brok-client", "Accept": "application/zip, */*"}
-        if auth_token:
-            headers["Authorization"] = f"Bearer {auth_token}"
-
         request = urllib.request.Request(url, headers=headers, method="GET")
+        if auth_token and _origin(url) == _origin(self.base_url):
+            # Unredirected: urllib copies normal headers to a redirect target, which may be another host.
+            request.add_unredirected_header("Authorization", f"Bearer {auth_token}")
         sha = hashlib.sha256()
         downloaded = 0
         expected = char.size_bytes or 0
@@ -335,6 +377,8 @@ class ShopClient:
     def resolve_download_url(self, char: CharEntry) -> str:
         url = char.download_url
         if url.startswith("http://") or url.startswith("https://"):
+            if url.startswith("http://") and self.base_url.startswith("https://"):
+                raise ShopError(f"Refusing a plain-http download for {char.id} from an https shop")
             return url
         if not url.startswith("/"):
             url = "/" + url

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import enum
+import inspect
 import logging
+import threading
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from ..ai.messages import ToolSchema
+from ..ai.messages import INVALID_ARGS_KEY, ToolSchema
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,7 @@ class ToolRegistry:
     def __init__(self, policy: PermissionPolicy | None = None) -> None:
         self.policy = policy or PermissionPolicy()
         self._tools: dict[str, ToolSpec] = {}
+        self.cancel_event: threading.Event | None = None  # set by AgentLoop for the duration of a run
 
     def register(self, spec: ToolSpec) -> None:
         if spec.name in self._tools:
@@ -99,6 +102,20 @@ class ToolRegistry:
         spec = self._tools.get(name)
         if spec is None:
             return f"ERROR: unknown tool '{name}'"
+        if not isinstance(arguments, dict):
+            return f"ERROR: bad arguments for {name}: expected a JSON object"
+        if INVALID_ARGS_KEY in arguments:
+            return (
+                f"ERROR: the arguments of {name} were not valid JSON (the reply may have been cut off). "
+                "The tool was NOT run; send the call again with complete arguments."
+            )
+        try:
+            # Check the call shape up front, so a TypeError raised *inside* a tool is a crash, not "bad arguments".
+            inspect.signature(spec.func).bind(**arguments)
+        except TypeError as exc:
+            return f"ERROR: bad arguments for {name}: {exc}"
+        except (ValueError, KeyError):  # signature not introspectable: fall through to the call itself
+            pass
         try:
             if spec.precheck:
                 refusal = spec.precheck(arguments)
@@ -111,14 +128,14 @@ class ToolRegistry:
                 diff = spec.preview(arguments) if spec.preview else None
                 req = ApprovalRequest(name, arguments, risk, why, diff)
                 if self.policy.approver is None or not self.policy.approver(req):
+                    if self.cancel_event is not None and self.cancel_event.is_set():
+                        return "SKIPPED: not executed (run cancelled)."  # Stop pressed while the prompt was open
                     logger.info("tool %s denied (risk=%s)", name, risk.name)
                     return f"DENIED: the user did not approve '{name}'."
             logger.info("tool %s executing (risk=%s)", name, risk.name)
             return spec.func(**arguments)
         except ToolError as exc:
             return f"ERROR: {exc}"
-        except TypeError as exc:
-            return f"ERROR: bad arguments for {name}: {exc}"
         except Exception as exc:  # noqa: BLE001 - never crash the agent loop
             logger.exception("tool %s crashed", name)
             return f"ERROR: {type(exc).__name__}: {exc}"

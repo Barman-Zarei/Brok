@@ -81,11 +81,19 @@ def scan_all() -> list[str]:
     return sorted(seen)
 
 
+def is_plain_name(char_id: object) -> bool:
+    """A char id is a file name: reject anything that could point outside the chars directory."""
+    text = str(char_id)
+    return bool(text) and text not in (".", "..") and not any(ch in text for ch in "/\\:\x00") and text == text.strip()
+
+
 def find_char(char_id: str) -> Path | None:
     """Resolve `char_id` to an existing char path (folder or .zip).
 
     User dir wins over bundled; within a dir an unpacked folder wins over a zip.
     """
+    if not is_plain_name(char_id):
+        return None
     for directory in (user_chars_dir(), bundled_chars_dir()):
         folder = directory / char_id
         if is_char_folder(folder):
@@ -100,18 +108,35 @@ def installed_metadata_path() -> Path:
     return ensure_user_chars_dir() / INSTALLED_JSON_NAME
 
 
+def _write_metadata(data: dict) -> None:
+    """Atomic: a crash mid-write must not leave a truncated installed.json (which would be read as "fresh")."""
+    path = installed_metadata_path()
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def load_installed_metadata() -> dict:
+    fresh = {"schema_version": INSTALLED_SCHEMA_VERSION, "characters": []}
     path = installed_metadata_path()
     if not path.exists():
-        return {"schema_version": INSTALLED_SCHEMA_VERSION, "characters": []}
+        return fresh
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         logger.warning("Corrupt installed.json (%s); starting fresh", exc)
-        return {"schema_version": INSTALLED_SCHEMA_VERSION, "characters": []}
+        return fresh
+    if not isinstance(data, dict) or not isinstance(data.get("characters", []), list):
+        logger.warning("installed.json has an unexpected shape; starting fresh")
+        return fresh
+    data["characters"] = [c for c in data.get("characters", []) if isinstance(c, dict)]
+    return data
 
 
 def record_installed(char_id: str, *, version: str, source: str, sha256: str, size_bytes: int) -> None:
+    if not is_plain_name(char_id):
+        logger.warning("Not recording a char with an unsafe id: %r", char_id)
+        return
     data = load_installed_metadata()
     data.setdefault("schema_version", INSTALLED_SCHEMA_VERSION)
     characters = [s for s in data.get("characters", []) if s.get("id") != char_id]
@@ -126,15 +151,16 @@ def record_installed(char_id: str, *, version: str, source: str, sha256: str, si
         }
     )
     data["characters"] = characters
-    path = installed_metadata_path()
     try:
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _write_metadata(data)
     except OSError as exc:
         logger.warning("Could not write installed.json: %s", exc)
 
 
 def remove_installed(char_id: str) -> bool:
     """Remove a user-installed char (does NOT touch bundled). Returns True on success."""
+    if not is_plain_name(char_id):
+        return False  # "../../x" must never reach unlink()
     user_zip = user_chars_dir() / f"{char_id}.zip"
     if not user_zip.exists():
         return False
@@ -146,13 +172,15 @@ def remove_installed(char_id: str) -> bool:
     data = load_installed_metadata()
     data["characters"] = [s for s in data.get("characters", []) if s.get("id") != char_id]
     try:
-        installed_metadata_path().write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _write_metadata(data)
     except OSError as exc:
         logger.warning("Could not update installed.json: %s", exc)
     return True
 
 
 def is_user_installed(char_id: str) -> bool:
+    if not is_plain_name(char_id):
+        return False
     return (user_chars_dir() / f"{char_id}.zip").exists()
 
 
@@ -171,6 +199,7 @@ __all__ = [
     "user_chars_dir",
     "ensure_user_chars_dir",
     "is_char_folder",
+    "is_plain_name",
     "scan_all",
     "find_char",
     "installed_metadata_path",

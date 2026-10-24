@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import http.client
 import ipaddress
 import re
 import socket
+import urllib.error
 import urllib.request
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -54,6 +56,18 @@ class BraveSearchProvider(SearchProvider):
         ]
 
 
+def _ip_is_public(addr: str) -> bool:
+    """True only for a globally routable unicast address (not private/loopback/link-local/CGNAT/reserved/multicast)."""
+    try:
+        ip = ipaddress.ip_address(addr.split("%", 1)[0])  # drop an IPv6 scope id such as fe80::1%eth0
+    except ValueError:
+        return False
+    mapped = getattr(ip, "ipv4_mapped", None)  # ::ffff:127.0.0.1 is loopback, but only newer Pythons say so
+    if mapped is not None:
+        ip = mapped
+    return ip.is_global and not ip.is_multicast
+
+
 def is_public_url(url: str) -> bool:
     """Reject non-http(s) and private/loopback/link-local targets (SSRF guard)."""
     u = urlparse(url)
@@ -63,11 +77,59 @@ def is_public_url(url: str) -> bool:
         infos = socket.getaddrinfo(u.hostname, None)
     except OSError:
         return False
-    for info in infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-            return False
-    return True
+    return bool(infos) and all(_ip_is_public(str(info[4][0])) for info in infos)
+
+
+class _GuardedConnect:
+    """Check the address we actually connected to, before any request is sent.
+
+    The DNS check in :func:`is_public_url` is separate from the connect (a rebinding DNS server can answer a public
+    address first and 127.0.0.1 second), so the peer is verified on the live socket as well.
+    """
+
+    def connect(self) -> None:
+        super().connect()  # type: ignore[misc]
+        peer = str(self.sock.getpeername()[0])  # type: ignore[attr-defined]
+        if not _ip_is_public(peer):
+            self.sock.close()  # type: ignore[attr-defined]
+            raise OSError(f"refusing to connect to non-public address {peer}")
+
+
+class _GuardedHTTPConnection(_GuardedConnect, http.client.HTTPConnection):
+    pass
+
+
+class _GuardedHTTPSConnection(_GuardedConnect, http.client.HTTPSConnection):
+    pass
+
+
+class _GuardedHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req: Any) -> Any:
+        return self.do_open(_GuardedHTTPConnection, req)
+
+
+class _GuardedHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req: Any) -> Any:
+        kwargs: dict[str, Any] = {"context": getattr(self, "_context", None)}
+        if hasattr(self, "_check_hostname"):
+            kwargs["check_hostname"] = self._check_hostname
+        return self.do_open(_GuardedHTTPSConnection, req, **kwargs)
+
+
+class _GuardedRedirect(urllib.request.HTTPRedirectHandler):
+    """urllib follows redirects on its own: a public page could bounce us to http://169.254.169.254/ or localhost."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> Any:
+        if not is_public_url(newurl):
+            raise urllib.error.URLError(f"redirect to a non-public URL refused: {newurl}")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _guarded_open(req: Any, timeout: float = 20) -> Any:
+    handlers: list[Any] = [_GuardedRedirect]
+    if not urllib.request.getproxies():  # behind a proxy the peer is the proxy; redirect targets are still checked
+        handlers += [_GuardedHTTPHandler, _GuardedHTTPSHandler]
+    return urllib.request.build_opener(*handlers).open(req, timeout=timeout)
 
 
 class _Text(HTMLParser):
@@ -98,7 +160,7 @@ def fetch_page(url: str, max_chars: int = 8000, opener: Callable[..., Any] | Non
         raise ToolError("refusing to fetch non-public or non-http(s) URL")
     req = urllib.request.Request(url, headers={"User-Agent": "Brok"})
     try:
-        with (opener or urllib.request.urlopen)(req, timeout=20) as r:  # noqa: S310
+        with (opener or _guarded_open)(req, timeout=20) as r:
             raw = r.read(1_000_000).decode("utf-8", "replace")
     except Exception as exc:  # noqa: BLE001
         raise ToolError(f"fetch failed: {exc}")

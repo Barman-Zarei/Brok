@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import os
 import re
+import sys
 from dataclasses import dataclass, field
 
 from .workspace import SKIP_DIRS
@@ -69,15 +70,22 @@ class ProjectIndex:
                     self._index(os.path.join(dp, fn))
         return self
 
+    def _inside_root(self, full: str) -> bool:
+        """A symlink pointing outside the project must not pull foreign files into prompts."""
+        root = os.path.realpath(self.root)
+        real = os.path.realpath(full)
+        return real == root or real.startswith(root + os.sep)
+
     def _index(self, full: str) -> None:
         rel = os.path.relpath(full, self.root)
         try:
-            if os.path.getsize(full) > MAX_FILE:
+            if not self._inside_root(full) or os.path.getsize(full) > MAX_FILE:
                 return
-            text = open(full, encoding="utf-8", errors="replace").read()
+            with open(full, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
         except OSError:
             return
-        entry = FileEntry(rel, text.count("\n") + 1)
+        entry = FileEntry(rel, len(text.splitlines()))  # not count("\n") + 1: that over-counts a file ending in \n
         for i, line in enumerate(text.splitlines(), 1):
             m = _TODO_RE.search(line)
             if m:
@@ -96,6 +104,8 @@ class ProjectIndex:
                         entry.imports.append(("." * node.level) + (node.module or ""))
             except (SyntaxError, ValueError) as exc:
                 entry.syntax_error = str(exc)
+                if sys.version_info < (3, 12):  # the file may simply use syntax newer than the Python running Brok
+                    entry.syntax_error += f" (parsed with Python {sys.version_info[0]}.{sys.version_info[1]})"
         else:
             for m in _SYM_RE.finditer(text):
                 entry.symbols.append(Symbol(m.group(1), "symbol", rel, text.count("\n", 0, m.start()) + 1))
@@ -129,8 +139,12 @@ class ProjectIndex:
         hits.sort(key=lambda t: (-t[0], t[1].file, t[1].line))
         out, used = [], 0
         for _, s in hits:
+            full = os.path.join(self.root, s.file)
             try:
-                lines = open(os.path.join(self.root, s.file), encoding="utf-8", errors="replace").read().splitlines()
+                if not self._inside_root(full):
+                    continue
+                with open(full, encoding="utf-8", errors="replace") as fh:
+                    lines = fh.read().splitlines()
             except OSError:
                 continue
             snippet = "\n".join(lines[max(0, s.line - 1) : s.line + 14])

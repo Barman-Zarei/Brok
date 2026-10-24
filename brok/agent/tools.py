@@ -88,6 +88,9 @@ class ToolRegistry:
             raise ValueError(f"duplicate tool {spec.name}")
         self._tools[spec.name] = spec
 
+    def unregister(self, name: str) -> None:
+        self._tools.pop(name, None)
+
     def names(self) -> list[str]:
         return sorted(self._tools)
 

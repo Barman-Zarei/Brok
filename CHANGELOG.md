@@ -56,6 +56,23 @@ All notable changes to this project are documented in this file.
   - *Config*: values containing `%` (URL-encoded URLs, passwords, prompts) can be saved, and a hand-edited `%` no longer
     makes the whole file unreadable (interpolation is off everywhere); config files are written atomically and are
     owner-only from the first byte; an unparsable config is kept as `config.ini.corrupt` instead of blocking all saves.
+- **Audit, second part**:
+  - *Claude provider*: empty or whitespace-only text (a blank user message, a blank assistant text, an empty tool
+    result) is never sent: the Messages API answers such requests with HTTP 400.
+  - *Web fetch (SSRF guard)*: redirects are re-checked (a public page could bounce the fetch to `169.254.169.254` or
+    localhost), the address actually connected to is verified (DNS rebinding), `::ffff:127.0.0.1`, CGNAT and IPv6
+    scope ids are classified correctly.
+  - *GitHub tools*: `github_browse` can no longer wander out of the repository (`..`) or inject a query string, and
+    non-ASCII names no longer crash the request; repo names are strict ASCII `owner/name`; an empty commit message
+    no longer raises `IndexError`.
+  - *Plugins*: a plugin that fails half-way no longer leaves its already-registered tools callable, and a plugin can no
+    longer lower a tool's risk/confirmation after registering it (the registry holds its own copy).
+  - *Memory*: one unreadable entry (or a field from another version) no longer discards every memory and then
+    overwrites the file; an unreadable file is kept as `memory.json.corrupt`; the file is private from the first byte.
+  - *Index/project/CLI*: symlinks leaving the project are not indexed or sent to the AI; line counts no longer include a
+    phantom line; syntax-error findings say which Python parsed the file; a plain Dart project no longer overwrites an
+    existing build system; `-r`/`--index-url` lines are not dependencies; `brok-agent` handles Ctrl+C and
+    `memory add` without text.
 
 ## [0.2.0] - 2026-10-04
 

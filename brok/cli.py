@@ -54,6 +54,9 @@ def _run_agent(
     except ProviderError as exc:
         print(f"\nError: {exc}")
         return 2
+    except KeyboardInterrupt:  # Ctrl+C: no traceback; the process exit code convention for SIGINT
+        print("\nInterrupted.")
+        return 130
     print(f"\n\n— {res.status} after {res.iterations} step(s), {res.tool_calls} tool call(s)")
     if res.error:
         print("Error:", res.error)
@@ -91,7 +94,11 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "debug":
         import os
 
-        text = open(a.error, encoding="utf-8", errors="replace").read() if os.path.isfile(a.error) else a.error
+        if os.path.isfile(a.error):
+            with open(a.error, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        else:
+            text = a.error
         return _run_agent(cfg, debug_prompt(text, a.project, language=cfg.ui.language), a.project, "DEBUG")
     if a.cmd == "learn":
         return _run_agent(cfg, learning_prompt(a.step, " ".join(a.topic), cfg.ui.language), a.project, "LEARNING")
@@ -120,6 +127,9 @@ def main(argv: list[str] | None = None) -> int:
         for i in mem.list():
             print(f"{i.id}  [{i.kind}] {i.text}")
     elif a.action == "add":
+        if len(a.arg) < 2:
+            print("Usage: brok-agent memory add <conversation|project|preference|longterm> <text>")
+            return 1
         try:
             kind, *rest = a.arg
             print("saved", mem.add(kind, " ".join(rest)).id)

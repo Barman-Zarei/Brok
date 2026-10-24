@@ -78,7 +78,7 @@ def builtin_vendors() -> dict:
 
 
 def read_config() -> configparser.ConfigParser:
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(interpolation=None)
     if CFG_FILE.exists():
         try:
             parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))

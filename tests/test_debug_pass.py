@@ -590,3 +590,262 @@ def test_R4_health_secrets_file_reported_only_when_not_ignored(tmp_path):
     assert ".env" in where()  # not ignored: that is the real problem
     (tmp_path / ".gitignore").write_text(".env\n")
     assert ".env" not in where()
+
+
+# ================================================= 9. audit of the remaining modules
+def _entry(**kw):
+    from brok.shop_api import CharEntry
+
+    base = {
+        "id": "good",
+        "name": "n",
+        "author": "",
+        "description": "",
+        "preview_url": "",
+        "download_url": "/d/good.zip",
+        "sha256": "",
+        "size_bytes": 0,
+        "version": "1.0",
+        "tier": "free",
+        "released_at": "",
+        "tags": [],
+        "license": "",
+    }
+    base.update(kw)
+    return CharEntry(**base)
+
+
+class _Resp:
+    def __init__(self, body: bytes, status: int = 200):
+        import io
+
+        self._b, self.status = io.BytesIO(body), status
+        self.headers = {"Content-Length": str(len(body))}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self, n=-1):
+        return self._b.read(n)
+
+
+def test_A1_catalog_skips_unsafe_and_malformed_entries():
+    from brok.shop_api import Catalog
+
+    cat = Catalog.from_dict({"characters": [{"id": "../../evil"}, {"id": "good"}, {"nope": 1}, {"id": "a/b"}, 7]})
+    assert [c.id for c in cat.chars] == ["good"]
+
+
+def test_A2_download_refuses_an_id_that_would_escape_the_folder(tmp_path):
+    from brok.shop_api import ShopClient, ShopError
+
+    client = ShopClient("https://shop.example", cache_dir=tmp_path / "c")
+    with pytest.raises(ShopError):
+        client.download_char(_entry(id="../../x"), tmp_path / "chars")
+    assert not list(tmp_path.rglob("x.zip"))
+
+
+def test_A3_token_goes_only_to_the_shop_and_is_not_forwarded_on_redirects(tmp_path, monkeypatch):
+    import urllib.request
+
+    from brok.shop_api import ShopClient
+
+    seen = []
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout: seen.append(req) or _Resp(b"zipdata"))
+    client = ShopClient("https://shop.example", cache_dir=tmp_path / "c")
+    client.download_char(_entry(download_url="https://cdn.other.example/a.zip"), tmp_path / "d1", auth_token="TOKEN")
+    client.download_char(_entry(download_url="/d/good.zip"), tmp_path / "d2", auth_token="TOKEN")
+    other, own = seen
+    assert "Authorization" not in other.headers and "Authorization" not in other.unredirected_hdrs
+    assert own.unredirected_hdrs.get("Authorization") == "Bearer TOKEN" and "Authorization" not in own.headers
+
+
+def test_A4_plain_http_download_from_an_https_shop_is_refused(tmp_path):
+    from brok.shop_api import ShopClient, ShopError
+
+    with pytest.raises(ShopError):
+        ShopClient("https://shop.example", cache_dir=tmp_path).resolve_download_url(
+            _entry(download_url="http://x/a.zip")
+        )
+
+
+def test_A5_an_invalid_catalog_is_not_cached(tmp_path, monkeypatch):
+    import urllib.request
+
+    from brok.shop_api import ShopClient, ShopError
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout: _Resp(b"[1, 2]"))
+    client = ShopClient("https://shop.example", cache_dir=tmp_path)
+    with pytest.raises(ShopError):
+        client.fetch_catalog()
+    assert not (tmp_path / "catalog.json").exists()
+
+
+def test_A6_preview_only_fetches_http_urls(tmp_path, monkeypatch):
+    import urllib.request
+
+    from brok.shop_api import ShopClient
+
+    def boom(*a, **k):
+        raise AssertionError("must not open file:// URLs")
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    assert (
+        ShopClient("https://shop.example", cache_dir=tmp_path).fetch_preview(_entry(preview_url="file:///etc/passwd"))
+        is None
+    )
+
+
+def test_A7_char_ids_cannot_reach_outside_the_chars_folder(tmp_path, monkeypatch):
+    from brok import char_catalog
+
+    chars = tmp_path / "chars"
+    chars.mkdir()
+    victim = tmp_path / "secret.zip"
+    victim.write_bytes(b"precious")
+    monkeypatch.setattr(char_catalog, "user_chars_dir", lambda: chars)
+    assert char_catalog.remove_installed("../secret") is False and victim.exists()
+    assert char_catalog.find_char("../secret") is None and char_catalog.is_user_installed("../secret") is False
+
+
+def test_A8_installed_metadata_survives_wrong_shapes_and_is_written_atomically(tmp_path, monkeypatch):
+    from brok import char_catalog
+
+    monkeypatch.setattr(char_catalog, "user_chars_dir", lambda: tmp_path)
+    char_catalog.installed_metadata_path().write_text("[1, 2]")
+    assert char_catalog.load_installed_metadata()["characters"] == []
+    char_catalog.record_installed("cat", version="1", source="s", sha256="", size_bytes=1)
+    assert [c["id"] for c in char_catalog.load_installed_metadata()["characters"]] == ["cat"]
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def _char_zip(path, config, png=True, extra=None):
+    import io
+    import json
+    import zipfile
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (10, 10), (255, 0, 0, 255)).save(buf, "PNG")
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("config.json", json.dumps(config))
+        zf.writestr("static.png", buf.getvalue() if png else b"not a png")
+        for name, data in (extra or {}).items():
+            zf.writestr(name, data)
+    return path
+
+
+def test_A9_load_pack_tolerates_a_sloppy_config(qapp, tmp_path):
+    from brok import char_pack
+
+    cfg = {
+        "max_width": "abc",
+        "eyes": {"left": 5},
+        "blink": True,
+        "animations": [7, {"file": "x"}],
+        "idle": [],
+        "battery": "z",
+    }
+    pack = char_pack.load_pack(_char_zip(tmp_path / "c.zip", cfg))
+    assert pack.eyes is None and pack.blink_every == (3.0, 7.0) and pack.anims == []
+
+
+def test_A10_load_pack_rejects_an_invalid_static_png(qapp, tmp_path):
+    from brok import char_pack
+
+    with pytest.raises(ValueError):
+        char_pack.load_pack(_char_zip(tmp_path / "c.zip", {}, png=False))
+
+
+def test_A11_oversized_char_entries_are_refused_before_inflating(tmp_path, monkeypatch):
+    from brok import char_pack
+
+    monkeypatch.setattr(char_pack, "MAX_ENTRY_BYTES", 10)
+    z = _char_zip(tmp_path / "c.zip", {}, extra={"big.bin": b"x" * 100})
+    with char_pack.CharSource(z) as src, pytest.raises(ValueError):
+        src.read("big.bin")
+
+
+def test_A12_zero_delay_gif_frames_do_not_become_a_busy_loop(qapp):
+    import io
+
+    from PIL import Image
+
+    from brok import char_pack
+
+    frames = [Image.new("RGBA", (4, 4), c) for c in ((255, 0, 0, 255), (0, 255, 0, 255))]
+    buf = io.BytesIO()
+    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=0, loop=0)
+    _, delays = char_pack.gif_frames(buf.getvalue(), 1.0)
+    assert delays and min(delays) >= 20
+
+
+def test_A13_a_broken_saved_char_falls_back_to_a_bundled_one(qapp, tmp_path, monkeypatch):
+    import types
+
+    from brok import char_catalog
+    from brok import main as brok_main
+
+    monkeypatch.setattr(char_catalog, "user_chars_dir", lambda: tmp_path)
+    _char_zip(tmp_path / "broken.zip", {}, png=False)  # looks like a pack, cannot be loaded
+    args = types.SimpleNamespace(image=None, wait=0.0)
+    window = brok_main.create_start_window(args, "broken", ["broken", "cat"])
+    assert window is not None
+    window.close()
+
+
+def test_A14_values_with_a_percent_sign_can_be_saved_and_read(tmp_path):
+    from brok import config_store
+
+    f = tmp_path / "config.ini"
+    config_store.write_section("s", {"url": "https://x/a%20b", "prompt": "100% focus"}, f)
+    cfg = config_store.read_config(f)
+    assert cfg is not None and cfg["s"]["url"] == "https://x/a%20b" and cfg["s"]["prompt"] == "100% focus"
+    f.write_text("[s]\nk = 5%\n")  # a hand-edited lone % used to make the WHOLE file unreadable
+    assert config_store.read_config(f)["s"]["k"] == "5%"
+
+
+def test_A15_config_is_written_atomically_and_owner_only_from_the_start(tmp_path, monkeypatch):
+    import os
+    import stat
+
+    from brok import config_store
+
+    f = tmp_path / "config.ini"
+    config_store.write_section("a", {"k": "old"}, f)
+    modes = []
+    real_replace = os.replace
+    monkeypatch.setattr(
+        os, "replace", lambda src, dst: (modes.append(stat.S_IMODE(os.stat(src).st_mode)), real_replace(src, dst))[1]
+    )
+    config_store.write_section("a", {"token": "SECRET"}, f)
+    assert modes == [0o600]  # the temp file was never group/world readable
+    monkeypatch.setattr(os, "replace", real_replace)
+    monkeypatch.setattr(os, "fsync", lambda fd: (_ for _ in ()).throw(OSError("disk full")))
+    config_store.write_section("a", {"k": "new"}, f)  # fails; must not truncate or leave debris
+    monkeypatch.undo()
+    assert "old" in f.read_text() and not list(tmp_path.glob("*.tmp"))
+
+
+def test_A16_an_unparsable_config_is_backed_up_not_a_permanent_save_blocker(tmp_path):
+    from brok import config_store
+
+    f = tmp_path / "config.ini"
+    f.write_text("[a]\nk = 1\nk = 2\n")  # duplicate option: configparser refuses it
+    config_store.write_section("b", {"x": "1"}, f)
+    assert config_store.read_config(f)["b"]["x"] == "1" and (tmp_path / "config.ini.corrupt").exists()
+
+
+def test_A17_main_config_helpers_use_the_safe_writer(tmp_path, monkeypatch):
+    from brok import main as brok_main
+
+    monkeypatch.setattr(brok_main, "CFG_FILE", tmp_path / "config.ini")
+    monkeypatch.setattr(brok_main, "CFG_DIR", tmp_path)
+    brok_main.save_image_to_ini("my%char")
+    brok_main.save_config({"x": 5, "y": 7})
+    brok_main.mark_autostart_prompted()
+    assert brok_main.load_image_from_ini() == "my%char" and brok_main.autostart_was_prompted() is True

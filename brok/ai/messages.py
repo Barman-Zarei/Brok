@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -45,3 +46,19 @@ class StreamEvent:
     text: str = ""
     tool_call: ToolCall | None = None
     stop_reason: str = ""
+
+
+# Providers put the raw text under this key when a tool call's arguments are not a valid JSON object (e.g. cut off
+# by the output limit). The registry answers such a call with an error instead of running it with empty arguments.
+INVALID_ARGS_KEY = "_brok_invalid_json"
+
+
+def parse_tool_args(raw: str) -> dict[str, Any]:
+    """Parse streamed tool arguments. Garbled/non-object JSON is flagged, never silently turned into ``{}``."""
+    if not raw or not raw.strip():
+        return {}
+    try:
+        val = json.loads(raw)
+    except ValueError:
+        return {INVALID_ARGS_KEY: raw[:2000]}
+    return val if isinstance(val, dict) else {INVALID_ARGS_KEY: raw[:2000]}

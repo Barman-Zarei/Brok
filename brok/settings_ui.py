@@ -94,7 +94,7 @@ class SettingsDialog(QtWidgets.QDialog):
         if self.config_path:
             try:
                 self.config_path.parent.mkdir(parents=True, exist_ok=True)
-                config = configparser.ConfigParser()
+                config = configparser.ConfigParser(interpolation=None)
                 if self.config_path.exists():
                     config.read_string(config_store.read_config_text(self.config_path), source=str(self.config_path))
                 

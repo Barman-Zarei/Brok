@@ -226,7 +226,7 @@ def load_config(screen_width: int, screen_height: int, window_width: int, window
         return config_data
     
     try:
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
         config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
         
         if 'window' in config:
@@ -241,31 +241,10 @@ def load_config(screen_width: int, screen_height: int, window_width: int, window
 
 
 def save_config(config: dict) -> None:
-    """Save configuration to INI file."""
-    try:
-        CFG_DIR.mkdir(parents=True, exist_ok=True)
-        
-        # Read existing config if it exists
-        file_config = configparser.ConfigParser()
-        if CFG_FILE.exists():
-            file_config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        
-        # Ensure [window] section exists
-        if 'window' not in file_config:
-            file_config.add_section('window')
-        
-        # Update window position if provided
-        if 'x' in config:
-            file_config['window']['x'] = str(config['x'])
-        if 'y' in config:
-            file_config['window']['y'] = str(config['y'])
-        
-        # Write to file
-        with open(CFG_FILE, 'w', encoding="utf-8") as f:
-            file_config.write(f)
-        secret_store.secure_file(CFG_FILE)
-    except Exception as e:
-        logger.error(f"Config save error: {e}")
+    """Save the window position to the INI file (atomic, owner-only; see config_store.write_section)."""
+    values = {key: str(config[key]) for key in ("x", "y") if key in config}
+    if values:
+        config_store.write_section("window", values, CFG_FILE)
 
 
 def load_image_from_ini() -> str | None:
@@ -275,7 +254,7 @@ def load_image_from_ini() -> str | None:
         return None
     
     try:
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
         config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
         
         if 'settings' in config and 'default_image' in config['settings']:
@@ -292,36 +271,11 @@ def load_image_from_ini() -> str | None:
 
 def save_image_to_ini(image_name: str) -> None:
     """Save current image setting to INI file (skips writing if value is unchanged)."""
-    try:
-        CFG_DIR.mkdir(parents=True, exist_ok=True)
-
-        config = configparser.ConfigParser()
-
-        # Read existing config if it exists
-        if CFG_FILE.exists():
-            config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-
-        if (
-            config.has_section('settings')
-            and config.get('settings', 'default_image', fallback=None) == image_name
-        ):
-            return
-
-        # Ensure [settings] section exists
-        if 'settings' not in config:
-            config.add_section('settings')
-
-        # Set the default_image value
-        config['settings']['default_image'] = image_name
-
-        # Write to file
-        with open(CFG_FILE, 'w', encoding="utf-8") as f:
-            config.write(f)
-        secret_store.secure_file(CFG_FILE)
-
-        logger.info(f"Saved image setting to INI: {image_name}")
-    except Exception as e:
-        logger.error(f"Error saving to INI file: {e}")
+    existing = config_store.read_config(CFG_FILE)
+    if existing is not None and existing.get("settings", "default_image", fallback=None) == image_name:
+        return
+    config_store.write_section("settings", {"default_image": image_name}, CFG_FILE)
+    logger.info(f"Saved image setting to INI: {image_name}")
 
 
 def autostart_was_prompted() -> bool:
@@ -332,7 +286,7 @@ def autostart_was_prompted() -> bool:
     if not CFG_FILE.exists():
         return False
     try:
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(interpolation=None)
         config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
         return config.getboolean("settings", "autostart_prompted", fallback=False)
     except Exception as exc:
@@ -342,19 +296,7 @@ def autostart_was_prompted() -> bool:
 
 def mark_autostart_prompted() -> None:
     """Record that the first-run autostart prompt has been shown."""
-    try:
-        CFG_DIR.mkdir(parents=True, exist_ok=True)
-        config = configparser.ConfigParser()
-        if CFG_FILE.exists():
-            config.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        if "settings" not in config:
-            config.add_section("settings")
-        config["settings"]["autostart_prompted"] = "true"
-        with open(CFG_FILE, "w", encoding="utf-8") as f:
-            config.write(f)
-        secret_store.secure_file(CFG_FILE)
-    except Exception as exc:
-        logger.error("Could not save autostart_prompted flag: %s", exc)
+    config_store.write_section("settings", {"autostart_prompted": "true"}, CFG_FILE)
 
 
 def should_offer_autostart() -> bool:
@@ -1328,6 +1270,47 @@ def parse_args() -> argparse.Namespace:
 
 
 
+def create_start_window(args, default_image, available_images):
+    """Build the first window for the chosen char.
+
+    An explicit ``--image`` is used as given (a failure is the caller's problem). The saved/default char, however,
+    may have gone bad (half-installed or corrupt user char that shadows a bundled one): then fall back to the bundled
+    default instead of exiting, because otherwise the app cannot start until the user finds and deletes that file.
+    """
+
+    def build(zip_path, image_arg, default):
+        if zip_path and char_pack.is_new_pack(zip_path):
+            pack = char_pack.load_pack(zip_path)
+            return BrokWindow(pack.static, None, args.wait, Path(zip_path).stem, available_images, b"", pack=pack)
+        png_pixmap, gif_movie, file_name, gif_data = load_packaged_images(image_arg, default)
+        logger.info(
+            f"Playing {file_name}.zip (first frame) "
+            f"{png_pixmap.width()}x{png_pixmap.height()} for {args.wait:.1f}s"
+        )
+        return BrokWindow(png_pixmap, gif_movie, args.wait, file_name, available_images, gif_data)
+
+    if args.image:
+        return build(Path(args.image), args.image, default_image)
+    chosen = (
+        char_catalog.find_char(default_image or DEFAULT_CHAR)
+        or char_catalog.find_char(DEFAULT_CHAR)
+        or char_catalog.find_char("cat")
+    )
+    try:
+        return build(chosen, None, default_image)
+    except Exception as exc:  # noqa: BLE001 - any decode/layout failure of that one char
+        logger.error("Char %r could not be loaded (%s); falling back to a bundled char", default_image, exc)
+    bundled = char_catalog.bundled_chars_dir()
+    for name in (DEFAULT_CHAR, "cat"):
+        for candidate in (bundled / name, bundled / f"{name}.zip"):
+            if char_catalog.is_char_folder(candidate) or candidate.is_file():
+                try:
+                    return build(candidate, str(candidate), None)
+                except Exception as exc:  # noqa: BLE001
+                    logger.error("Bundled char %s failed too: %s", candidate.name, exc)
+    raise RuntimeError("no usable char found (user or bundled)")
+
+
 def main() -> None:
     paths.migrate_legacy_config()
     """Main entry point."""
@@ -1439,25 +1422,10 @@ def main() -> None:
             logger.warning(f"Image '{default_image}' from INI not found in available images, using default image")
             default_image = None
     
-    # Resolve the chosen char's ZIP, then branch on format: a new interactive
-    # pack (static/blink/eyes/config) or a legacy single-GIF char.
+    # Resolve the chosen char and build the window. A broken saved/default char falls back to a bundled one
+    # (see create_start_window) instead of making the app impossible to start.
     try:
-        if args.image:
-            zip_path = Path(args.image)
-        else:
-            zip_path = (char_catalog.find_char(default_image or DEFAULT_CHAR)
-                        or char_catalog.find_char(DEFAULT_CHAR) or char_catalog.find_char("cat"))
-        if zip_path and char_pack.is_new_pack(zip_path):
-            pack = char_pack.load_pack(zip_path)
-            window = BrokWindow(pack.static, None, args.wait, Path(zip_path).stem,
-                                    available_images, b"", pack=pack)
-        else:
-            png_pixmap, gif_movie, file_name, gif_data = load_packaged_images(args.image, default_image)
-            logger.info(
-                f"Playing {file_name}.zip (first frame) "
-                f"{png_pixmap.width()}x{png_pixmap.height()} for {args.wait:.1f}s"
-            )
-            window = BrokWindow(png_pixmap, gif_movie, args.wait, file_name, available_images, gif_data)
+        window = create_start_window(args, default_image, available_images)
     except Exception as e:
         logger.error(f"Error loading char: {e}")
         sys.exit(2)

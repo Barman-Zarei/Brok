@@ -35,6 +35,8 @@ from pathlib import Path
 
 from PySide2 import QtCore, QtGui
 
+MAX_ENTRY_BYTES = 64 * 1024 * 1024  # a char file larger than this is a zip bomb / not a char
+MIN_FRAME_MS = 20  # GIF delays of 0-10 ms would make the frame timer spin the CPU; browsers use 100 ms for these
 CONFIG_NAME = "config.json"
 DEFAULT_MAX_WIDTH = 200
 DEFAULT_MAX_HEIGHT = 400
@@ -64,7 +66,12 @@ class CharSource:
 
     def read(self, name: str) -> bytes:
         if self.is_folder:
-            return (self.path / name).read_bytes()
+            target = self.path / name
+            if target.stat().st_size > MAX_ENTRY_BYTES:
+                raise ValueError(f"{name} is too large ({target.stat().st_size} bytes)")
+            return target.read_bytes()
+        if self.zip.getinfo(name).file_size > MAX_ENTRY_BYTES:  # declared size, checked before inflating anything
+            raise ValueError(f"{name} is too large to be a char file")
         return self.zip.read(name)
 
     def close(self) -> None:
@@ -150,8 +157,28 @@ def gif_frames(data: bytes, scale: float):
         buffer = rgba.tobytes("raw", "RGBA")
         qimage = QtGui.QImage(buffer, rgba.width, rgba.height, QtGui.QImage.Format.Format_RGBA8888)
         frames.append(QtGui.QPixmap.fromImage(qimage.copy()))
-        delays.append(int(image.info.get("duration", 100)))
+        delay = int(image.info.get("duration", 100) or 0)
+        delays.append(delay if delay > 10 else 100)  # 0/10 ms means "unspecified"; never a busy loop
     return frames, delays
+
+
+def _as_dict(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _num(value, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _pair(value, default: tuple) -> tuple:
+    """A (min, max) range from config; anything else (a bare number, a string, a 3-list) falls back."""
+    if isinstance(value, (list, tuple)) and len(value) == 2:
+        low, high = _num(value[0], default[0]), _num(value[1], default[1])
+        return (low, high) if low <= high else (high, low)
+    return default
 
 
 def load_pack(path, max_width: int = DEFAULT_MAX_WIDTH, max_height: int = DEFAULT_MAX_HEIGHT) -> CharPack:
@@ -165,10 +192,14 @@ def load_pack(path, max_width: int = DEFAULT_MAX_WIDTH, max_height: int = DEFAUL
     with CharSource(path) as archive:
         names = archive.names()
         config = json.loads(archive.read(CONFIG_NAME))
-        max_w = int(config.get("max_width") or max_width)
-        max_h = int(config.get("max_height") or max_height)
+        if not isinstance(config, dict):
+            raise ValueError("config.json must contain a JSON object")
+        max_w = max(1, int(_num(config.get("max_width"), 0) or max_width))
+        max_h = max(1, int(_num(config.get("max_height"), 0) or max_height))
 
         static_raw = pixmap_from_bytes(archive.read("static.png"))
+        if static_raw.isNull():
+            raise ValueError("static.png is not a valid image")
         native_w = static_raw.width() or max_w
         native_h = static_raw.height() or max_h
         scale = min(max_w / native_w, max_h / native_h, 1.0)   # shrink-to-fit only
@@ -189,12 +220,13 @@ def load_pack(path, max_width: int = DEFAULT_MAX_WIDTH, max_height: int = DEFAUL
         eye_right = load_sprite("eye_right.png")
 
         eyes = None
-        eye_cfg = config.get("eyes")
-        if eye_cfg and "left" in eye_cfg and "right" in eye_cfg:
+        eye_cfg = _as_dict(config.get("eyes"))
+        left, right = _as_dict(eye_cfg.get("left")), _as_dict(eye_cfg.get("right"))
+        if all(k in side for side in (left, right) for k in ("x", "y")):
             eyes = EyeConfig(
-                travel_radius=float(eye_cfg.get("travel_radius", 0)) * scale,
-                left=QtCore.QPointF(eye_cfg["left"]["x"] * scale, eye_cfg["left"]["y"] * scale),
-                right=QtCore.QPointF(eye_cfg["right"]["x"] * scale, eye_cfg["right"]["y"] * scale),
+                travel_radius=_num(eye_cfg.get("travel_radius"), 0.0) * scale,
+                left=QtCore.QPointF(_num(left["x"], 0.0) * scale, _num(left["y"], 0.0) * scale),
+                right=QtCore.QPointF(_num(right["x"], 0.0) * scale, _num(right["y"], 0.0) * scale),
             )
 
         def gif_body_frames(name: str):
@@ -213,17 +245,17 @@ def load_pack(path, max_width: int = DEFAULT_MAX_WIDTH, max_height: int = DEFAUL
             gif_scale = static.height() / native_h
             return gif_frames(data, gif_scale)
 
-        blink_cfg = config.get("blink", {})
+        blink_cfg = _as_dict(config.get("blink"))
         anims = []
-        for entry in config.get("animations", []):
+        for entry in config.get("animations") or []:
+            entry = _as_dict(entry)
             if not entry.get("enabled", True):
                 continue
             name = entry.get("file")
             if not name or name not in names:
                 continue
             frames, delays = gif_body_frames(name)
-            every = tuple(entry.get("every", [20, 40]))
-            anims.append(Anim(frames=frames, delays=delays, every=every))
+            anims.append(Anim(frames=frames, delays=delays, every=_pair(entry.get("every"), (20.0, 40.0))))
 
         def load_anim(name: str):
             if name not in names:
@@ -240,8 +272,8 @@ def load_pack(path, max_width: int = DEFAULT_MAX_WIDTH, max_height: int = DEFAUL
                     pool.append(Anim(frames=frames, delays=delays, every=(0.0, 0.0)))
             return pool
 
-        idle_cfg = config.get("idle", {})
-        battery_cfg = config.get("battery", {})
+        idle_cfg = _as_dict(config.get("idle"))
+        battery_cfg = _as_dict(config.get("battery"))
 
         return CharPack(
             name=config.get("name") or Path(str(path)).stem,
@@ -251,9 +283,9 @@ def load_pack(path, max_width: int = DEFAULT_MAX_WIDTH, max_height: int = DEFAUL
             eye_right=eye_right,
             eyes=eyes,
             blink_enabled=bool(blink_cfg.get("enabled", blink is not None)),
-            blink_every=tuple(blink_cfg.get("every", [3.0, 7.0])),
-            blink_duration=float(blink_cfg.get("duration", 0.28)),
-            click_squint=float(config.get("click_squint", 0.5)),
+            blink_every=_pair(blink_cfg.get("every"), (3.0, 7.0)),
+            blink_duration=_num(blink_cfg.get("duration"), 0.28),
+            click_squint=_num(config.get("click_squint"), 0.5),
             anims=anims,
             sleep=load_sprite("sleep.png"),
             sleep_in=load_anim("sleep_in.gif"),
@@ -262,9 +294,9 @@ def load_pack(path, max_width: int = DEFAULT_MAX_WIDTH, max_height: int = DEFAUL
             idle_anims=load_pool("idle"),
             click_anims=load_pool("click"),
             hungry_anims=load_pool("hungry"),
-            yawn_after=float(idle_cfg.get("yawn_after", 60.0)),
-            sleep_after=float(idle_cfg.get("sleep_after", 300.0)),
-            idle_random_every=tuple(idle_cfg.get("random_every", [25.0, 60.0])),
-            hungry_below=float(battery_cfg.get("hungry_below", 20.0)),
-            hungry_every=tuple(battery_cfg.get("every", [30.0, 60.0])),
+            yawn_after=_num(idle_cfg.get("yawn_after"), 60.0),
+            sleep_after=_num(idle_cfg.get("sleep_after"), 300.0),
+            idle_random_every=_pair(idle_cfg.get("random_every"), (25.0, 60.0)),
+            hungry_below=_num(battery_cfg.get("hungry_below"), 20.0),
+            hungry_every=_pair(battery_cfg.get("every"), (30.0, 60.0)),
         )

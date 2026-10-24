@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Callable
+from urllib.parse import quote
 
 from .agent.tools import Confirm, Risk, ToolError, ToolRegistry, ToolSpec
 from .ai.transport import ProviderError, Transport, UrllibTransport
@@ -53,7 +55,10 @@ def register_github_tools(reg: ToolRegistry, gh: GitHubClient) -> None:
         return {"type": "object", "properties": props, "required": req or list(props)}
 
     def repo(r: str) -> str:
-        if r.count("/") == 1 and all(c.isalnum() or c in "-_./" for c in r) and ".." not in r:
+        # ASCII only (non-ASCII would not survive the request line) and no "." / ".." path segments.
+        if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", r) and not any(
+            part in (".", "..") for part in r.split("/")
+        ):
             return r
         raise ToolError("repo must be owner/name")
 
@@ -75,7 +80,7 @@ def register_github_tools(reg: ToolRegistry, gh: GitHubClient) -> None:
 
     def commits(repository: str) -> str:
         return "\n".join(
-            f"{c['sha'][:7]} {c['commit']['message'].splitlines()[0]}"
+            f"{c['sha'][:7]} {(c['commit']['message'].splitlines() or [''])[0]}"  # an empty message is legal
             for c in gh.get(f"/repos/{repo(repository)}/commits?per_page=10")
         )
 
@@ -83,7 +88,11 @@ def register_github_tools(reg: ToolRegistry, gh: GitHubClient) -> None:
         return "\n".join(b["name"] for b in gh.get(f"/repos/{repo(repository)}/branches?per_page=100"))
 
     def browse(repository: str, path: str = "") -> str:
-        data = gh.get(f"/repos/{repo(repository)}/contents/{path.lstrip('/')}")
+        clean = path.strip("/")
+        if any(part == ".." for part in clean.split("/")):
+            raise ToolError("path must stay inside the repository")
+        # quote(): '?', '#', spaces and non-ASCII names must not change the request (query injection / crash).
+        data = gh.get(f"/repos/{repo(repository)}/contents/{quote(clean, safe='/')}")
         return (
             "\n".join(f"{d['type']} {d['path']}" for d in data)
             if isinstance(data, list)

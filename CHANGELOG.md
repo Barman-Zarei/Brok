@@ -42,6 +42,20 @@ All notable changes to this project are documented in this file.
   reports `SKIPPED`, not "DENIED: the user did not approve"; `ANTHROPIC_API_KEY` now takes precedence over the
   keyring (as documented, and as OpenAI already did); error messages no longer include a URL's query string or
   credentials; the health scan reports a `.env` only when git does *not* ignore it, instead of flagging every `.env`.
+- **Audit of previously unread modules**:
+  - *Updater*: a failed or cancelled download no longer leaves a half-written build (`.part` file, replaced only when
+    complete); `attempts=0` no longer `raise None`; `update_hint` recognises a git worktree; the macOS swap script keeps
+    the old app until the new one is verified (moved aside, restored on failure), quotes its paths, and refuses a path
+    that is not a `.app` (it used to `rm -rf` three directories up); the Windows updater refuses `%`/`!`/`"` in paths.
+  - *Shop / characters*: server-supplied char ids can no longer escape the chars folder (download, uninstall, lookup);
+    the user's token is sent only to the shop's own origin and never re-sent on redirects; plain-http downloads from an
+    https shop are refused; one malformed catalog entry no longer discards the catalog, and a bad catalog is not cached;
+    previews are http(s)-only with a size cap; `installed.json` is written atomically; oversized char files are refused;
+    GIF frame delays of 0 ms no longer spin the timer; a sloppy `config.json` in a char no longer crashes the loader;
+    a broken saved char now falls back to a bundled one at startup instead of making the app unable to start.
+  - *Config*: values containing `%` (URL-encoded URLs, passwords, prompts) can be saved, and a hand-edited `%` no longer
+    makes the whole file unreadable (interpolation is off everywhere); config files are written atomically and are
+    owner-only from the first byte; an unparsable config is kept as `config.ini.corrupt` instead of blocking all saves.
 
 ## [0.2.0] - 2026-10-04
 

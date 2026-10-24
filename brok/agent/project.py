@@ -69,7 +69,7 @@ def detect_project(root: str) -> ProjectInfo:
             info.entry_points.append("manage.py")
         for line in _read(r / "requirements.txt").splitlines():
             line = line.split("#")[0].strip()
-            if line:
+            if line and not line.startswith("-"):  # "-r base.txt", "--index-url ..." are options, not dependencies
                 info.dependencies.append(line)
         info.build_system = "setuptools/pyproject" if has("pyproject.toml") else "setup.py"
         info.test_command, info.lint_command = "python -m pytest -q", "ruff check ."
@@ -89,7 +89,8 @@ def detect_project(root: str) -> ProjectInfo:
         info.lint_command = info.lint_command or "dart analyze"
         info.format_command = info.format_command or "dart format ."
         info.entry_points.append("lib/main.dart")
-        info.build_system = info.build_system or "flutter" if "Flutter" in info.frameworks else "dart"
+        # precedence bug: `a or b if c else d` is `(a or b) if c else d` and overwrote an existing build system
+        info.build_system = info.build_system or ("flutter" if "Flutter" in info.frameworks else "dart")
 
     if has("package.json"):
         try:

@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from typing import Any, Callable
+import time
+from typing import Any, Callable, Iterator
 
 from .diff import unified_diff
 from .index import ProjectIndex
@@ -15,6 +16,9 @@ from .tools import Confirm, PermissionPolicy, Risk, ToolError, ToolRegistry, Too
 from .workspace import SKIP_DIRS, Workspace
 
 MAX_READ = 200_000
+SEARCH_SECONDS = 30
+_NESTED_QUANTIFIER = re.compile(r"\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)\s*(?:[+*]|\{\d+,\d*\})")
+_LIST_HIDDEN = {".git", "node_modules", "__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"}
 _REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/\-]{0,100}$")  # git ref/branch names: no leading '-' (option injection)
 
 
@@ -52,12 +56,16 @@ def build_registry(
             )
         if p.stat().st_size > MAX_READ * 5:
             raise ToolError("file too large; use search_text or read a line range")
-        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-        chunk = lines[max(0, start_line - 1) : max(0, start_line - 1) + max_lines]
-        text = "\n".join(f"{start_line + i}: {line}" for i, line in enumerate(chunk))
+        # Split on "\n" only (like search_text), not str.splitlines(): form feeds / U+2028 would shift line numbers.
+        lines = p.read_text(encoding="utf-8", errors="replace").split("\n")
+        if lines and lines[-1] == "":
+            lines.pop()
+        first, count = max(1, int(start_line)), max(0, int(max_lines))
+        chunk = lines[first - 1 : first - 1 + count]
+        text = "\n".join(f"{first + i}: {line}" for i, line in enumerate(chunk))
         if on_file_read:
             on_file_read(ws.rel(p), len(text))
-        return text + (f"\n[… {len(lines)} lines total]" if len(lines) > start_line - 1 + max_lines else "")
+        return text + (f"\n[… {len(lines)} lines total]" if len(lines) > first - 1 + count else "")
 
     def list_directory(path: str = ".") -> str:
         p = ws.resolve(path, must_exist=True)
@@ -65,32 +73,53 @@ def build_registry(
             raise ToolError("not a directory")
         items = sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower()))
         return (
-            "\n".join(("[dir] " if i.is_dir() else "") + i.name for i in items if i.name not in SKIP_DIRS) or "(empty)"
+            "\n".join(("[dir] " if i.is_dir() else "") + i.name for i in items if i.name not in _LIST_HIDDEN)
+            or "(empty)"
         )
 
     def search_text(pattern: str, path: str = ".", max_results: int = 50) -> str:
         base = ws.resolve(path, must_exist=True)
+        if _NESTED_QUANTIFIER.search(
+            pattern
+        ):  # (a+)+ style patterns can hang the whole agent (Python re can't be interrupted)
+            raise ToolError("regex rejected: nested quantifiers can hang the search; simplify the pattern")
         try:
             rx = re.compile(pattern)
         except re.error as exc:
             raise ToolError(f"bad regex: {exc}")
+        budget_end = time.monotonic() + SEARCH_SECONDS
+
+        def candidates() -> Iterator[str]:
+            if base.is_file():  # a single file is a valid search target
+                yield str(base)
+                return
+            for dp, dns, fns in os.walk(base):
+                dns[:] = [d for d in dns if d not in SKIP_DIRS]
+                for fn in fns:
+                    yield os.path.join(dp, fn)
+
         out: list[str] = []
-        for dp, dns, fns in os.walk(base):
-            dns[:] = [d for d in dns if d not in SKIP_DIRS]
-            for fn in fns:
-                fp = os.path.join(dp, fn)
-                if ws.is_sensitive(ws.resolve(os.path.relpath(fp, ws.root))):
+        for fp in candidates():
+            if time.monotonic() > budget_end:
+                out.append("[search stopped: time limit reached]")
+                break
+            try:
+                real = ws.resolve(os.path.relpath(fp, ws.root))
+            except ToolError:  # e.g. a symlink pointing outside the project: skip it, keep searching
+                continue
+            if ws.is_sensitive(real):
+                continue
+            try:
+                if os.path.getsize(real) > MAX_READ:
                     continue
-                try:
-                    if os.path.getsize(fp) > MAX_READ:
-                        continue
-                    for i, line in enumerate(open(fp, encoding="utf-8", errors="ignore"), 1):
-                        if rx.search(line):
+                with open(real, encoding="utf-8", errors="ignore") as fh:
+                    for i, line in enumerate(fh, 1):
+                        if rx.search(line[:5000]):
                             out.append(f"{os.path.relpath(fp, ws.root)}:{i}: {line.strip()[:200]}")
                             if len(out) >= max_results:
                                 return "\n".join(out)
-                except OSError:
-                    continue
+            except OSError:
+                continue
         return "\n".join(out) or "no matches"
 
     def search_code(query: str) -> str:
@@ -111,10 +140,25 @@ def build_registry(
     def _preview_write(a: dict[str, Any]) -> str | None:
         try:
             p = ws.resolve(a["path"])
+            if p.is_file() and p.stat().st_size > MAX_READ * 5:
+                return None
             before = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
             return unified_diff(before, a["content"], a["path"])
         except (ToolError, KeyError, OSError):
             return None
+
+    def _write_text(p: Any, content: str, keep_style_of_existing: bool) -> None:
+        crlf = False
+        if keep_style_of_existing and p.is_file():
+            try:
+                crlf = b"\r\n" in p.read_bytes()[:65536]
+            except OSError:
+                pass
+        data = content.replace("\r\n", "\n")
+        if crlf:
+            data = data.replace("\n", "\r\n")
+        with open(p, "w", encoding="utf-8", newline="") as fh:  # newline="": no platform \n -> \r\n translation
+            fh.write(data)
 
     def write_file(path: str, content: str) -> str:
         p = ws.resolve(path)
@@ -122,7 +166,7 @@ def build_registry(
             raise ToolError("refusing to write secrets files")
         if not p.is_file():
             raise ToolError("file does not exist; use create_file")
-        p.write_text(content, encoding="utf-8")
+        _write_text(p, content, True)
         state["index"] = None
         return f"wrote {path} ({len(content)} chars)"
 
@@ -133,13 +177,17 @@ def build_registry(
         if ws.is_sensitive(p):
             raise ToolError("refusing to write secrets files")
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
+        _write_text(p, content, False)
         state["index"] = None
         return f"created {path}"
 
     def move_file(src: str, dst: str) -> str:
-        a, b = ws.resolve(src, must_exist=True), ws.resolve(dst)
-        if b.exists():
+        a, b = ws.resolve_link(src, must_exist=True), ws.resolve_link(dst)
+        if a == ws.root:
+            raise ToolError("refusing to move the project root")
+        if ws.is_sensitive(a) or ws.is_sensitive(b):  # renaming .env would defeat the read/write guards
+            raise ToolError("refusing to move secrets files")
+        if os.path.lexists(b):
             raise ToolError("destination exists")
         b.parent.mkdir(parents=True, exist_ok=True)
         a.rename(b)
@@ -147,10 +195,12 @@ def build_registry(
         return f"moved {src} -> {dst}"
 
     def delete_file(path: str) -> str:
-        p = ws.resolve(path, must_exist=True)
-        if p == ws.root or p == ws.root / ".git":
+        p = ws.resolve_link(path, must_exist=True)  # a symlink is removed itself, never its target
+        if p == ws.root:
             raise ToolError("refusing to delete the project root or .git")
-        if p.is_dir():
+        if p.is_symlink() or p.is_file():
+            p.unlink()
+        elif p.is_dir():
             if any(p.iterdir()):
                 raise ToolError("directory not empty; delete files individually")
             p.rmdir()
@@ -163,7 +213,7 @@ def build_registry(
     def git(*args: str) -> str:
         try:
             p = subprocess.run(
-                ["git", *args],
+                ["git", "-c", "core.fsmonitor=false", *args],  # a planted fsmonitor command must never run
                 cwd=str(ws.root),
                 env=scrubbed_env(),
                 capture_output=True,
@@ -177,7 +227,9 @@ def build_registry(
         out = (p.stdout + p.stderr).strip()
         if p.returncode:
             raise ToolError(out[-2000:] or f"git exited {p.returncode}")
-        return out[-20000:] or "(no output)"
+        if len(out) > 20000:
+            out = out[:10000] + "\n…[truncated]…\n" + out[-10000:]
+        return out or "(no output)"
 
     def ref(name: str) -> str:
         if not _REF.match(name or "") or ".." in name:
@@ -188,8 +240,15 @@ def build_registry(
     git_diff = lambda staged=False: git("diff", *(["--staged"] if staged else []))  # noqa: E731
     git_log = lambda limit=10: git("log", "--oneline", f"-{max(1, min(int(limit), 100))}")  # noqa: E731
     git_branch = lambda: git("branch", "--all")  # noqa: E731
-    git_checkout = lambda branch, create=False: git("checkout", *(["-b"] if create else []), ref(branch))  # noqa: E731
-    git_stash = lambda action="push": git("stash", action if action in ("push", "pop", "list") else "push")  # noqa: E731
+    # Trailing "--": <ref> can never be taken for a file path (which would silently discard that file's changes).
+    git_checkout = lambda branch, create=False: git(  # noqa: E731
+        "checkout", *(["-b"] if create else []), ref(branch), "--"
+    )
+
+    def git_stash(action: str = "push") -> str:
+        if action not in ("push", "pop", "list"):  # never fall back to "push" for an unknown/garbled action
+            raise ToolError("action must be one of: push, pop, list")
+        return git("stash", action)
 
     def git_commit(message: str) -> str:
         if not message.strip():
@@ -227,7 +286,7 @@ def build_registry(
         v = classify_command(command)
         if v.level == BLOCKED:  # blocked commands never run, even if somehow approved
             raise ToolError("command blocked as dangerous: " + "; ".join(v.reasons))
-        r = run_command(command, str(ws.root), command_timeout)
+        r = run_command(command, str(ws.root), command_timeout, cancel=reg.cancel_event)
         return f"exit={r.returncode}\n{r.output}"
 
     def _project_cmd(kind: str) -> str:
@@ -235,7 +294,7 @@ def build_registry(
         cmd = {"test": info.test_command, "lint": info.lint_command, "format": info.format_command}[kind]
         if not cmd:
             raise ToolError(f"no {kind} command detected for this project")
-        r = run_command(cmd, str(ws.root), command_timeout)
+        r = run_command(cmd, str(ws.root), command_timeout, cancel=reg.cancel_event)
         return f"$ {cmd}\nexit={r.returncode}\n{r.output}"
 
     T = ToolSpec

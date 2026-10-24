@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import itertools
 import json
 import threading
 from typing import Any, Iterator
 from urllib.parse import urlparse
 
-from ..messages import Message, StreamEvent, ToolCall, ToolSchema
+from ..messages import INVALID_ARGS_KEY, Message, StreamEvent, ToolCall, ToolSchema, parse_tool_args
 from ..transport import ProviderError, Transport
 from .base import AIProvider
 
@@ -19,6 +20,7 @@ class OllamaProvider(AIProvider):
     ) -> None:
         super().__init__(model, transport)
         self.host = host.rstrip("/")
+        self._seq = itertools.count(1)  # Ollama sends no tool-call ids: keep ours unique across turns
 
     @property
     def is_local(self) -> bool:  # type: ignore[override]
@@ -58,6 +60,7 @@ class OllamaProvider(AIProvider):
                 for t in tools
             ]
         n = 0
+        finished = False
         for line in self.transport.stream_lines(f"{self.host}/api/chat", {}, body, cancel):
             try:
                 obj = json.loads(line)
@@ -72,12 +75,16 @@ class OllamaProvider(AIProvider):
                 fn = tc.get("function", {})
                 args = fn.get("arguments") or {}
                 if isinstance(args, str):
-                    try:
-                        args = json.loads(args)
-                    except ValueError:
-                        args = {}
+                    args = parse_tool_args(args)
+                elif not isinstance(args, dict):
+                    args = {INVALID_ARGS_KEY: str(args)[:2000]}
                 n += 1
-                yield StreamEvent("tool_call", tool_call=ToolCall(f"ollama-{n}", fn.get("name", ""), args))
+                yield StreamEvent(
+                    "tool_call", tool_call=ToolCall(f"ollama-{next(self._seq)}", fn.get("name", ""), args)
+                )
             if obj.get("done"):
+                finished = True
                 yield StreamEvent("done", stop_reason="tool_use" if n else obj.get("done_reason", "stop"))
                 return
+        if not finished and not (cancel is not None and cancel.is_set()):
+            raise ProviderError("The connection closed before the response was complete.")

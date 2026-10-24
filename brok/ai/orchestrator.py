@@ -34,10 +34,11 @@ _CODE_HINTS = (
 
 
 def infer_mode(text: str, has_images: bool = False) -> str:
-    low = text.lower()
+    # Arabic yeh/kaf (common keyboard layouts) → Persian forms, so Persian keywords match either way.
+    low = text.lower().replace("ي", "ی").replace("ك", "ک")
     if has_images:
         return "VISION"
-    if "traceback" in low or "error" in low or "ارور" in low or "باگ" in low:
+    if "traceback" in low or "error" in low or "ارور" in low or "باگ" in low or "خطا" in low:
         return "DEBUG"
     if any(h in low for h in _CODE_HINTS):
         return "CODING"
@@ -89,10 +90,13 @@ class AIOrchestrator:
             hint = " (local-only mode is on: only a local Ollama provider is allowed)" if self.local_only else ""
             raise ProviderError("No AI provider is available" + hint + ".", retryable=False)
         last_exc: Exception | None = None
+        skipped: list[str] = []
         for prov in chain:
             if tools and not prov.supports_tools:
+                skipped.append(f"{prov.name}: no tool support")
                 continue
             if has_images and not getattr(prov, "supports_vision", False):
+                skipped.append(f"{prov.name}: no image support")
                 continue  # never silently drop an image the user attached
             started = False
             try:
@@ -111,4 +115,11 @@ class AIOrchestrator:
                 last_exc = exc
                 if started:  # partial output already shown: do not silently switch model mid-answer
                     raise
+            except Exception as exc:  # noqa: BLE001 - a provider bug / dropped socket must look like a provider failure
+                logger.exception("provider %s crashed", prov.name)
+                last_exc = ProviderError(f"{prov.name}: {type(exc).__name__}: {exc}")
+                if started:
+                    raise last_exc from exc
+        if last_exc is None:
+            raise ProviderError("No usable AI provider (" + "; ".join(skipped) + ").", retryable=False)
         raise ProviderError(f"All AI providers failed. Last error: {last_exc}", retryable=False)

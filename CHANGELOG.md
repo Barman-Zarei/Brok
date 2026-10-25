@@ -73,6 +73,18 @@ All notable changes to this project are documented in this file.
     phantom line; syntax-error findings say which Python parsed the file; a plain Dart project no longer overwrites an
     existing build system; `-r`/`--index-url` lines are not dependencies; `brok-agent` handles Ctrl+C and
     `memory add` without text.
+- **Audit, third part**:
+  - *Local-only honesty*: the background GitHub poller no longer contacts api.github.com when local-only is on (or the
+    OFFLINE profile forces it); the AI tools already behaved this way.
+  - *Calculator*: the model-run `calculate` tool (no approval) bounds integer size after every step, so
+    `((10**1000)**1000)**1000` can no longer exhaust memory; `RecursionError`/`MemoryError` are reported, not raised.
+  - *Notes*: a note is always one line (`\r`, `\x0b`, `\x0c`, U+2028 were split by `list()` into extra numbered lines);
+    empty and oversized notes are refused.
+  - *Calendar*: only http(s) URLs, 10 MB cap; a UID containing `|` no longer breaks pruning of fired reminders.
+  - *Reminders*: a flyby that fails to start can no longer leave the reminder due forever (it re-fired every tick);
+    the daily-repeat computation is arithmetic instead of a per-day loop.
+  - *Config*: the five remaining writers of `config.ini` (LLM prompt/vendors, image backends, GitHub, settings) now use
+    the atomic owner-only writer too.
 
 ## [0.2.0] - 2026-10-04
 

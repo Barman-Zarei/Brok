@@ -54,10 +54,13 @@ def test_every_config_writer_restricts_the_file_it_wrote():
 
 def test_the_sweep_found_writers_to_check():
     """Guard the guard: a sweep that matches nothing would pass silently."""
+    # Writers now go through config_store.write_config / write_section (atomic, private from the first byte; they call
+    # secure_file themselves), so count those call sites as well as direct secure_file() calls.
     total = 0
     for path in sorted(SOURCE.rglob("*.py")):
-        total += path.read_text(encoding="utf-8").count("secure_file(")
-    assert total >= 8, f"only {total} secure_file call sites found — has the helper been renamed?"
+        text = path.read_text(encoding="utf-8")
+        total += sum(text.count(name) for name in ("secure_file(", "write_config(", "write_section("))
+    assert total >= 8, f"only {total} safe-writer call sites found — has the helper been renamed?"
 
 
 @pytest.mark.skipif(sys.platform.startswith("win"), reason="Windows has no POSIX mode bits")

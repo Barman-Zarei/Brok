@@ -6,6 +6,8 @@ import io
 import json
 import urllib.error
 
+import pytest
+
 from brok.github_notify import (
     DEFAULT_POLL_SECONDS,
     FollowerTracker,
@@ -33,6 +35,13 @@ from brok.github_notify import (
     save_github_settings,
     subject_html_url,
 )
+
+
+@pytest.fixture(autouse=True)
+def _network_allowed(monkeypatch):
+    """These tests exercise the notifier itself. The local-only gate (forced by the OFFLINE profile) is covered by
+    test_debug_pass.py; without this the OFFLINE branch would see a deliberately silent notifier."""
+    monkeypatch.setattr("brok.github_notify.network_forbidden", lambda: False)
 
 
 def note(thread_id, reason="review_requested", updated="2026-07-02T10:00:00Z", title="Fix things"):

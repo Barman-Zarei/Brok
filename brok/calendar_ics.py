@@ -90,11 +90,14 @@ def save_calendar_settings(settings: CalendarSettings, cfg_file: Path = CFG_FILE
 # -- pure helpers (unit-tested without Qt or network) ---------------------------
 
 
+MAX_ICS_BYTES = 10 * 1024 * 1024
+
+
 def normalize_ics_url(url: str) -> str:
     """Apple shares ``webcal://`` links; they are plain HTTPS underneath."""
     url = url.strip()
     if url.lower().startswith("webcal://"):
-        return "https://" + url[len("webcal://"):]
+        return "https://" + url[len("webcal://") :]
     return url
 
 
@@ -163,12 +166,16 @@ class ReminderTracker:
         if len(self.fired) < 500:
             return
         cutoff = (now - timedelta(days=1)).isoformat()
-        self.fired = {key for key in self.fired if key.split("|", 1)[-1] >= cutoff}
+        # rsplit: the timestamp is the LAST part; a UID may itself contain "|"
+        self.fired = {key for key in self.fired if key.rsplit("|", 1)[-1] >= cutoff}
 
 
 def fetch_ics(url: str, etag: str = "", opener=None) -> dict:
     """One download. Returns {status, ics_bytes, etag, error}."""
-    request = urllib.request.Request(normalize_ics_url(url))
+    url = normalize_ics_url(url)
+    if urllib.parse.urlsplit(url).scheme.lower() not in ("http", "https"):
+        return {"status": 0, "ics_bytes": b"", "etag": etag, "error": "only http(s) calendar URLs are supported"}
+    request = urllib.request.Request(url)
     request.add_header("User-Agent", "brok-desktop-pet")
     if etag:
         request.add_header("If-None-Match", etag)
@@ -178,7 +185,11 @@ def fetch_ics(url: str, etag: str = "", opener=None) -> dict:
         with open_fn(request, timeout=20) as response:
             result["status"] = response.status
             result["etag"] = response.headers.get("ETag", etag) or etag
-            result["ics_bytes"] = response.read()
+            data = response.read(MAX_ICS_BYTES + 1)
+            if len(data) > MAX_ICS_BYTES:
+                result["error"] = "calendar is too large"
+            else:
+                result["ics_bytes"] = data
     except urllib.error.HTTPError as exc:
         result["status"] = exc.code
         if exc.code != 304:
@@ -208,9 +219,7 @@ class FetchWorker(QtCore.QRunnable):
         if result["ics_bytes"] and not result["error"]:
             now = datetime.now().astimezone()
             try:
-                result["events"] = parse_upcoming(
-                    result["ics_bytes"], now, now + timedelta(hours=LOOKAHEAD_HOURS)
-                )
+                result["events"] = parse_upcoming(result["ics_bytes"], now, now + timedelta(hours=LOOKAHEAD_HOURS))
             except CalendarDependencyError as exc:
                 result["error"] = str(exc)
             except Exception as exc:  # noqa: BLE001 - a broken feed must not crash

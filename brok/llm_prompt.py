@@ -141,9 +141,7 @@ def save_ollama_settings(url: str, model: str) -> None:
         parser.add_section("ollama")
     parser.set("ollama", "url", url)
     parser.set("ollama", "model", model)
-    with open(CFG_FILE, "w", encoding="utf-8") as handle:
-        parser.write(handle)
-    secret_store.secure_file(CFG_FILE)
+    config_store.write_config(CFG_FILE, parser)
     logger.info("Saved Ollama settings: url=%s model=%s", url, model)
 
 
@@ -159,9 +157,7 @@ def save_llm_enabled(enabled: bool) -> None:
     if not parser.has_section("llm"):
         parser.add_section("llm")
     parser.set("llm", "enabled", "true" if enabled else "false")
-    with open(CFG_FILE, "w", encoding="utf-8") as handle:
-        parser.write(handle)
-    secret_store.secure_file(CFG_FILE)
+    config_store.write_config(CFG_FILE, parser)
     logger.info("Saved LLM enabled=%s", enabled)
 
 

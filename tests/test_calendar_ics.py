@@ -109,7 +109,7 @@ class FakeResponse:
         self.headers = headers
         self.body = body
 
-    def read(self):
+    def read(self, size=-1):  # a real response accepts a size; fetch_ics now caps what it reads
         return self.body
 
     def __enter__(self):

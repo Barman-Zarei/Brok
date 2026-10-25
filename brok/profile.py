@@ -46,7 +46,7 @@ PROFILES = {
 
 def active() -> Profile:
     """The profile in effect: ``BROK_PROFILE`` if it names a known one, else the branch default."""
-    name = os.environ.get("BROK_PROFILE", "").strip().lower() or DEFAULT_PROFILE
+    name = os.environ.get("BROK_PROFILE", "").strip().lower().replace("_", "-") or DEFAULT_PROFILE  # NO_GPU == no-gpu
     prof = PROFILES.get(name)
     if prof is None:
         logging.getLogger(__name__).warning("unknown BROK_PROFILE %r; using %r", name, DEFAULT_PROFILE)

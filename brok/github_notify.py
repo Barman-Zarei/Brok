@@ -64,6 +64,31 @@ REPO_EVENTS_URL = "https://api.github.com/repos/{full_name}/events"
 FOLLOWERS_URL = "https://api.github.com/users/{login}/followers?per_page=100&page={page}"
 PUBLIC_EVENTS_URL = "https://api.github.com/users/{account}/events/public"
 
+_LOCAL_ONLY_TTL = 30.0
+_local_only_cache: tuple[float, bool] = (-1e9, False)
+
+
+def network_forbidden() -> bool:
+    """True when local-only is on (the setting, or a profile such as OFFLINE that forces it).
+
+    The AI tools already honour it (``core.build_tools`` offers no network tools); the background poller must too,
+    or a "fully local" install keeps contacting api.github.com every few minutes. Cached briefly: it is asked on
+    every timer tick.
+    """
+    global _local_only_cache
+    now = time.monotonic()
+    if now - _local_only_cache[0] < _LOCAL_ONLY_TTL:
+        return _local_only_cache[1]
+    try:
+        from .config import BrokConfig
+
+        value = bool(BrokConfig.load().ai.local_only)
+    except Exception:  # noqa: BLE001 - an unreadable config must not stop notifications
+        value = False
+    _local_only_cache = (now, value)
+    return value
+
+
 DEFAULT_POLL_SECONDS = 60
 PUBLIC_POLL_SECONDS = 300
 # The inbound poller multiplies requests by the watched-repo count, so it is
@@ -189,9 +214,7 @@ def save_github_settings(settings: GitHubSettings, cfg_file: Path = CFG_FILE) ->
         section["me_login"] = settings.me_login
         section["categories"] = ",".join(settings.categories)
         section["token_verified"] = "true" if settings.token_verified else "false"
-        with open(cfg_file, "w", encoding="utf-8") as fh:
-            config.write(fh)
-        secret_store.secure_file(cfg_file)
+        config_store.write_config(cfg_file, config)
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to save [github] settings: %s", exc)
 
@@ -874,7 +897,7 @@ class GitHubNotifier(QtCore.QObject):
 
     def active_sources(self) -> set:
         sources: set = set()
-        if not self.settings.enabled:
+        if not self.settings.enabled or network_forbidden():
             return sources
         categories = set(self.settings.categories)
         token = self.settings.resolve_token()
@@ -917,7 +940,7 @@ class GitHubNotifier(QtCore.QObject):
     # -- scheduling ------------------------------------------------------------
 
     def poll(self) -> None:
-        if not self.settings.enabled:
+        if not self.settings.enabled or network_forbidden():
             return
         now = self.clock()
         for source in self.active_sources():

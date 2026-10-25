@@ -128,10 +128,10 @@ def clear_reminder() -> None:
 def next_future_occurrence(fire_at: datetime, now: datetime | None = None) -> datetime:
     """Advance ``fire_at`` by whole days until it is in the future (for daily repeat)."""
     now = now or datetime.now()
-    nxt = fire_at
-    while nxt <= now:
-        nxt += timedelta(days=1)
-    return nxt
+    if fire_at > now:
+        return fire_at
+    # Whole days at once (a loop took one pass per missed day: a corrupt year-0001 value meant ~740k iterations).
+    return fire_at + timedelta(days=(now - fire_at).days + 1)
 
 
 class ReminderController(QtCore.QObject):
@@ -279,7 +279,12 @@ class ReminderController(QtCore.QObject):
         if r is None:
             return
         logger.info("Firing reminder: %r", r.text)
-        self.show_flyby(r)
+        try:
+            self.show_flyby(r)
+        except Exception:  # noqa: BLE001
+            # Whatever went wrong with the animation, the schedule below MUST still advance: otherwise the reminder
+            # stays due and fires (and fails) again on every tick.
+            logger.exception("Reminder flyby failed")
         if r.repeat_daily and r.fire_at is not None:
             r.fire_at = next_future_occurrence(r.fire_at)
             save_reminder(r)

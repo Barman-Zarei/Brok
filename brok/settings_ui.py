@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PySide2 import QtWidgets
 
-from . import config_store, i18n, menu_config, secret_store, speech_bubble
+from . import config_store, i18n, menu_config, speech_bubble
 
 logger = logging.getLogger(__name__)
 tr = i18n.tr
@@ -104,9 +104,7 @@ class SettingsDialog(QtWidgets.QDialog):
                 new_wait_time = self.wait_spinbox.value()
                 config['settings']['wait_time'] = str(new_wait_time)
 
-                with open(self.config_path, 'w', encoding="utf-8") as f:
-                    config.write(f)
-                secret_store.secure_file(self.config_path)
+                config_store.write_config(self.config_path, config)
 
                 logger.info(f"Saved wait_time setting to INI: {new_wait_time}")
 

@@ -1059,3 +1059,150 @@ def test_CLI1_memory_add_without_text_prints_usage(capsys):
 
     assert cli.main(["memory", "add"]) == 1
     assert "Usage:" in capsys.readouterr().out
+
+
+# ================================================= 14. local-only / OFFLINE honesty
+def test_N1_github_poller_stays_silent_in_local_only_mode(qapp, monkeypatch):
+    from brok import github_notify as gn
+
+    settings = gn.GitHubSettings(enabled=True, token="tok", categories=("review_requested",))
+    notifier = gn.GitHubNotifier(None, announcer=None, settings=settings, start_timer=False)
+    launched = []
+    monkeypatch.setattr(notifier, "launch", launched.append)
+    monkeypatch.setattr(gn, "network_forbidden", lambda: False)
+    assert notifier.active_sources() == {"notifications"}
+    notifier.poll()
+    assert launched == ["notifications"]
+    launched.clear()
+    monkeypatch.setattr(gn, "network_forbidden", lambda: True)  # local_only on (or the OFFLINE profile)
+    assert notifier.active_sources() == set()
+    notifier.poll()
+    assert launched == []
+
+
+def test_N2_network_forbidden_reads_the_local_only_setting(monkeypatch):
+    from brok import config as brok_config
+    from brok import github_notify as gn
+
+    class Cfg:
+        class ai:
+            local_only = True
+
+    monkeypatch.setattr(gn, "_local_only_cache", (-1e9, False))
+    monkeypatch.setattr(brok_config.BrokConfig, "load", classmethod(lambda cls, *a, **k: Cfg()))
+    assert gn.network_forbidden() is True
+
+
+# ================================================= 15. calculator, notes, calendar
+def test_CA1_calculator_cannot_be_used_to_exhaust_memory():
+    from brok.agent.tools import ToolError
+    from brok.productivity import calculate
+
+    assert calculate("2**10 + 1") == "1025"
+    with pytest.raises(ToolError):
+        calculate("((10**1000)**1000)**1000")  # each exponent is small; the result would be ~10**9 digits
+    with pytest.raises(ToolError):
+        calculate("(9**1000)*(9**1000)*(9**1000)*(9**1000)*(9**1000)*(9**1000)*(9**1000)*(9**1000)*(9**1000)" * 40)
+
+
+def test_NT1_a_note_is_always_one_numbered_line(tmp_path):
+    from brok.agent.tools import ToolError
+    from brok.productivity import Notes
+
+    notes = Notes(tmp_path / "n.txt")
+    notes.add("first\r\nline two")
+    notes.add("with\u2028separator and \x0c form feed")
+    assert notes.list().splitlines() == ["1. first line two", "2. with separator and   form feed"]
+    with pytest.raises(ToolError):
+        notes.add("   ")
+    with pytest.raises(ToolError):
+        notes.add("x" * 5000)
+
+
+def test_ICS1_only_http_calendars_and_a_size_cap():
+    from brok import calendar_ics
+
+    assert "http" in calendar_ics.fetch_ics("file:///etc/passwd")["error"]
+
+    class Resp:
+        status, headers = 200, {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n=-1):
+            return b"x" * (n if n > 0 else 10)
+
+    result = calendar_ics.fetch_ics("https://example.test/c.ics", opener=lambda req, timeout: Resp())
+    assert result["error"] == "calendar is too large" and result["ics_bytes"] == b""
+
+
+def test_ICS2_prune_survives_a_uid_containing_a_pipe():
+    from datetime import datetime, timedelta
+
+    from brok.calendar_ics import ReminderTracker
+
+    tr = ReminderTracker()
+    now = datetime(2026, 10, 25, 12, 0).astimezone()
+    old = (now - timedelta(days=3)).isoformat()
+    fresh = (now + timedelta(hours=1)).isoformat()
+    tr.fired = {f"uid|with|pipes|{old}", f"uid|with|pipes|{fresh}"} | {f"u{i}|{fresh}" for i in range(600)}
+    tr.prune(now)
+    assert f"uid|with|pipes|{old}" not in tr.fired and f"uid|with|pipes|{fresh}" in tr.fired
+
+
+# ================================================= 16. reminders
+def test_RM1_next_future_occurrence_matches_the_old_loop_and_is_instant():
+    from datetime import datetime
+
+    from brok.reminder import next_future_occurrence
+
+    now = datetime(2026, 10, 25, 12, 0)
+    assert next_future_occurrence(datetime(2026, 10, 25, 15, 0), now) == datetime(2026, 10, 25, 15, 0)
+    assert next_future_occurrence(datetime(2026, 10, 25, 9, 0), now) == datetime(2026, 10, 26, 9, 0)
+    assert next_future_occurrence(datetime(2026, 10, 25, 12, 0), now) == datetime(
+        2026, 10, 26, 12, 0
+    )  # == now: not future
+    assert next_future_occurrence(datetime(1, 1, 1, 8, 0), now) == datetime(2026, 10, 26, 8, 0)  # corrupt value
+
+
+def test_RM2_a_failing_flyby_still_advances_or_disables_the_reminder(monkeypatch):
+    from datetime import datetime, timedelta
+
+    from brok import reminder as rem
+
+    saved = []
+    monkeypatch.setattr(rem, "save_reminder", saved.append)
+    ctl = rem.ReminderController.__new__(rem.ReminderController)
+
+    def boom(r):
+        raise RuntimeError("no display")
+
+    ctl.show_flyby = boom
+    past = datetime.now() - timedelta(minutes=5)
+    ctl.reminder = rem.Reminder(fire_at=past, repeat_daily=False)
+    ctl.fire()
+    assert ctl.reminder.enabled is False  # a one-shot is finished even though the animation failed
+    ctl.reminder = rem.Reminder(fire_at=past, repeat_daily=True)
+    ctl.fire()
+    assert ctl.reminder.fire_at > datetime.now() and len(saved) == 2
+
+
+# ================================================= 17. every config.ini writer is atomic and private
+def test_CW1_all_config_writers_go_through_the_safe_writer(tmp_path, monkeypatch):
+    import os
+    import stat
+
+    from brok import llm_prompt
+
+    monkeypatch.setattr(llm_prompt, "CFG_DIR", tmp_path)
+    monkeypatch.setattr(llm_prompt, "CFG_FILE", tmp_path / "config.ini")
+    llm_prompt.save_llm_enabled(True)
+    llm_prompt.save_ollama_settings("http://127.0.0.1:11434", "model%1")  # a % in a value used to raise
+    cfg = tmp_path / "config.ini"
+    assert "model%1" in cfg.read_text() and not list(tmp_path.glob("*.tmp"))
+    if os.name == "posix":
+        assert stat.S_IMODE(os.stat(cfg).st_mode) == 0o600

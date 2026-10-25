@@ -19,7 +19,7 @@ import logging
 import os
 from dataclasses import dataclass, replace
 
-from . import config_store, secret_store
+from . import config_store
 from .llm_prompt import CFG_DIR, CFG_FILE
 
 logger = logging.getLogger(__name__)
@@ -157,9 +157,7 @@ def save_vendor(vendor: Vendor, *, make_active: bool = True) -> None:
         if not parser.has_section("llm"):
             parser.add_section("llm")
         parser.set("llm", "vendor", vendor.name)
-    with open(CFG_FILE, "w", encoding="utf-8") as handle:
-        parser.write(handle)
-    secret_store.secure_file(CFG_FILE)
+    config_store.write_config(CFG_FILE, parser)
     logger.info("Saved vendor %s (kind=%s, active=%s)", vendor.name, vendor.kind, make_active)
 
 

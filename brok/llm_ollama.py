@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -38,18 +39,19 @@ class OllamaBackend:
                 raw = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore") if exc.fp else ""
-            raise RuntimeError(
-                f"Ollama HTTP error {exc.code}: {detail or exc.reason}"
-            ) from exc
+            raise RuntimeError(f"Ollama HTTP error {exc.code}: {detail or exc.reason}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Ollama connection error: {exc.reason}") from exc
+        except (TimeoutError, OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
+            # A slow model easily outlasts the timeout; fetch_models already reported this, reply() did not.
+            raise RuntimeError(f"Ollama connection error: {exc}") from exc
 
         try:
             body = json.loads(raw)
         except json.JSONDecodeError as exc:
             raise RuntimeError(f"Ollama returned invalid JSON: {exc}") from exc
 
-        message = body.get("message", {}).get("content", "")
+        message = ((body.get("message") or {}) if isinstance(body, dict) else {}).get("content", "")
         text = message.strip() if isinstance(message, str) else str(message or "").strip()
         if not text:
             raise RuntimeError("Ollama response did not contain any text")

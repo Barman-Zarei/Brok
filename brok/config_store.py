@@ -33,6 +33,29 @@ def new_parser() -> configparser.ConfigParser:
     return configparser.ConfigParser(interpolation=None)
 
 
+def read_for_update(cfg_file: Path) -> configparser.ConfigParser:
+    """The current content as a parser, for a read-modify-write.
+
+    If the file cannot be parsed (hand-edited duplicate option, ...) a copy is kept as ``<name>.corrupt`` BEFORE the
+    caller's save replaces it: previously the save silently started from an empty parser, so changing one LLM setting
+    destroyed the window position, GitHub token, vendors... of an otherwise recoverable file.
+    """
+    config = new_parser()
+    if cfg_file.exists():
+        try:
+            config.read_string(read_config_text(cfg_file), source=str(cfg_file))
+        except (configparser.Error, OSError) as exc:
+            backup = cfg_file.with_name(cfg_file.name + ".corrupt")
+            try:
+                if not backup.exists():  # keep the FIRST unreadable copy; later saves must not overwrite it
+                    shutil.copy2(cfg_file, backup)
+                logger.warning("%s unreadable (%s); copy kept as %s, starting a new file", cfg_file, exc, backup)
+            except OSError:
+                pass
+            config = new_parser()
+    return config
+
+
 def write_config(cfg_file: Path, config: configparser.ConfigParser) -> None:
     """Write ``config`` to ``cfg_file`` atomically and owner-only from the first byte.
 
@@ -105,16 +128,7 @@ def write_section(name: str, values: dict, cfg_file: Path) -> None:
     """
     try:
         cfg_file.parent.mkdir(parents=True, exist_ok=True)
-        config = new_parser()
-        if cfg_file.exists():
-            try:
-                config.read_string(read_config_text(cfg_file), source=str(cfg_file))
-            except configparser.Error as exc:
-                # An unparsable file would otherwise block every future save. Keep it for the user, start fresh.
-                backup = cfg_file.with_name(cfg_file.name + ".corrupt")
-                shutil.copy2(cfg_file, backup)
-                logger.warning("%s unreadable (%s); copy kept as %s, starting a new file", cfg_file, exc, backup)
-                config = new_parser()
+        config = read_for_update(cfg_file)  # an unparsable file is backed up, not a permanent save blocker
         if name not in config:
             config.add_section(name)
         config[name].update({key: str(value) for key, value in values.items()})

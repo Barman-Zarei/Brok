@@ -85,6 +85,18 @@ All notable changes to this project are documented in this file.
     the daily-repeat computation is arithmetic instead of a per-day loop.
   - *Config*: the five remaining writers of `config.ini` (LLM prompt/vendors, image backends, GitHub, settings) now use
     the atomic owner-only writer too.
+- **Audit, fourth part**:
+  - *Voice*: on Windows the spoken text is passed to PowerShell in an environment variable, never inside the script
+    (`don’t'; calc; '` ran code: typographic quotes also close a `'…'` string); a quoted speech-to-text program path with
+    spaces is recognised; temporary recordings are deleted after transcription; the avatar no longer stays in
+    "listening"/"thinking" when recording or the model fails.
+  - *Autostart*: a packaged build (exe, AppImage, .app) registers itself instead of `"<exe>" -m brok`, which its argument
+    parser rejects (login autostart never worked for packaged builds); `.desktop` `Exec=` paths are quoted per the Desktop
+    Entry spec; `update-desktop-database` has a timeout.
+  - *Config*: every save path that read a config it could not parse (LLM settings, vendors, image backends) used to start
+    from an empty file and drop all other sections; a copy is now kept as `config.ini.corrupt` first.
+  - *Chat backends*: Ollama/OpenAI-compatible chat report timeouts, resets and truncated bodies as readable errors.
+  - *Focus*: `focus_minutes` is clamped to 1–600 and a clock moved backwards no longer prints `-1:55`.
 
 ## [0.2.0] - 2026-10-04
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import platform
 import shutil
 import subprocess
@@ -43,13 +44,15 @@ class SystemTTS(TTSProvider):
         if sysname == "Darwin" and shutil.which("say"):
             return ["say", "--", text]
         if sysname == "Windows" and shutil.which("powershell"):
-            safe = text.replace("'", "''")
+            # The text travels in an environment variable, never inside the script: doubling "'" is not enough in
+            # PowerShell (the typographic quotes U+2018/2019/201A/201B also close a '...' string), so a reply such as
+            # "don’t'; calc; '" would have run code.
             return [
                 "powershell",
                 "-NoProfile",
                 "-Command",
                 "Add-Type -AssemblyName System.Speech; "
-                f"(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{safe}')",
+                "(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak($env:BROK_TTS_TEXT)",
             ]
         for exe in ("espeak-ng", "espeak"):
             if shutil.which(exe):
@@ -63,7 +66,8 @@ class SystemTTS(TTSProvider):
         argv = self._argv(text, language)
         if not argv:
             raise VoiceUnavailable("no system text-to-speech engine found (install espeak-ng on Linux)")
-        subprocess.run(argv, check=False, timeout=120, stdin=subprocess.DEVNULL, capture_output=True)
+        env = {**os.environ, "BROK_TTS_TEXT": text} if argv[0] == "powershell" else None
+        subprocess.run(argv, check=False, timeout=120, stdin=subprocess.DEVNULL, capture_output=True, env=env)
 
 
 class CommandSTT(STTProvider):
@@ -76,15 +80,27 @@ class CommandSTT(STTProvider):
     def __init__(self, template: str = "") -> None:
         self.template = template
 
+    def _split(self) -> list[str]:
+        """Split like a shell would, but keep Windows backslashes (posix mode would eat them) and drop the quotes."""
+        import shlex
+
+        try:
+            parts = shlex.split(self.template, posix=os.name != "nt")
+        except ValueError:  # unbalanced quote
+            return []
+        if os.name == "nt":
+            parts = [p[1:-1] if len(p) >= 2 and p[0] == p[-1] and p[0] in "\"'" else p for p in parts]
+        return parts
+
     def available(self) -> bool:
-        return bool(self.template) and shutil.which(self.template.split()[0]) is not None
+        # `template.split()[0]` cut a quoted program path with spaces ("C:\\Program Files\\...") at the first space.
+        parts = self._split()
+        return bool(parts) and shutil.which(parts[0]) is not None
 
     def transcribe(self, audio_path: str, language: str = "fa") -> str:
         if not self.available():
             raise VoiceUnavailable("speech-to-text is not configured")
-        import shlex
-
-        argv = [a.replace("{audio}", audio_path).replace("{lang}", language) for a in shlex.split(self.template)]
+        argv = [a.replace("{audio}", audio_path).replace("{lang}", language) for a in self._split()]
         r = subprocess.run(argv, capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL)
         if r.returncode:
             raise VoiceUnavailable(r.stderr.strip()[:200] or "transcriber failed")
@@ -164,6 +180,23 @@ def build_stt(kind: str, command: str = "") -> STTProvider | None:
     return None
 
 
+def _discard_recording(path: str) -> None:
+    """Delete a temp recording made by MicRecorder (only files it names: brok-*.wav in the temp directory)."""
+    import tempfile
+
+    try:
+        real = os.path.realpath(path)
+        if (
+            path
+            and os.path.basename(real).startswith("brok-")
+            and real.endswith(".wav")
+            and os.path.dirname(real) == os.path.realpath(tempfile.gettempdir())
+        ):
+            os.remove(real)
+    except OSError:
+        pass
+
+
 class VoicePipeline:
     """mic → STT → Brok → TTS, with avatar events; any missing piece falls back to plain text."""
 
@@ -187,12 +220,24 @@ class VoicePipeline:
         if not (self.stt and self.stt.available() and self.record):
             raise VoiceUnavailable("voice input unavailable; type your message instead")
         self._ev("listening")
-        text = self.stt.transcribe(self.record(), self.language)
+        audio = ""
+        try:
+            audio = self.record()
+            text = self.stt.transcribe(audio, self.language)
+        except BaseException:
+            self._ev("idle")
+            raise
+        finally:
+            _discard_recording(audio)  # a recording of the user's voice must not pile up in the temp folder
         return self.respond(text)
 
     def respond(self, text: str) -> str:
         self._ev("ai_thinking")
-        answer = self.ask(text)
+        try:
+            answer = self.ask(text)
+        except BaseException:
+            self._ev("idle")
+            raise
         if self.tts and self.tts.available():
             self._ev("speaking")
             try:

@@ -61,7 +61,7 @@ def cursor_km_estimate(mouse_px: int) -> float:
 
 def format_elapsed(seconds: float) -> str:
     """Count-up clock for the current run: M:SS, or H:MM:SS past an hour."""
-    minutes, secs = divmod(int(seconds), 60)
+    minutes, secs = divmod(max(0, int(seconds)), 60)  # a clock moved backwards must not print "-1:55"
     hours, minutes = divmod(minutes, 60)
     if hours:
         return f"{hours}:{minutes:02d}:{secs:02d}"
@@ -82,7 +82,8 @@ def load_focus_settings(cfg_file: Path = CFG_FILE) -> FocusSettings:
         return settings
     try:
         section = config["focus"]
-        settings.focus_minutes = section.getint("focus_minutes", fallback=settings.focus_minutes)
+        # 0 would make every run earn a pomodoro, a hand-edited 99999 none: keep it in a sane range.
+        settings.focus_minutes = max(1, min(600, section.getint("focus_minutes", fallback=settings.focus_minutes)))
         settings.tooltip_enabled = section.getboolean("tooltip_enabled", fallback=settings.tooltip_enabled)
     except (ValueError, TypeError) as exc:  # a malformed value -> keep the defaults
         logger.error("Failed to load focus settings: %s", exc)
@@ -201,11 +202,7 @@ class FocusController(QtCore.QObject):
     def announce_rest(self, milestone: int) -> None:
         if self.announcer is None:
             return
-        text = (
-            tr("🍅 earned — time to rest")
-            if milestone == 1
-            else tr("Still at it — time to rest 🍅")
-        )
+        text = tr("🍅 earned — time to rest") if milestone == 1 else tr("Still at it — time to rest 🍅")
         self.announcer.announce(text)
         logger.info("Focus rest nudge (milestone %d, %d min)", milestone, milestone * self.settings.focus_minutes)
 

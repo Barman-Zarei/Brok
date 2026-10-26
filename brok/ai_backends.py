@@ -415,12 +415,7 @@ def load_generation_settings() -> dict:
 def save_generation_settings(settings: dict) -> None:
     """Persist the generation settings into [generation] (other sections kept)."""
     CFG_DIR.mkdir(parents=True, exist_ok=True)
-    parser = configparser.ConfigParser(interpolation=None)
-    if CFG_FILE.exists():
-        try:
-            parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        except (configparser.Error, OSError):
-            pass
+    parser = config_store.read_for_update(CFG_FILE)
     if not parser.has_section(CFG_SECTION):
         parser.add_section(CFG_SECTION)
     for key in GENERATION_DEFAULTS:

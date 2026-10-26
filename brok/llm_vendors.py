@@ -78,13 +78,7 @@ def builtin_vendors() -> dict:
 
 
 def read_config() -> configparser.ConfigParser:
-    parser = configparser.ConfigParser(interpolation=None)
-    if CFG_FILE.exists():
-        try:
-            parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        except (configparser.Error, OSError) as exc:
-            logger.warning("Unable to parse %s: %s", CFG_FILE, exc)
-    return parser
+    return config_store.read_for_update(CFG_FILE)
 
 
 def load_vendors() -> dict:

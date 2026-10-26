@@ -14,12 +14,24 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-APP_ID = "brok"          # technical id: .desktop filename, Windows Run key value name
-APP_NAME = "Brok"        # display name shown to the user (Name= in the .desktop)
+APP_ID = "brok"  # technical id: .desktop filename, Windows Run key value name
+APP_NAME = "Brok"  # display name shown to the user (Name= in the .desktop)
 WIN_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
-def launch_command() -> str:
+def desktop_quote(value: str) -> str:
+    """Quote one argument for a .desktop ``Exec=`` line (Desktop Entry spec).
+
+    Inside double quotes ", ` and $ need a backslash; a literal backslash needs four (the string-value rule is applied
+    first); and % is a field-code introducer, so a literal one is written %%.
+    """
+    escaped = (
+        value.replace("\\", "\\\\\\\\").replace('"', '\\"').replace("`", "\\`").replace("$", "\\$").replace("%", "%%")
+    )
+    return '"' + escaped + '"'
+
+
+def launch_command(desktop: bool = False) -> str:
     """Command that starts brok — the installed console script, else python -m.
 
     The path is always quoted: the .desktop Exec line is word-split on
@@ -34,13 +46,22 @@ def launch_command() -> str:
     """
     if os.environ.get("SNAP_NAME"):
         return os.environ["SNAP_NAME"]
+
+    def quote(path: str) -> str:
+        return desktop_quote(path) if desktop else '"' + path + '"'
+
+    if getattr(sys, "frozen", False):
+        # A packaged build (exe / AppImage / .app) IS the program: "<exe> -m brok" is rejected by its argument parser,
+        # so the autostart entry written by a packaged build never actually started anything.
+        return quote(os.environ.get("APPIMAGE") or sys.executable)
     exe = shutil.which("brok")
     if exe:
-        return f'"{exe}"'
-    return f'"{sys.executable}" -m brok'
+        return quote(exe)
+    return quote(sys.executable) + " -m brok"
 
 
 # -- Linux (XDG autostart) --------------------------------------------------
+
 
 def linux_desktop_path() -> Path:
     return Path.home() / ".config" / "autostart" / f"{APP_ID}.desktop"
@@ -58,7 +79,7 @@ def linux_set(enabled: bool) -> None:
             "[Desktop Entry]\n"
             "Type=Application\n"
             f"Name={APP_NAME}\n"
-            f"Exec={launch_command()}\n"
+            f"Exec={launch_command(desktop=True)}\n"
             "Terminal=false\n"
             "X-GNOME-Autostart-enabled=true\n",
             encoding="utf-8",
@@ -68,6 +89,7 @@ def linux_set(enabled: bool) -> None:
 
 
 # -- Windows (HKCU Run key) -------------------------------------------------
+
 
 def windows_is_enabled() -> bool:
     import winreg
@@ -94,6 +116,7 @@ def windows_set(enabled: bool) -> None:
 
 
 # -- public API -------------------------------------------------------------
+
 
 def is_supported() -> bool:
     return sys.platform.startswith("linux") or sys.platform.startswith("win")

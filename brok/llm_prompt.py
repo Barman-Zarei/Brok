@@ -131,12 +131,7 @@ def save_ollama_settings(url: str, model: str) -> None:
     and the timeout untouched) and writes it back.
     """
     CFG_DIR.mkdir(parents=True, exist_ok=True)
-    parser = configparser.ConfigParser(interpolation=None)
-    if CFG_FILE.exists():
-        try:
-            parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        except (configparser.Error, OSError) as exc:
-            logger.warning("Unable to parse %s before saving: %s", CFG_FILE, exc)
+    parser = config_store.read_for_update(CFG_FILE)
     if not parser.has_section("ollama"):
         parser.add_section("ollama")
     parser.set("ollama", "url", url)
@@ -148,12 +143,7 @@ def save_ollama_settings(url: str, model: str) -> None:
 def save_llm_enabled(enabled: bool) -> None:
     """Persist the LLM enabled flag into [llm] of config.ini."""
     CFG_DIR.mkdir(parents=True, exist_ok=True)
-    parser = configparser.ConfigParser(interpolation=None)
-    if CFG_FILE.exists():
-        try:
-            parser.read_string(config_store.read_config_text(CFG_FILE), source=str(CFG_FILE))
-        except (configparser.Error, OSError) as exc:
-            logger.warning("Unable to parse %s before saving: %s", CFG_FILE, exc)
+    parser = config_store.read_for_update(CFG_FILE)
     if not parser.has_section("llm"):
         parser.add_section("llm")
     parser.set("llm", "enabled", "true" if enabled else "false")

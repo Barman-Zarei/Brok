@@ -7,6 +7,7 @@ platforms and custom endpoints — given a base_url, an API key and a model.
 
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -48,7 +49,7 @@ class OpenAICompatBackend:
             raise RuntimeError(f"HTTP error {exc.code}: {detail or exc.reason}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Connection error: {exc.reason}") from exc
-        except (TimeoutError, OSError) as exc:
+        except (TimeoutError, OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
             raise RuntimeError(f"Connection error: {exc}") from exc
 
         try:
@@ -82,7 +83,7 @@ def fetch_models(base_url: str, api_key: str = "", timeout: float = 10.0) -> lis
         raise RuntimeError(f"HTTP error {exc.code}: {detail or exc.reason}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Cannot reach provider: {exc.reason}") from exc
-    except (TimeoutError, OSError) as exc:
+    except (TimeoutError, OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
         raise RuntimeError(f"Cannot reach provider: {exc}") from exc
 
     try:

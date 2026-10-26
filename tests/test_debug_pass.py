@@ -1206,3 +1206,160 @@ def test_CW1_all_config_writers_go_through_the_safe_writer(tmp_path, monkeypatch
     assert "model%1" in cfg.read_text() and not list(tmp_path.glob("*.tmp"))
     if os.name == "posix":
         assert stat.S_IMODE(os.stat(cfg).st_mode) == 0o600
+
+
+# ================================================= 18. chat backends
+@pytest.mark.parametrize("exc", [TimeoutError("timed out"), __import__("http.client").client.IncompleteRead(b"x")])
+def test_LB1_chat_backends_turn_network_failures_into_runtime_errors(monkeypatch, exc):
+    import urllib.request
+
+    from brok.llm_ollama import OllamaBackend
+    from brok.llm_openai_compat import OpenAICompatBackend
+
+    def boom(*a, **k):
+        raise exc
+
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    with pytest.raises(RuntimeError, match="Ollama"):
+        OllamaBackend(url="http://127.0.0.1:11434", model="m", timeout=1).reply("hi", "sys")
+    with pytest.raises(RuntimeError):
+        OpenAICompatBackend(base_url="http://x/v1", api_key="k", model="m", timeout=1).reply("hi", "sys")
+
+
+# ================================================= 19. voice
+def test_VO1_windows_tts_never_puts_the_text_into_the_powershell_script(monkeypatch):
+    import platform
+    import shutil
+    import subprocess
+
+    from brok.voice import providers
+
+    monkeypatch.setattr(platform, "system", lambda: "Windows")
+    monkeypatch.setattr(shutil, "which", lambda exe: exe)
+    seen = {}
+    monkeypatch.setattr(subprocess, "run", lambda argv, **kw: seen.update(argv=argv, env=kw.get("env")))
+    evil = "don\u2019t'; Start-Process calc; \u2018"  # typographic quotes also close a PowerShell '...' string
+    providers.SystemTTS().speak(evil)
+    assert evil not in " ".join(seen["argv"]) and "calc" not in " ".join(seen["argv"])
+    assert seen["env"]["BROK_TTS_TEXT"] == evil
+
+
+def test_VO2_stt_template_with_a_quoted_program_path_containing_spaces(monkeypatch, tmp_path):
+    import shutil
+
+    from brok.voice import providers
+
+    tool = tmp_path / "my tools" / "whisper"
+    tool.parent.mkdir()
+    tool.write_text("#!/bin/sh\n")
+    monkeypatch.setattr(shutil, "which", lambda exe: exe if exe == str(tool) else None)
+    stt = providers.CommandSTT(f'"{tool}" -f {{audio}} -l {{lang}}')
+    assert stt.available()
+
+
+def test_VO3_recordings_are_deleted_and_the_avatar_never_stays_stuck(tmp_path):
+    import os
+    import tempfile
+
+    from brok.voice import providers
+
+    class STT:
+        name = "fake"
+
+        def available(self):
+            return True
+
+        def transcribe(self, audio_path, language="fa"):
+            return "hi"
+
+    events = []
+    fd, wav = tempfile.mkstemp(suffix=".wav", prefix="brok-")
+    os.close(fd)
+    pipe = providers.VoicePipeline(STT(), None, lambda t: "ok", record=lambda: wav, on_event=events.append)
+    assert pipe.handle_audio() == "ok" and not os.path.exists(wav)
+
+    def failing_ask(text):
+        raise RuntimeError("model down")
+
+    events.clear()
+    fd, wav = tempfile.mkstemp(suffix=".wav", prefix="brok-")
+    os.close(fd)
+    pipe = providers.VoicePipeline(STT(), None, failing_ask, record=lambda: wav, on_event=events.append)
+    with pytest.raises(RuntimeError):
+        pipe.handle_audio()
+    assert events[-1] == "idle" and not os.path.exists(wav)
+    # a file that is not ours is never touched
+    other = tmp_path / "user-recording.wav"
+    other.write_bytes(b"x")
+    providers._discard_recording(str(other))
+    assert other.exists()
+
+
+# ================================================= 20. saving one setting must not destroy an unreadable config
+def test_CF1_every_save_path_keeps_a_copy_of_an_unreadable_config(tmp_path, monkeypatch):
+    from brok import ai_backends, llm_prompt, llm_vendors
+
+    cfg = tmp_path / "config.ini"
+    original = "[window]\nx = 5\nx = 6\n[github]\ntoken = keepme\n"  # duplicate option: unparsable
+    for module in (llm_prompt, llm_vendors, ai_backends):
+        monkeypatch.setattr(module, "CFG_DIR", tmp_path, raising=False)
+        monkeypatch.setattr(module, "CFG_FILE", cfg)
+    for save in (
+        lambda: llm_prompt.save_llm_enabled(True),
+        lambda: llm_prompt.save_ollama_settings("http://127.0.0.1:11434", "m"),
+        lambda: ai_backends.save_generation_settings({"backend": "openai"}),
+    ):
+        cfg.write_text(original)
+        (tmp_path / "config.ini.corrupt").unlink(missing_ok=True)
+        save()
+        assert (tmp_path / "config.ini.corrupt").read_text() == original
+
+
+# ================================================= 21. autostart / launcher entries
+def test_AU1_a_packaged_build_autostarts_itself_not_dash_m_brok(monkeypatch):
+    import shutil
+    import sys
+
+    from brok import autostart
+
+    monkeypatch.delenv("SNAP_NAME", raising=False)
+    monkeypatch.delenv("APPIMAGE", raising=False)
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "executable", "C:\\Program Files\\Brok\\brok.exe")
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    assert (
+        autostart.launch_command() == '"C:\\Program Files\\Brok\\brok.exe"'
+    )  # "<exe> -m brok" is rejected by argparse
+    monkeypatch.setenv("APPIMAGE", "/opt/Brok.AppImage")
+    assert autostart.launch_command(desktop=True) == '"/opt/Brok.AppImage"'
+
+
+def test_AU2_a_source_install_still_uses_dash_m(monkeypatch):
+    import shutil
+    import sys
+
+    from brok import autostart
+
+    monkeypatch.delenv("SNAP_NAME", raising=False)
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    assert autostart.launch_command().endswith(" -m brok")
+
+
+def test_AU3_desktop_exec_quoting_follows_the_spec():
+    from brok.autostart import desktop_quote
+
+    assert desktop_quote('/home/a b/$x"y`z') == '"/home/a b/\\$x\\"y\\`z"'
+    assert desktop_quote("/opt/100%/brok") == '"/opt/100%%/brok"'
+    assert desktop_quote("C:\\x") == '"C:\\\\\\\\x"'  # a literal backslash is four in the file
+
+
+# ================================================= 22. focus
+def test_FO1_focus_minutes_is_clamped_and_elapsed_never_negative(tmp_path):
+    from brok import focus
+
+    cfg = tmp_path / "config.ini"
+    for raw, expected in (("0", 1), ("-5", 1), ("99999", 600), ("25", 25)):
+        cfg.write_text(f"[focus]\nfocus_minutes = {raw}\n")
+        assert focus.load_focus_settings(cfg).focus_minutes == expected
+    assert focus.format_elapsed(-7) == "0:00" and focus.format_elapsed(3725) == "1:02:05"

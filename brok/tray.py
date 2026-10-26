@@ -97,15 +97,16 @@ def make_app_icon() -> QtGui.QIcon:
 
 def desktop_exec_command() -> str:
     """The command a menu launcher should run to start brok, for this install."""
+    from .autostart import desktop_quote  # .desktop Exec quoting: " ` $ \ and % need escaping
+
     if getattr(sys, "frozen", False):
-        target = os.environ.get("APPIMAGE") or sys.executable
-        return f'"{target}"'
+        return desktop_quote(os.environ.get("APPIMAGE") or sys.executable)
     console = shutil.which("brok")
     if console:
-        return f'"{console}"'
+        return desktop_quote(console)
     # Running from source, not pip-installed: launch main.py by absolute path
     # (its import shim works when run as a script from any working directory).
-    return f'"{sys.executable}" "{Path(__file__).resolve()}"'
+    return desktop_quote(sys.executable) + " " + desktop_quote(str(Path(__file__).resolve()))
 
 
 def desktop_version(path) -> str | None:
@@ -184,9 +185,9 @@ def install_desktop_entry() -> None:
         logger.info("Application-menu entry now points at brok %s (%s)", current, user_desktop)
         if shutil.which("update-desktop-database"):
             subprocess.run(  # noqa: S603
-                ["update-desktop-database", str(user_desktop.parent)], check=False, capture_output=True
+                ["update-desktop-database", str(user_desktop.parent)], check=False, capture_output=True, timeout=15
             )
-    except OSError as exc:
+    except (OSError, subprocess.SubprocessError) as exc:  # incl. a hung helper (it had no timeout)
         logger.debug("Could not install the application-menu entry: %s", exc)
 
 

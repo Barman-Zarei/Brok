@@ -119,12 +119,17 @@ class BrokConfig:
         p = Path(path) if path else self.default_path()
         p.parent.mkdir(parents=True, exist_ok=True)
         tmp = p.with_suffix(".tmp")
-        tmp.write_text(json.dumps(asdict(self), indent=2, ensure_ascii=False), encoding="utf-8")
+        data = json.dumps(asdict(self), indent=2, ensure_ascii=False)
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)  # private from the first byte, not chmod after
         try:
-            os.chmod(tmp, 0o600)
-        except OSError:
-            pass
-        tmp.replace(p)
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(data)
+                fh.flush()
+                os.fsync(fh.fileno())
+            tmp.replace(p)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
         return p
 
 
@@ -138,6 +143,20 @@ def _apply_profile(cfg: BrokConfig) -> None:
         cfg.ai.fallbacks = ["ollama"]
 
 
+def _acceptable(current: Any, value: Any) -> bool:
+    """Whether a value read from brok.json may replace ``current``.
+
+    ``isinstance(True, int)`` is true, so ``"max_iterations": true`` used to become 1; and every int field here is a
+    limit (iterations, seconds, tokens, tool calls), for which 0 or a negative number means "the agent never runs" or
+    "everything times out immediately". Such values are ignored and the default stays.
+    """
+    if current is None:
+        return True
+    if type(current) is int:
+        return type(value) is int and value > 0
+    return isinstance(value, type(current)) and not (isinstance(value, bool) and not isinstance(current, bool))
+
+
 def _merge(obj: Any, data: dict[str, Any]) -> None:
     for f in fields(obj):
         if f.name not in data:
@@ -145,7 +164,7 @@ def _merge(obj: Any, data: dict[str, Any]) -> None:
         cur = getattr(obj, f.name)
         if is_dataclass(cur) and isinstance(data[f.name], dict):
             _merge(cur, data[f.name])
-        elif isinstance(data[f.name], type(cur)) or cur is None:
+        elif _acceptable(cur, data[f.name]):
             setattr(obj, f.name, data[f.name])
 
 

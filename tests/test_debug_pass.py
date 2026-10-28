@@ -1363,3 +1363,220 @@ def test_FO1_focus_minutes_is_clamped_and_elapsed_never_negative(tmp_path):
         cfg.write_text(f"[focus]\nfocus_minutes = {raw}\n")
         assert focus.load_focus_settings(cfg).focus_minutes == expected
     assert focus.format_elapsed(-7) == "0:00" and focus.format_elapsed(3725) == "1:02:05"
+
+
+# ================================================= 23. AI char generator
+def test_AI1_persian_names_get_a_stable_id_instead_of_being_rejected():
+    from brok import ai_char
+
+    a, b = ai_char.slugify("گربه"), ai_char.slugify("سایه")
+    assert a.startswith("custom-n") and a == ai_char.slugify("گربه") and a != b
+    assert ai_char.slugify("Mimi 2") == "custom-mimi-2"
+    with pytest.raises(ai_char.AICharError):
+        ai_char.slugify("  !!  ")
+
+
+def test_AI2_an_oversized_reference_image_is_a_clean_error(tmp_path, monkeypatch):
+    from PIL import Image
+
+    from brok import ai_char
+
+    path = tmp_path / "huge.png"
+    Image.new("RGB", (40, 40)).save(path)
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 10)  # Pillow raises DecompressionBombError above 2x this
+    with pytest.raises(ai_char.AICharError, match="too large"):
+        ai_char.reference_png(path)
+
+
+# ================================================= 24. activity diary
+def test_ACT1_zero_or_negative_retention_never_deletes_the_whole_diary(tmp_path):
+    from datetime import datetime, timedelta
+
+    from brok.activity_store import ActivityStore
+
+    store = ActivityStore(tmp_path / "a.db")
+    now = datetime(2026, 10, 25, 12, 0)
+    store.record_minute(now - timedelta(minutes=30), 100, 5, 1, True)
+    for bad in (0, -3):
+        assert store.purge_minutes_older_than(bad, now) == 0
+    assert len(store.minutes_between(now - timedelta(hours=1), now)) == 1
+
+
+def test_ACT2_retention_setting_is_clamped_on_load(tmp_path):
+    from brok.activity import load_activity_settings
+
+    cfg = tmp_path / "config.ini"
+    cfg.write_text("[activity]\nretention_days = 0\n")
+    assert load_activity_settings(cfg).retention_days == 1
+
+
+def test_ACT3_flush_does_not_lose_keys_pressed_while_it_runs(qapp, tmp_path):
+    import threading
+    from datetime import datetime
+
+    from brok.activity import ActivityCollector, ActivitySettings
+    from brok.activity_store import ActivityStore
+
+    store = ActivityStore(tmp_path / "a.db")
+    col = ActivityCollector(store=store, settings=ActivitySettings(), start_timers=False)
+    stop, pressed = threading.Event(), [0]
+
+    def typist():
+        while not stop.is_set():
+            col.on_xinput_key(None)
+            pressed[0] += 1
+
+    thread = threading.Thread(target=typist)
+    thread.start()
+    for minute in range(40):
+        col.bucket_minute = datetime(2026, 10, 25, 10, minute)
+        col.flush()
+    stop.set()
+    thread.join()
+    col.bucket_minute = datetime(2026, 10, 25, 11, 0)
+    col.flush()
+    rows = store.minutes_between(datetime(2026, 10, 25, 0, 0), datetime(2026, 10, 25, 23, 59))
+    assert sum(r["keys"] for r in rows) == pressed[0]
+
+
+# ================================================= 25. i18n / versions
+def test_I18N1_a_malformed_or_half_translated_locale_does_not_break_startup(tmp_path, monkeypatch):
+    from brok import i18n
+
+    (tmp_path / "bad.json").write_text("[1, 2]")  # wrong shape: used to raise AttributeError at import
+    (tmp_path / "weird.json").write_text('{"language": "x", "strings": {"Chat": "", "Menu": null, "Stop": "ایست"}}')
+    monkeypatch.setattr(i18n, "LOCALE_DIR", tmp_path)
+    langs, catalogs = i18n.scan_locales()
+    assert "bad" not in langs and catalogs["weird"] == {"Stop": "ایست"}  # "" and null are not translations
+    monkeypatch.setattr(i18n, "CATALOGS", catalogs)
+    monkeypatch.setattr(i18n, "active_code", "weird")
+    assert i18n.tr("Chat") == "Chat" and i18n.tr("Stop") == "ایست"  # untranslated -> the English text, never blank
+
+
+def test_I18N2_every_translated_string_in_code_exists_in_persian():
+    import ast
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent / "brok"
+    fa = json.loads((root / "locale" / "fa.json").read_text(encoding="utf-8"))["strings"]
+    used = set()
+    for path in root.rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if (
+                isinstance(node, ast.Call)
+                and getattr(node.func, "id", None) == "tr"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and isinstance(node.args[0].value, str)
+            ):
+                used.add(node.args[0].value)
+    assert sorted(k for k in used if k not in fa) == []
+
+
+def test_UC1_prerelease_versions_do_not_outrank_the_release():
+    from brok.update_check import parse_version
+
+    assert parse_version("0.2.0a1") == parse_version("1.0.0-rc1")[:0] + (0, 2, 0)
+    assert parse_version("1.0.0-rc1") == (1, 0, 0) and parse_version("v0.1.10") > parse_version("0.1.9")
+    assert parse_version("0.2.0a1") <= parse_version("0.2.0")  # used to be (0, 2, 1) > (0, 2, 0)
+
+
+# ================================================= 26. announcer
+def test_AN1_a_flyby_that_fails_to_launch_does_not_stall_the_queue(qapp):
+    from brok.announcer import Announcer
+
+    calls = []
+
+    def launch(item):
+        calls.append(item.text)
+        if item.text == "bad":
+            raise RuntimeError("no pixmap")
+        return object()
+
+    now = [0.0]
+    ann = Announcer(None, launch=launch, clock=lambda: now[0], start_timer=False)
+    ann.announce("bad")  # must not raise out of the timer slot
+    assert ann.active is None and ann.pending_count() == 0
+    now[0] = 10.0  # past the pacing gap
+    ann.announce("good")
+    assert calls == ["bad", "good"] and ann.active is not None
+
+
+def test_GIF1_legacy_gif_zero_delays_are_normalised():
+    import io
+
+    from PIL import Image
+
+    from brok.gif_utils import parse_gif_frame_delays
+
+    frames = [Image.new("RGBA", (4, 4), c) for c in ((255, 0, 0, 255), (0, 255, 0, 255))]
+    buf = io.BytesIO()
+    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=0, loop=0)
+    assert parse_gif_frame_delays(buf.getvalue()) == [100, 100]
+
+
+def test_HK1_common_key_names_and_aliases_are_accepted():
+    from brok.hotkey import to_pynput
+
+    assert to_pynput("ctrl+space") == "<ctrl>+<space>"
+    assert to_pynput("Control+Alt+Delete") == "<ctrl>+<alt>+<delete>"
+    assert to_pynput("win+Return") == "<cmd>+<enter>"
+    assert to_pynput("ctrl+shift+f5") == "<ctrl>+<shift>+<f5>" and to_pynput("ctrl+k") == "<ctrl>+k"
+    with pytest.raises(ValueError):
+        to_pynput("ctrl+win")
+
+
+# ================================================= 27. brok.json
+def test_CFG1_limits_from_json_must_be_positive_ints_not_bools(tmp_path):
+    import json
+
+    from brok.config import BrokConfig
+
+    f = tmp_path / "brok.json"
+    f.write_text(
+        json.dumps({"coding": {"max_iterations": True, "timeout_seconds": -5, "token_budget": 0, "tool_budget": 7}})
+    )
+    cfg = BrokConfig.load(f, env={})
+    defaults = BrokConfig().coding
+    assert cfg.coding.max_iterations == defaults.max_iterations  # `true` is not 1
+    assert cfg.coding.timeout_seconds == defaults.timeout_seconds and cfg.coding.token_budget == defaults.token_budget
+    assert cfg.coding.tool_budget == 7  # a sane override still applies
+
+
+def test_CFG2_brok_json_is_private_and_written_atomically(tmp_path):
+    import os
+    import stat
+
+    from brok.config import BrokConfig
+
+    out = BrokConfig().save(tmp_path / "brok.json")
+    assert not list(tmp_path.glob("*.tmp")) and BrokConfig.load(out, env={}) == BrokConfig()
+    if os.name == "posix":
+        assert stat.S_IMODE(os.stat(out).st_mode) == 0o600
+
+
+# ================================================= 28. encodings
+def test_ENC1_git_shows_persian_file_names_readably(tmp_path):
+    root = repo(tmp_path)
+    (root / "فایل-جدید.txt").write_text("x", encoding="utf-8")
+    out = build_registry(str(root), PermissionPolicy()).execute("git_status", {})
+    assert "فایل-جدید.txt" in out and "\\330" not in out  # was: "\330\247\333\214..." octal escapes
+
+
+def test_ENC2_stt_output_is_decoded_as_utf8(monkeypatch):
+    import shutil
+    import subprocess
+
+    from brok.voice import providers
+
+    seen = {}
+
+    def fake_run(argv, **kw):
+        seen.update(kw)
+        return subprocess.CompletedProcess(argv, 0, stdout=" سلام \n", stderr="")
+
+    monkeypatch.setattr(shutil, "which", lambda exe: exe)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert providers.CommandSTT("whisper {audio}").transcribe("a.wav") == "سلام"
+    assert seen["encoding"] == "utf-8"

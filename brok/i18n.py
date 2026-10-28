@@ -51,10 +51,21 @@ def scan_locales() -> tuple[dict, dict]:
             except (OSError, ValueError) as exc:
                 logger.warning("Skipping locale %s: %s", path.name, exc)
                 continue
-            meta = data.get("language", {})
-            code = meta.get("code") or path.stem
-            languages[code] = meta.get("name") or code
-            catalogs[code] = data.get("strings", {}) or {}
+            # A locale file is user-droppable: a wrong shape used to raise AttributeError at import and stop the whole
+            # app, and an empty "" translation (a placeholder for "not translated yet") showed up as blank UI text.
+            if not isinstance(data, dict):
+                logger.warning("Skipping locale %s: not a JSON object", path.name)
+                continue
+            meta = data.get("language")
+            meta = meta if isinstance(meta, dict) else {}
+            code = str(meta.get("code") or path.stem)
+            languages[code] = str(meta.get("name") or code)
+            strings = data.get("strings")
+            catalogs[code] = (
+                {k: v for k, v in strings.items() if isinstance(k, str) and isinstance(v, str) and v.strip()}
+                if isinstance(strings, dict)
+                else {}
+            )
     # English is the source language and always available, even with no file.
     languages.setdefault(DEFAULT_LANGUAGE, "English")
     catalogs.setdefault(DEFAULT_LANGUAGE, {})

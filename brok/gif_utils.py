@@ -46,8 +46,9 @@ def parse_gif_frame_delays(gif_data: bytes) -> list[int]:
         for i in range(img.n_frames):
             img.seek(i)
             # Get duration in milliseconds, default to 100ms if not specified
-            duration_ms = img.info.get('duration', 100)
-            delays.append(duration_ms)
+            duration_ms = int(img.info.get('duration', 100) or 0)
+            # 0 / 10 ms means "unspecified" (browsers use 100 ms): never a zero-delay busy loop
+            delays.append(duration_ms if duration_ms > 10 else 100)
 
         img.close()
         logger.info(f"Calculated GIF duration: {sum(delays)/1000:.2f}s from {len(delays)} frames")

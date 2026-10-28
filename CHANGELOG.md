@@ -97,6 +97,23 @@ All notable changes to this project are documented in this file.
     from an empty file and drop all other sections; a copy is now kept as `config.ini.corrupt` first.
   - *Chat backends*: Ollama/OpenAI-compatible chat report timeouts, resets and truncated bodies as readable errors.
   - *Focus*: `focus_minutes` is clamped to 1–600 and a clock moved backwards no longer prints `-1:55`.
+- **Audit, fifth part (activity, localisation, encodings, config)**:
+  - *Activity diary*: `retention_days = 0` (or negative) made the first purge delete the entire diary: it is now at least
+    1 day, in the setting and in the store; key/click counters are updated and flushed under a lock, so keys pressed
+    while a minute is being saved are no longer lost.
+  - *AI characters*: a Persian/Arabic/CJK-only name was rejected ("enter a name with a letter or number"), which made
+    the feature unusable for exactly the users it targets: such names now get a stable hash id; a decompression-bomb image
+    is a clean error instead of an unhandled exception.
+  - *Localisation*: a malformed or half-translated locale file (wrong JSON shape, `""`/`null` values) no longer stops the
+    app at import or shows blank UI text; the Persian catalog gained the one string the debug pass added, in every
+    locale; a test now fails when any `tr("...")` literal is missing from `fa.json`.
+  - *Encodings*: git output is decoded as UTF-8 and non-ASCII file names are printed readably (`core.quotepath=false`; they
+    were `"\330\247..."` octal escapes); speech-to-text output is decoded as UTF-8 (the Windows code page garbled Persian).
+  - *Config (`brok.json`)*: `true` is no longer accepted as an integer limit, and 0/negative limits (iterations, seconds,
+    tokens, tool calls) are ignored instead of making the agent never run; the file is written private from the first byte.
+  - *Misc*: pre-release versions (`0.2.0a1`, `1.0.0-rc1`) no longer compare as newer than the release; a flyby that fails
+    to launch no longer stalls the announcement queue; legacy GIF frames with a 0 ms delay are normalised; hotkeys accept
+    `Delete`, `Home`, `Win`, `Control`, `Return`... instead of reporting "unavailable on this system".
 
 ## [0.2.0] - 2026-10-04
 

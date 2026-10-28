@@ -125,7 +125,8 @@ def load_activity_settings(cfg_file: Path = CFG_FILE) -> ActivitySettings:
         settings.mouse_enabled = section.getboolean("mouse_enabled", fallback=True)
         settings.keyboard_enabled = section.getboolean("keyboard_enabled", fallback=True)
         settings.key_heatmap_enabled = section.getboolean("key_heatmap_enabled", fallback=False)
-        settings.retention_days = section.getint("retention_days", fallback=DEFAULT_RETENTION_DAYS)
+        # 0 or negative would make the first purge delete the whole diary: keep at least one day.
+        settings.retention_days = max(1, section.getint("retention_days", fallback=DEFAULT_RETENTION_DAYS))
     except (ValueError, TypeError) as exc:  # a malformed value -> keep the defaults
         logger.error("Failed to load [activity] settings: %s", exc)
     return settings
@@ -189,6 +190,9 @@ class ActivityCollector(QtCore.QObject):
         # threads, so guard it with a lock. Never persisted, cleared on restart.
         self.key_cell_counts: dict[str, int] = {}
         self.key_counts_lock = threading.Lock()
+        # `+= 1` from the input-hook threads is not atomic, and flush() read-then-reset lost every key pressed in
+        # between: all counter changes go through this lock.
+        self.counts_lock = threading.Lock()
         self.purged_today = False
         # Idle-edge detection (auto-pomodoro trigger) + current activity run.
         self.last_input_at = None
@@ -283,7 +287,7 @@ class ActivityCollector(QtCore.QObject):
             # Diary count track: the key identity is dropped RIGHT HERE — only
             # the running total survives.
             if self.settings.keyboard_enabled:
-                self.bucket_keys += 1
+                self._bump("bucket_keys")
             # Optional session heatmap: bucket the key by its Latin-QWERTY cell,
             # then discard the key. No order, no timing, no text — and only while
             # the opt-in is on.
@@ -308,7 +312,7 @@ class ActivityCollector(QtCore.QObject):
 
         def on_click(x, y, button, pressed) -> None:
             if pressed:
-                self.bucket_clicks += 1
+                self._bump("bucket_clicks")
 
         try:
             self.mouse_listener = mouse.Listener(on_click=on_click)
@@ -354,10 +358,22 @@ class ActivityCollector(QtCore.QObject):
         else:
             logger.warning("key/click counting off — X11 RECORD unavailable; cursor path still recorded")
 
+    def _bump(self, name: str) -> None:
+        with self.counts_lock:
+            setattr(self, name, getattr(self, name) + 1)
+
+    def _take_counts(self) -> tuple:
+        """Read and zero the key/click counters in one step: nothing typed meanwhile is lost."""
+        with self.counts_lock:
+            keys, clicks = self.bucket_keys, self.bucket_clicks
+            self.bucket_keys = self.bucket_clicks = 0
+            self.prev_keys = self.prev_clicks = 0
+        return keys, clicks
+
     def on_xinput_key(self, cell: str | None = None) -> None:
         # Diary count track: only the running total survives.
         if self.settings.keyboard_enabled:
-            self.bucket_keys += 1
+            self._bump("bucket_keys")
         # Optional session heatmap: the record thread already resolved the key to
         # its Latin-QWERTY cell (only when the opt-in is on); bucket and forget.
         if self.settings.key_heatmap_enabled:
@@ -365,7 +381,7 @@ class ActivityCollector(QtCore.QObject):
 
     def on_xinput_click(self) -> None:
         if self.settings.mouse_enabled:
-            self.bucket_clicks += 1
+            self._bump("bucket_clicks")
 
     def record_key_cell(self, cell: str | None) -> None:
         """Add one to a heatmap cell's session tally (thread-safe, in memory)."""
@@ -429,18 +445,13 @@ class ActivityCollector(QtCore.QObject):
         if self.bucket_minute is None:
             return
         mouse_px = int(self.bucket_mouse_px)
-        keys = self.bucket_keys
-        clicks = self.bucket_clicks
+        keys, clicks = self._take_counts()
         active = mouse_px >= ACTIVE_MOUSE_PX_THRESHOLD or keys > 0 or clicks > 0
         try:
             self.store.record_minute(self.bucket_minute, mouse_px, keys, clicks, active)
         except Exception:  # noqa: BLE001 - a broken DB must not kill sampling
             logger.exception("Failed to record minute bucket")
         self.bucket_mouse_px = 0.0
-        self.bucket_keys = 0
-        self.bucket_clicks = 0
-        self.prev_keys = 0
-        self.prev_clicks = 0
         self.maybe_purge()
 
     def current_run(self, now=None):

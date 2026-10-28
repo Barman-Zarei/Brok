@@ -6,12 +6,22 @@ import logging
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
-_SPECIAL = {"ctrl", "alt", "shift", "cmd", "space", "enter", "tab", "esc"}
+_SPECIAL = {
+    "ctrl", "alt", "shift", "cmd", "space", "enter", "tab", "esc",
+    "backspace", "delete", "insert", "home", "end", "page_up", "page_down",
+    "up", "down", "left", "right", "caps_lock", "menu", "print_screen",
+}  # fmt: skip
+# Names people actually type -> the pynput spelling (an unknown name used to surface as "unavailable on this system").
+_ALIASES = {
+    "control": "ctrl", "option": "alt", "win": "cmd", "super": "cmd", "meta": "cmd",
+    "return": "enter", "escape": "esc", "del": "delete", "ins": "insert",
+    "pageup": "page_up", "pgup": "page_up", "pagedown": "page_down", "pgdn": "page_down",
+}  # fmt: skip
 
 
 def to_pynput(combo: str) -> str:
     """``'ctrl+space'`` → ``'<ctrl>+<space>'``; raises ValueError for empty/invalid combos."""
-    keys = [k.strip().lower() for k in combo.split("+") if k.strip()]
+    keys = [_ALIASES.get(k.strip().lower(), k.strip().lower()) for k in combo.split("+") if k.strip()]
     if len(keys) < 2:
         raise ValueError("hotkey needs a modifier plus a key, e.g. ctrl+space")
     if keys[-1] in ("ctrl", "alt", "shift", "cmd"):
@@ -38,7 +48,7 @@ class HotkeyManager:
             listener.start()
             self._listener = listener
         except Exception as exc:  # noqa: BLE001 - optional feature must never crash the app
-            hint = " — install it with: pip install \"brok[hotkey]\"" if isinstance(exc, ImportError) else ""
+            hint = ' — install it with: pip install "brok[hotkey]"' if isinstance(exc, ImportError) else ""
             self.status = f"unavailable on this system ({type(exc).__name__}){hint}; use the tray icon instead"
             logger.warning("global hotkey unavailable: %s", exc)
             return False

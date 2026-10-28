@@ -332,6 +332,7 @@
     "Privacy dashboard": "داشبورد حریم خصوصی",
     "Speak": "صحبت کن",
     "Listening…": "در حال گوش دادن…",
-    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "ورودی صوتی نصب نیست: pip install \"brok[voice]\" — فعلاً پیامت را تایپ کن."
+    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "ورودی صوتی نصب نیست: pip install \"brok[voice]\" — فعلاً پیامت را تایپ کن.",
+    "(a command is still running)": "(یک دستور هنوز در حال اجراست)"
   }
 }

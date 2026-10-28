@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 import urllib.request
 
@@ -28,7 +29,6 @@ def current_version() -> str:
     installed). Fall back to the installed package metadata (pip / exe), then
     ``"0.0.0"``.
     """
-    import re
     from pathlib import Path
 
     try:
@@ -53,8 +53,10 @@ def parse_version(text: str) -> tuple:
     """Turn "0.1.10" / "v0.1.10" into (0, 1, 10) for comparison; junk parts -> 0."""
     parts = []
     for chunk in text.strip().lstrip("vV").split("."):
-        digits = "".join(c for c in chunk if c.isdigit())
-        parts.append(int(digits) if digits else 0)
+        # Leading digits only: joining every digit of "0a1" / "0-rc1" gave 01 -> 1, so a pre-release of 0.2.0 looked
+        # NEWER than 0.2.0 and (as the running version) hid the real 0.2.0 release.
+        match = re.match(r"\d+", chunk)
+        parts.append(int(match.group()) if match else 0)
     return tuple(parts)
 
 

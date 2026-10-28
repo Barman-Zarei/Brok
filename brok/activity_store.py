@@ -107,8 +107,7 @@ class ActivityStore:
         completed: bool,
     ) -> None:
         self.connection.execute(
-            "INSERT INTO focus_session (kind, started_at, ended_at, planned_seconds, completed)"
-            " VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO focus_session (kind, started_at, ended_at, planned_seconds, completed) VALUES (?, ?, ?, ?, ?)",
             (kind, started_at.isoformat(), ended_at.isoformat(), int(planned_seconds), int(completed)),
         )
         self.connection.commit()
@@ -194,6 +193,7 @@ class ActivityStore:
     def purge_minutes_older_than(self, days: int, now: datetime | None = None) -> int:
         """Retention: drop minute buckets past the horizon. Returns rows dropped."""
         moment = now or datetime.now()
+        days = max(1, int(days))  # retention 0 / negative would otherwise delete every row
         cutoff = (moment - timedelta(days=days)).isoformat()
         cursor = self.connection.execute("DELETE FROM minute_activity WHERE minute < ?", (cutoff,))
         self.connection.commit()

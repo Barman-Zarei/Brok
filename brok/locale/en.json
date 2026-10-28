@@ -332,6 +332,7 @@
     "Privacy dashboard": "Privacy dashboard",
     "Speak": "Speak",
     "Listening…": "Listening…",
-    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "Voice input is not installed: pip install \"brok[voice]\" — type your message instead."
+    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.",
+    "(a command is still running)": "(a command is still running)"
   }
 }

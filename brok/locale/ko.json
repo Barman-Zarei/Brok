@@ -338,6 +338,7 @@
     "Privacy dashboard": "개인정보 대시보드",
     "Speak": "음성 입력",
     "Listening…": "듣는 중…",
-    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "음성 입력이 설치되지 않았습니다: pip install \"brok[voice]\" — 대신 텍스트로 입력하세요."
+    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "음성 입력이 설치되지 않았습니다: pip install \"brok[voice]\" — 대신 텍스트로 입력하세요.",
+    "(a command is still running)": "(명령이 아직 실행 중입니다)"
   }
 }

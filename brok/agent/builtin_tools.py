@@ -213,11 +213,14 @@ def build_registry(
     def git(*args: str) -> str:
         try:
             p = subprocess.run(
-                ["git", "-c", "core.fsmonitor=false", *args],  # a planted fsmonitor command must never run
+                # fsmonitor: a planted command must never run. quotepath=false: otherwise git prints non-ASCII file
+                # names (Persian, Cyrillic, ...) as "\330\247..." octal escapes.
+                ["git", "-c", "core.fsmonitor=false", "-c", "core.quotepath=false", *args],
                 cwd=str(ws.root),
                 env=scrubbed_env(),
                 capture_output=True,
                 text=True,
+                encoding="utf-8",  # git writes UTF-8; the Windows code page (cp1256/cp1252) turned it into mojibake
                 errors="replace",
                 timeout=command_timeout,
                 stdin=subprocess.DEVNULL,

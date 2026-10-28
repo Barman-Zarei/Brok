@@ -101,7 +101,15 @@ class CommandSTT(STTProvider):
         if not self.available():
             raise VoiceUnavailable("speech-to-text is not configured")
         argv = [a.replace("{audio}", audio_path).replace("{lang}", language) for a in self._split()]
-        r = subprocess.run(argv, capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL)
+        r = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=300,
+            stdin=subprocess.DEVNULL,
+        )  # transcripts are UTF-8 (Persian!); the Windows code page garbled them
         if r.returncode:
             raise VoiceUnavailable(r.stderr.strip()[:200] or "transcriber failed")
         return r.stdout.strip()

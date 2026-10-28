@@ -159,7 +159,13 @@ class Announcer(QtCore.QObject):
         if item is None:
             return
         self.queue.remove(item)
-        shown = self.launch(item)
+        try:
+            shown = self.launch(item)
+        except Exception:  # noqa: BLE001
+            # A flyby that cannot be built must not escape the timer slot (the message is already off the queue and
+            # the pacing state would never advance): report it, keep pacing, carry on with the next announcement.
+            logger.exception("Could not show announcement %r", item.text)
+            shown = None
         if shown is None:
             # Nothing on screen (headless / no pixmap): keep pacing anyway so a
             # burst of announcements doesn't collapse into one instant.

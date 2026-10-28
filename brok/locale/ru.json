@@ -338,6 +338,7 @@
     "Privacy dashboard": "Панель конфиденциальности",
     "Speak": "Говорить",
     "Listening…": "Слушаю…",
-    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "Голосовой ввод не установлен: pip install \"brok[voice]\" — пока введите сообщение текстом."
+    "Voice input is not installed: pip install \"brok[voice]\" — type your message instead.": "Голосовой ввод не установлен: pip install \"brok[voice]\" — пока введите сообщение текстом.",
+    "(a command is still running)": "(команда ещё выполняется)"
   }
 }

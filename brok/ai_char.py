@@ -55,7 +55,12 @@ def slugify(name: str) -> str:
     normalized = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
     slug = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")
     if not slug:
-        raise AICharError("Enter a name containing at least one letter or number.")
+        # A Persian/Arabic/CJK-only name has no ASCII letters at all: it used to be rejected outright, which made the
+        # feature unusable for exactly the users it targets. Use a stable hash of the name instead.
+        stripped = name.strip()
+        if not any(ch.isalnum() for ch in stripped):
+            raise AICharError("Enter a name containing at least one letter or number.")
+        slug = "n" + hashlib.sha1(unicodedata.normalize("NFC", stripped).encode("utf-8")).hexdigest()[:10]
     return f"custom-{slug[:48]}"
 
 
@@ -63,6 +68,8 @@ def reference_png(path: Path) -> bytes:
     try:
         with Image.open(path) as source:
             image = ImageOps.exif_transpose(source).convert("RGB")
+    except Image.DecompressionBombError as exc:
+        raise AICharError(f"Image is too large: {path.name}") from exc
     except (OSError, UnidentifiedImageError) as exc:
         raise AICharError(f"Cannot read image: {path.name}") from exc
     image.thumbnail((MAX_REFERENCE_EDGE, MAX_REFERENCE_EDGE), Image.Resampling.LANCZOS)
@@ -195,8 +202,8 @@ def remove_plain_background(image_bytes: bytes, *, tolerance: int = 48) -> bytes
     try:
         with Image.open(io.BytesIO(image_bytes)) as source:
             image = source.convert("RGBA")
-    except (OSError, UnidentifiedImageError) as exc:
-        raise AICharError("Cannot remove the background from an invalid image.") from exc
+    except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
+        raise AICharError("Cannot remove the background from an invalid or oversized image.") from exc
 
     width, height = image.size
     if not width or not height:

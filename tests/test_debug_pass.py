@@ -1551,7 +1551,11 @@ def test_CFG2_brok_json_is_private_and_written_atomically(tmp_path):
     from brok.config import BrokConfig
 
     out = BrokConfig().save(tmp_path / "brok.json")
-    assert not list(tmp_path.glob("*.tmp")) and BrokConfig.load(out, env={}) == BrokConfig()
+    import json
+    from dataclasses import asdict
+
+    # compare the saved content, not load(): profile branches (OFFLINE) deliberately override values on load
+    assert not list(tmp_path.glob("*.tmp")) and json.loads(out.read_text(encoding="utf-8")) == asdict(BrokConfig())
     if os.name == "posix":
         assert stat.S_IMODE(os.stat(out).st_mode) == 0o600
 

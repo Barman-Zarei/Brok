@@ -15,6 +15,12 @@
 - Keys come from env vars or the OS keyring only; never from config, logs or memory (`redact()` masks them;
   `MemoryStore` refuses text that looks like a secret).
 - Plugins cannot lower risk: their tools are floored at MEDIUM/configurable.
+- The `.git` directory is off-limits to file tools (a planted `core.fsmonitor` or hook would run code on the next
+  `git status`), and git itself runs with `core.fsmonitor=false`; delete/move act on a symlink itself, never its target.
+- `fetch_url` also re-checks every redirect and the address it actually connected to (SSRF / DNS rebinding);
+  the GitHub and character-shop clients only send a token to their own origin and never re-send it on redirects.
+- A running command is killed together with everything it spawned when you press Stop or the timeout hits.
+- Config files (`config.ini`, `brok.json`, memory) are written atomically and are private from the first byte.
 - `health` findings are heuristic, **not** a security audit.
 
 Limits you should know: command classification is pattern-based (it can be fooled by obfuscation, which is why

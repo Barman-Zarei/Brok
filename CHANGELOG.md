@@ -4,6 +4,9 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+- **Docs**: README rewritten (overview, feature table, quick start, security model, architecture diagram, branch table,
+  platform support, development, status) and `docs/README_FA.md` rewritten to match; `docs/security.md` lists the new protections.
+
 ### Fixed (debug pass)
 - **Agent loop honours Stop and the deadline before every tool call**, not only between model turns. Calls that are not
   run get a `SKIPPED: …` tool result (the history stays valid for Claude/OpenAI/Ollama); a deadline that passes while the
